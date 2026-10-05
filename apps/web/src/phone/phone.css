@@ -31,7 +31,7 @@
 .leaf { position: relative; background: #05070b; border: 7px solid #1c212a; height: 100%; backface-visibility: hidden; min-width: 0; }
 .leaf-left { border-right: 0; border-radius: 34px 0 0 34px; box-shadow: -1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, 0 30px 80px rgba(0, 0, 0, 0.5); transform-origin: 100% 50%; }
 .leaf-right { width: 511px; flex: none; border-left: 0; border-radius: 0 34px 34px 0; box-shadow: 1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, 0 30px 80px rgba(0, 0, 0, 0.5); transform-origin: 0 50%; }
-.hinge { width: 14px; flex: none; height: 100%; background: #030406; border-top: 7px solid #1c212a; border-bottom: 7px solid #1c212a; box-shadow: inset 1px 0 0 #10141b, inset -1px 0 0 #10141b, 0 -1px 0 #2c323d, 0 1px 0 #2c323d; }
+.hinge { width: 14px; flex: none; height: 100%; box-sizing: border-box; background: #030406; border-top: 7px solid #1c212a; border-bottom: 7px solid #1c212a; box-shadow: inset 1px 0 0 #10141b, inset -1px 0 0 #10141b, 0 -1px 0 #2c323d, 0 1px 0 #2c323d; }
 .pane { height: 100%; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .pane.left { padding: 9px 7px 7px 9px; }
 .pane.right { padding: 9px 9px 7px 7px; }
@@ -187,15 +187,15 @@
 @keyframes phone-up { from { opacity: 0; translate: 0 70px; } }
 @keyframes phone-down { to { opacity: 0; translate: 0 70px; } }
 
-/* 511 + 14 + 511: two leaves and the hinge. Folded, the visible half (the cover over the right leaf)
-   is centred by sliding the whole book left by half a leaf and half the hinge. */
+/* 511 + 14 + 511: two leaves and the hinge. Folded, the phone is the spine and the cover over the
+   right leaf (525 wide), centred by sliding the whole book left. */
 .book {
   --fold: 0.6s cubic-bezier(0.32, 0.72, 0.24, 1);
   width: 1036px; height: 740px; display: flex; position: relative; color: var(--ink); font-size: 14px;
   perspective: 2600px; transform-style: preserve-3d;
   transition: transform var(--fold);
 }
-.phone-wrap.cover .book { transform: translateX(-262px); }
+.phone-wrap.cover .book { transform: translateX(-255px); }
 
 /* The left leaf turns on the hinge's centre line (its right edge plus half the hinge), swinging out
    towards you, the way you open a book you are holding. */
@@ -207,9 +207,11 @@
 .phone-wrap.cover .flip { transform: rotateY(180deg); }
 .leaf-face { position: absolute; left: 0; top: 0; width: 100%; height: 100%; box-sizing: border-box; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .leaf-face.back { transform: rotateY(180deg); }
+/* Square on the fold side (the left, once it's turned over) so the open phone's top and bottom
+   edges run straight across the hinge; rounded on the outside, like the iPhone Duo folded. */
 .leaf-cover {
-  border-radius: 34px; padding: 26px 20px 22px; display: flex; flex-direction: column; gap: 16px; overflow: hidden;
-  box-shadow: 0 0 0 1px #2c323d, 0 30px 80px rgba(0, 0, 0, 0.55);
+  border-radius: 0 34px 34px 0; padding: 26px 20px 22px; display: flex; flex-direction: column; gap: 16px; overflow: hidden;
+  box-shadow: 1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, 0 30px 80px rgba(0, 0, 0, 0.55);
 }
 /* Whatever faces away can't be clicked. */
 .phone-wrap.cover .leaf-left, .phone-wrap.cover .leaf-right { pointer-events: none; }
@@ -217,12 +219,17 @@
 /* The inner screens dim as the phone closes over them, and light up as it opens. */
 .leaf-right > .pane, .leaf-left > .pane { transition: opacity 0.35s ease; }
 .phone-wrap.cover .leaf-right > .pane { opacity: 0; }
-/* Folded, the cover is the whole phone: the hinge and the inner leaf's square corners would show
-   past its rounded edge, so they go once the cover has landed, and come back as it starts to open. */
-.hinge, .leaf-right { transition: opacity 0.1s ease; }
-.phone-wrap.cover .hinge, .phone-wrap.cover .leaf-right { opacity: 0; transition: opacity 0.1s ease 0.5s; }
+/* Folded, the hinge is the phone's spine, like the outside of a book: square at the fold, the
+   frame's colour, with the cover's square edge meeting it. It turns back into the dark crease as
+   the phone opens, and becomes the spine once the cover has landed. */
+.hinge { transition: background-color 0.15s ease, border-radius 0.15s ease; }
+.phone-wrap.cover .hinge {
+  background-color: #1c212a; border-radius: 6px 0 0 6px;
+  box-shadow: -1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, inset -1px 0 0 #10141b;
+  transition-delay: 0.45s;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .book, .flip, .hinge, .leaf-right { transition-duration: 0.01s; transition-delay: 0s; }
+  .book, .flip, .hinge { transition-duration: 0.01s; transition-delay: 0s; }
   .phone-wrap, .phone-wrap.leaving { animation-duration: 0.01s; }
 }
