@@ -19,6 +19,8 @@ export interface CameraRigOptions {
   /** Radians per pixel of mouse movement. */
   sensitivity?: number;
   invertY?: boolean;
+  /** Third person looks over the right shoulder by this much (m), so the crosshair isn't on your own head. */
+  shoulder?: number;
 }
 
 const THIRD_PITCH: [number, number] = [-0.45, 1.25];
@@ -46,6 +48,8 @@ export class CameraRig {
   private bobPhase = 0;
   private bobAmt = 0;
   private _focus = new THREE.Vector3();
+  private _right = new THREE.Vector3();
+  shoulder: number;
   private _dir = new THREE.Vector3();
   private _want = new THREE.Vector3();
 
@@ -57,6 +61,7 @@ export class CameraRig {
     this.maxDist = o.maxDist ?? 14;
     this.sensitivity = o.sensitivity ?? 0.0026;
     this.invertY = !!o.invertY;
+    this.shoulder = o.shoulder ?? 0.6;
   }
 
   /** Mouse movement in pixels. */
@@ -120,8 +125,14 @@ export class CameraRig {
       cam.rotation.set(-this.pitch, this.yaw + Math.PI, Math.sin(this.bobPhase) * 0.006 * this.bobAmt);
       this.camPos.copy(cam.position);
     } else {
-      // Orbit a point at the shoulders, a little above the eyes when looking down.
+      // Orbit a point at the shoulders, a little above the eyes when looking down, and off to the
+      // right so the middle of the screen (the crosshair) looks past you, not at the back of your head.
       const focus = this._focus.set(feet.x, feet.y + eye * 0.9, feet.z);
+      if (this.shoulder > 0) {
+        const right = this._right.set(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
+        const room = this.collision.raycast(focus, right, this.shoulder + 0.3);
+        focus.addScaledVector(right, room ? Math.max(0, room.t - 0.3) : this.shoulder);
+      }
       const want = this._want.copy(focus).addScaledVector(dir, -this.dist);
       // Keep the camera out of walls: pull it in front of whatever is behind us.
       const back = want.clone().sub(focus);
