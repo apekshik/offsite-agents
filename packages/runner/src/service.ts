@@ -6,7 +6,7 @@ import { homedir, userInfo } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { RUNNER_SPEC } from "@offsite/contracts";
-import { offsiteHome } from "./config.ts";
+import { offsiteHome, pidFileFor } from "./config.ts";
 
 // Keeping `offsite start` running at login: a LaunchAgent on macOS, a systemd user unit on Linux. Each OFFSITE_HOME
 // gets its own, so a second runner on the same computer (or a test) never replaces the first's.
@@ -188,7 +188,8 @@ export function installed(): boolean {
 
 // ---- one runner per OFFSITE_HOME ----
 
-const pidFile = () => join(offsiteHome(), "runner.pid");
+// One per deployment (see config.ts): the sim crew on a dev deployment and the real crew can run side by side.
+const pidFile = () => pidFileFor();
 
 const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch (e) { return (e as NodeJS.ErrnoException).code === "EPERM"; } };
 

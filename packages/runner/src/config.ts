@@ -9,21 +9,46 @@ import { dirname, join } from "node:path";
 export interface RunnerConfig { convexUrl: string; siteUrl: string; token: string; name: string }
 
 export const offsiteHome = () => process.env["OFFSITE_HOME"] ?? join(homedir(), ".offsite");
-export const configFile = () => join(offsiteHome(), "runner.json");
 
-export async function readConfig(): Promise<RunnerConfig | null> {
+// A machine can be paired with several deployments at once (Offsite's own, and a contributor's dev deployment for the
+// sim crew), each with its own token and its own runner. So the pairing and the pid file are kept per deployment:
+// runner.json and runner.pid for Offsite's own, runner.<deployment>.json and .pid for any other.
+let active: string = "";
+/** Which deployment this process works for; the CLI sets it once it knows. Defaults to Offsite's own. */
+export const useDeployment = (convexUrl: string) => { active = convexUrl.replace(/\/$/, ""); };
+const suffix = (convexUrl = active) => !convexUrl || isProduction(convexUrl) ? "" : `.${new URL(convexUrl).hostname.split(".")[0]!.replace(/[^\w-]/g, "")}`;
+export const configFile = (convexUrl?: string) => join(offsiteHome(), `runner${suffix(convexUrl)}.json`);
+export const pidFileFor = (convexUrl?: string) => join(offsiteHome(), `runner${suffix(convexUrl)}.pid`);
+
+async function parse(file: string): Promise<RunnerConfig | null> {
   try {
-    const c = JSON.parse(await readFile(configFile(), "utf8")) as Partial<RunnerConfig>;
-    return c.convexUrl && c.token ? { convexUrl: c.convexUrl, siteUrl: c.siteUrl ?? siteFor(c.convexUrl), token: c.token, name: c.name ?? defaultName() } : null;
+    const c = JSON.parse(await readFile(file, "utf8")) as Partial<RunnerConfig>;
+    return c.convexUrl && c.token ? { convexUrl: c.convexUrl.replace(/\/$/, ""), siteUrl: c.siteUrl ?? siteFor(c.convexUrl), token: c.token, name: c.name ?? defaultName() } : null;
   } catch { return null; }
+}
+
+/** This machine's pairing with the active deployment, or null. */
+export async function readConfig(): Promise<RunnerConfig | null> {
+  const target = active || PRODUCTION.convexUrl;
+  const own = await parse(configFile(target));
+  if (own) return own.convexUrl === target ? own : null;
+  // Before pairings were kept per deployment, runner.json held whichever came last. Move one that belongs to another
+  // deployment to its own file, so Offsite's own never picks up a dev pairing (and the dev one keeps working).
+  const legacy = await parse(configFile(PRODUCTION.convexUrl));
+  if (legacy && !isProduction(legacy.convexUrl)) {
+    await rename(configFile(PRODUCTION.convexUrl), configFile(legacy.convexUrl)).catch(() => {});
+    return legacy.convexUrl === target ? legacy : null;
+  }
+  return null;
 }
 
 export async function writeConfig(c: RunnerConfig): Promise<void> {
   await mkdir(offsiteHome(), { recursive: true, mode: 0o700 });
-  const tmp = `${configFile()}.${process.pid}.tmp`;
+  const file = configFile(c.convexUrl);
+  const tmp = `${file}.${process.pid}.tmp`;
   await writeFile(tmp, JSON.stringify(c, null, 2) + "\n", { mode: 0o600 });
   await chmod(tmp, 0o600);
-  await rename(tmp, configFile());
+  await rename(tmp, file);
 }
 
 /** Convex serves HTTP actions (the pairing routes) on .convex.site next to the .convex.cloud API. */

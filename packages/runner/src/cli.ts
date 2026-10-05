@@ -11,7 +11,7 @@ import {
 } from "@offsite/harness";
 import { api } from "../../../convex/_generated/api.js";
 import { convexBackend, readable } from "./backend.ts";
-import { configFile, defaultName, deployment, isProduction, readConfig, type Deployment, type RunnerConfig } from "./config.ts";
+import { configFile, defaultName, deployment, isProduction, readConfig, useDeployment, type Deployment, type RunnerConfig } from "./config.ts";
 import { login } from "./login.ts";
 import { Runner } from "./runs.ts";
 import { claimHome, install, installed, logFile, releaseHome, runningPid, uninstall } from "./service.ts";
@@ -95,6 +95,8 @@ function openBrowser(url: string): boolean {
 }
 
 const where = (): Deployment => deployment(opt("--url"), { checkout });
+// Pairings and the one-runner lock are kept per deployment, so pick it before anything reads them.
+useDeployment(where().convexUrl);
 const shipLabel = (convexUrl: string) => (isProduction(convexUrl) ? "offsiteagents.app" : convexUrl);
 
 function header(config?: { name: string; convexUrl: string }) {

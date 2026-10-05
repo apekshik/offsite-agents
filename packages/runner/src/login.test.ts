@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { login, pairLink } from "./login.ts";
-import { readConfig } from "./config.ts";
+import { configFile, readConfig, useDeployment, PRODUCTION } from "./config.ts";
 import { parseLook } from "./lookPrompt.ts";
 import { simLookLines } from "@offsite/harness";
 import { RUNNER_COMMAND } from "@offsite/contracts";
@@ -46,9 +46,27 @@ it("pairs by device code and saves the token for this user only", async () => {
   expect(out.at(-1)).toBe(`✓ Paired as "Mac". Run \`${RUNNER_COMMAND}\` to take on work.`);
   expect(seen[0]).toEqual(["/device/start", { name: "Mac", hostname: expect.any(String), os: "macOS 26.4" }]);
   expect(seen[1]).toEqual(["/device/poll", { deviceCode: "dc" }]);
+  // Kept per deployment: another deployment's pairing never stands in for Offsite's own.
+  useDeployment("https://x.convex.cloud");
   expect(await readConfig()).toEqual(config);
-  expect((await stat(join(home, "runner.json"))).mode & 0o777).toBe(0o600);
-  expect(JSON.parse(await readFile(join(home, "runner.json"), "utf8")).token).toBe("ofr_secret");
+  expect(configFile("https://x.convex.cloud")).toBe(join(home, "runner.x.json"));
+  expect((await stat(join(home, "runner.x.json"))).mode & 0o777).toBe(0o600);
+  expect(JSON.parse(await readFile(join(home, "runner.x.json"), "utf8")).token).toBe("ofr_secret");
+  useDeployment(PRODUCTION.convexUrl);
+  expect(await readConfig()).toBeNull();
+});
+
+it("moves an old dev pairing out of runner.json so Offsite's own doesn't pick it up", async () => {
+  home = await mkdtemp(join(tmpdir(), "offsite-login-"));
+  process.env["OFFSITE_HOME"] = home;
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(join(home, "runner.json"), JSON.stringify({ convexUrl: "https://dev-one.convex.cloud", siteUrl: "https://dev-one.convex.site", token: "ofr_dev", name: "Mac" }));
+  useDeployment(PRODUCTION.convexUrl);
+  expect(await readConfig()).toBeNull();
+  useDeployment("https://dev-one.convex.cloud");
+  expect((await readConfig())?.token).toBe("ofr_dev");
+  expect(JSON.parse(await readFile(join(home, "runner.dev-one.json"), "utf8")).token).toBe("ofr_dev");
+  useDeployment(PRODUCTION.convexUrl);
 });
 
 it("doesn't tell `offsite start` to run itself when it pairs on the way up", async () => {
