@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { basename, delimiter, dirname, join } from "node:path";
 import { ConvexHttpClient } from "convex/browser";
-import { RUNNER_COMMAND } from "@offsite/contracts";
+import { RUNNER_COMMAND, RUNNER_SPEC } from "@offsite/contracts";
 import {
   adapters, cliInvocation, createSimAdapter, hydratePathFromLoginShell, probeAll, profileEnv, profilesDir, SIM_STATUS, which, type ProfileStatus,
 } from "@offsite/harness";
@@ -21,6 +21,23 @@ import { canCrew, probeLine, Screen, statusLine, style } from "./ui.ts";
 /** Running the TypeScript itself means a checkout of the repo (`pnpm runner`); the published CLI is bundled. */
 const checkout = import.meta.url.endsWith(".ts");
 // package.json is one folder up from both src/cli.ts and dist/offsite.mjs.
+/** The bundle's own hash, stamped in by build.mjs. Left as is when running from a checkout. */
+const BUILD_ID = "__OFFSITE_BUILD_ID__";
+
+/**
+ * Whether the site serves a newer runner than this one. Only for a runner installed from a URL (npx keeps the first
+ * download of a URL forever); a registry install updates itself, and a checkout is whatever you have.
+ */
+async function newerOnSite(): Promise<boolean> {
+  if (!/^https?:/.test(RUNNER_SPEC) || BUILD_ID.startsWith("__")) return false;
+  try {
+    const res = await fetch(new URL("/runner-version.json", RUNNER_SPEC), { signal: AbortSignal.timeout(4000) });
+    const { build } = (await res.json()) as { build?: string };
+    return !!build && build !== BUILD_ID;
+  } catch { return false; }
+}
+const UPDATE_HINT = `A newer Offsite runner is on the site. To update: stop this one, run \`rm -rf ~/.npm/_npx\`, then \`${RUNNER_COMMAND}\` again.`;
+
 const VERSION = (() => { try { return (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version; } catch { return "dev"; } })();
 
 /** How the person ran this, for the hints we print. */
@@ -256,6 +273,10 @@ async function cmdStart() {
 
   const runner = new Runner({ backend, adapters: runnerAdapters, sim, concurrency: Number(opt("--concurrency") ?? 6) || 6, captain: hello.owner.name, log: screen.log });
   runner.start();
+  // Say so when the site has a newer runner: now, and every six hours while this one keeps running.
+  const checkUpdate = () => void newerOnSite().then((newer) => { if (newer) screen.log(style.amber(UPDATE_HINT)); });
+  checkUpdate();
+  setInterval(checkUpdate, 6 * 3600_000).unref();
   let online = true;
   let revoked = false;
   const draw = () => screen.setStatus(revoked

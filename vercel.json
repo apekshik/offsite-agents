@@ -18,7 +18,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|offsite-agents\\.tgz$).*)",
+      "source": "/((?!assets/|offsite-agents\\.tgz$|runner-version\\.json$).*)",
       "destination": "/index.html"
     }
   ],
@@ -68,6 +68,15 @@
         {
           "key": "X-Frame-Options",
           "value": "DENY"
+        }
+      ]
+    },
+    {
+      "source": "/runner-version.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=60"
         }
       ]
     }

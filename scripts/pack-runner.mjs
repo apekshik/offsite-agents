@@ -3,7 +3,7 @@
 // `pnpm build` runs it after the web build. `npm pack` runs build.mjs first (prepack), exactly as `npm publish` will.
 // See docs/deploy.md.
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +22,9 @@ try {
   if (!packed?.filename) throw new Error(`npm pack said: ${json}`);
   if (!packed.files.some((f) => f.path === "dist/offsite.mjs")) throw new Error("The packed runner has no dist/offsite.mjs.");
   copyFileSync(join(tmp, packed.filename), out);
+  // What a running runner compares itself with (BUILD_ID in its cli.ts) to say when it's out of date.
+  const build = readFileSync(join(runner, "dist/build-id"), "utf8").trim();
+  writeFileSync(join(dist, "runner-version.json"), JSON.stringify({ version: packed.version, build }) + "\n");
   console.log(`Packed ${packed.name}@${packed.version} (${(packed.size / 1024).toFixed(1)} kB, ${packed.files.length} files) to ${out}`);
 } finally {
   rmSync(tmp, { recursive: true, force: true });
