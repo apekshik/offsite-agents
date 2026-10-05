@@ -6,9 +6,9 @@ import type { SimContext } from "./session.ts";
 // a shared-types task first and two parts that depend on it when the ask clearly has parts); says where things
 // stand while work is out; reviews every task and finishes the thread once they have all landed.
 
-interface Status { tasks: { id: string; key: string; title: string; state: string; assignee: string | null }[] }
+interface Status { repos?: { name: string }[]; tasks: { id: string; key: string; title: string; state: string; assignee: string | null; repo?: string | null }[] }
 interface Planned { key: string; assignee: string | null; state: string }
-interface PlanTask { key: string; title: string; brief: string; dependsOn: string[]; assignee: string }
+interface PlanTask { key: string; title: string; brief: string; dependsOn: string[]; assignee: string; repo?: string }
 
 const parse = <T>(s: string, fallback: T): T => { try { return JSON.parse(s) as T; } catch { return fallback; } };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -22,14 +22,47 @@ export function partsOf(request: string): string[] {
   return flat.split(/\s*(?:;|,\s*and\s+|\band also\b|\bplus\b|\balso\b|\bthen\b|\band\b)\s*/i).map((p) => p.trim()).filter((p) => p.split(/\s+/).length >= 2);
 }
 
-/** One task unless the ask clearly has parts; then a small shared-types task lands first and the parts build on it. */
-export function planFor(request: string, taken: Set<string>): PlanTask[] {
+/** The repo a piece of text names, by word: "add a route to the api" → "api". */
+export function repoNamed(text: string, repos: string[]): string | null {
+  const t = text.toLowerCase();
+  return repos.find((r) => new RegExp(`(^|[^a-z0-9-])${r.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9-]|$)`).test(t)) ?? null;
+}
+/** Serving repos go first: what the others call lands before them. */
+const SERVES = /^(api|server|backend|service|services|core|shared|types|contracts|lib)\b/;
+
+/**
+ * One task unless the ask clearly has parts; then a small shared-types task lands first and the parts build on it.
+ * With several repos: parts that name different repos become a task per repo, the serving one (the API) first and
+ * each after it depending on the one before; otherwise everything goes in the repo the ask names, or the first.
+ */
+export function planFor(request: string, taken: Set<string>, repos: string[] = []): PlanTask[] {
   const ask = request.replace(/\s+/g, " ").trim();
   const unique = (base: string) => { let k = keyFor(base); for (let n = 2; taken.has(k); n++) k = `${keyFor(base, 29)}-${n}`; taken.add(k); return k; };
+  const many = repos.length > 1;
+  const home = many ? repoNamed(ask, repos) ?? repos[0]! : undefined;
+  const inRepo = (t: PlanTask): PlanTask => (home ? { ...t, repo: t.repo ?? home } : t);
+  if (many) {
+    const placed = partsOf(request).slice(0, 4).map((p) => p.replace(/[,;:.!]+$/, "")).map((p) => ({ p, repo: repoNamed(p, repos) }));
+    const distinct = new Set(placed.map((x) => x.repo).filter(Boolean));
+    if (placed.length >= 2 && distinct.size >= 2) {
+      const ordered = placed.map((x) => ({ ...x, repo: x.repo ?? home! })).sort((a, b) => Number(!SERVES.test(a.repo)) - Number(!SERVES.test(b.repo)));
+      const tasks: PlanTask[] = [];
+      for (const [i, x] of ordered.entries()) {
+        const prev = tasks[i - 1];
+        const others = ordered.filter((o) => o !== x).map((o) => `"${o.p}" (in ${o.repo})`).join(" and ");
+        tasks.push({
+          key: unique(x.p), title: clip(cap(x.p), 120), repo: x.repo,
+          brief: `The captain asked: "${ask}".\n\nYour part: ${x.p}. It is in the ${x.repo} repo; teammates are doing ${others}.${prev ? ` "${prev.title}" (in ${prev.repo}) lands first: build on what it provides rather than guessing at it.` : " Yours lands first: keep its interface small and say in your report exactly what it provides."}`,
+          dependsOn: prev ? [prev.key] : [], assignee: "any",
+        });
+      }
+      return tasks;
+    }
+  }
   const parts = partsOf(request).slice(0, 2);
   const words = ask.split(" ").length;
   if (parts.length < 2 || words < 8) {
-    return [{ key: unique(ask), title: clip(cap(ask.replace(/[.!]+$/, "")), 120), brief: `The captain asked: "${ask}".\n\nDo exactly that, kept small and focused. Read the relevant code first, follow the project's conventions, and run its tests before you finish.`, dependsOn: [], assignee: "any" }];
+    return [inRepo({ key: unique(ask), title: clip(cap(ask.replace(/[.!]+$/, "")), 120), brief: `The captain asked: "${ask}".\n\nDo exactly that, kept small and focused. Read the relevant code first, follow the project's conventions, and run its tests before you finish.`, dependsOn: [], assignee: "any" })];
   }
   const subject = keyword(ask);
   const shared = unique(subject === "todo" ? "shared-types" : `${subject}-types`);
@@ -46,7 +79,7 @@ export function planFor(request: string, taken: Set<string>): PlanTask[] {
       dependsOn: [shared], assignee: "any",
     });
   }
-  return tasks;
+  return tasks.map(inRepo);
 }
 
 const FILLER = new Set(["a", "an", "the", "and", "that", "this", "of", "to", "for", "with", "in", "on", "it", "its", "then", "please"]);
@@ -72,6 +105,8 @@ export async function computerScript(ctx: SimContext): Promise<void> {
   if (!wake) await ctx.say(pick(r, ["Aye, captain. Checking who's aboard.", "On it. Let me see who's free.", "Understood. One moment while I check the crew."]));
   const status = parse<Status>(await ctx.tool("crew_status", {}), { tasks: [] });
   const tasks = status.tasks ?? [];
+  const repos = (status.repos ?? []).map((r) => r.name);
+  const many = repos.length > 1;
   const open = tasks.filter((t) => ["todo", "doing", "review"].includes(t.state));
   const landed = tasks.filter((t) => t.state === "landed");
   const failed = tasks.filter((t) => t.state === "failed");
@@ -99,7 +134,7 @@ export async function computerScript(ctx: SimContext): Promise<void> {
     for (const t of landed) {
       const review = parse<{ stat?: { files?: number; add?: number; del?: number } }>(await ctx.tool("review_task", { task: t.key }), {});
       const s = review.stat;
-      notes.push(`- ${t.title}${s ? ` (${s.files ?? 0} ${s.files === 1 ? "file" : "files"}, +${s.add ?? 0} −${s.del ?? 0})` : ""}`);
+      notes.push(`- ${t.title}${many && t.repo ? ` in ${t.repo}` : ""}${s ? ` (${s.files ?? 0} ${s.files === 1 ? "file" : "files"}, +${s.add ?? 0} −${s.del ?? 0})` : ""}`);
       await ctx.think(0.5, 2);
     }
     const main = landed.find((t) => !/^shared/i.test(t.key)) ?? landed[0]!;
@@ -111,11 +146,15 @@ export async function computerScript(ctx: SimContext): Promise<void> {
   if (chat) { await ctx.say("Tell me what you'd like built and I'll get the crew on it."); return; }
 
   // A request: plan it (on top of whatever this thread already has).
-  const plan = planFor(request, new Set(tasks.map((t) => t.key)));
+  const plan = planFor(request, new Set(tasks.map((t) => t.key)), repos);
   await ctx.think(1, 3);
   const planned = parse<Planned[]>(await ctx.tool("plan_tasks", { tasks: plan }), []);
   const byKey = new Map(planned.map((p) => [p.key, p]));
-  if (plan.length === 1) {
+  const across = new Set(plan.map((t) => t.repo)).size > 1;
+  if (across) {
+    const steps = plan.map((t, i) => `${i ? "then " : ""}"${t.title}" in ${t.repo} (${who(byKey.get(t.key))})`).join(", ");
+    await ctx.say(`This spans ${new Set(plan.map((t) => t.repo)).size} repos, so a task in each, in order: ${steps}. Each lands on the thread's branch in its own repo; I'll review everything and open a pull request in each.`);
+  } else if (plan.length === 1) {
     await ctx.say(`One task: ${plan[0]!.title}. ${cap(who(byKey.get(plan[0]!.key)))} has it, in their own worktree. I'll review it when it lands.`);
   } else {
     const [shared, ...rest] = plan;

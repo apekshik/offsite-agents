@@ -3,23 +3,34 @@ import { mutation, query } from "./_generated/server";
 import { LIMITS } from "@offsite/contracts";
 import { autoTitle, fail, requireOffice, requireThread } from "./lib";
 import { post, queueComputer } from "./flow";
+import { repoOfTask, reposOf } from "./repolib";
 
 /** Threads on this ship, most recent first, with who is on them and what waits on you. */
 export const list = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, { officeId }) => {
-    await requireOffice(ctx, officeId);
+    const { office } = await requireOffice(ctx, officeId);
+    const repos = await reposOf(ctx, office);
+    const nameOf = (id: string | null | undefined) => repos.find((r) => r._id === id)?.name ?? null;
     const threads = await ctx.db.query("threads").withIndex("by_office", (q) => q.eq("officeId", officeId)).order("desc").take(100);
     const open = await ctx.db.query("questions").withIndex("by_office_open", (q) => q.eq("officeId", officeId).eq("answeredAt", null)).collect();
     return Promise.all(threads.filter((t) => t.state !== "archived").map(async (t) => {
       const tasks = await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", t._id)).collect();
       const crewIds = [...new Set(tasks.map((x) => x.assignee).filter((x) => x !== null))];
+      const touched = new Set(tasks.map((x) => repoOfTask(x, repos)?.name).filter((x): x is string => !!x));
+      // Threads finished before repos have only prUrl: that was the first repo's.
+      const prs = t.prs ? t.prs.map((p) => ({ repo: nameOf(p.repoId), url: p.url, branch: p.branch }))
+        : t.prUrl ? [{ repo: repos[0]?.name ?? null, url: t.prUrl as string | null, branch: t.branch ?? "" }] : [];
       return {
         _id: t._id,
         title: t.title,
         state: t.state,
         branch: t.branch,
         prUrl: t.prUrl,
+        /** The repos its tasks are in, in the ship's order. */
+        repos: repos.map((r) => r.name).filter((n) => touched.has(n)),
+        /** One per repo, once the thread is finished. */
+        prs,
         createdAt: t.createdAt,
         lastMessageAt: t.lastMessageAt,
         crewIds,

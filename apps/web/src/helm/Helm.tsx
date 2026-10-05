@@ -53,7 +53,10 @@ export function Helm() {
   }, [open, threads]);
 
   if (!open) return null;
-  const prs = (threads ?? []).filter((t) => t.prUrl);
+  // Each pull request, with its repo when the ship has several. Threads from before repos have only prUrl.
+  const many = (office?.repos.length ?? 0) > 1;
+  const prs = (threads ?? []).flatMap((t) => (t.prs.some((p) => p.url) ? t.prs.filter((p) => p.url) : t.prUrl ? [{ repo: null, url: t.prUrl, branch: t.branch ?? "" }] : [])
+    .map((p) => ({ key: `${t._id}:${p.repo ?? ""}`, title: t.title, url: p.url!, repo: p.repo })));
   const center = person ? (
     <div className="hm-center-crew">
       <Button kind="ghost" size="sm" onClick={() => setPerson(null)}>← Back to the thread</Button>
@@ -94,16 +97,17 @@ export function Helm() {
               <span className="lab dim hm-sec">Aboard</span>
               <Aboard picked={person} onPick={(id) => setPerson(id === person ? null : id)} />
               <span className="lab dim hm-sec">Pull requests</span>
-              {prs.length ? prs.map((t) => {
-                const n = /\/pull\/(\d+)/.exec(t.prUrl!)?.[1];
+              {prs.length ? prs.map((p) => {
+                const n = /\/pull\/(\d+)/.exec(p.url)?.[1];
                 return (
-                  <a key={t._id} className="card quiet hm-pr" href={t.prUrl!} target="_blank" rel="noreferrer">
+                  <a key={p.key} className="card quiet hm-pr" href={p.url} target="_blank" rel="noreferrer">
                     <Dot tone="on" />
-                    <span className="clip">{n ? `#${n} ` : ""}{t.title}</span>
+                    <span className="clip">{n ? `#${n} ` : ""}{p.title}</span>
+                    {many && p.repo ? <span className="chip repo-chip">{p.repo}</span> : null}
                     <span className="lab t-green">Open</span>
                   </a>
                 );
-              }) : <span className="dim hm-none">None yet. Finished threads open one.</span>}
+              }) : <span className="dim hm-none">None yet. Finished threads open one in each repo they change.</span>}
             </div>
           </div>
         </div>

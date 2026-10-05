@@ -6,7 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { activityTone, ago, Button, Card, Chip, ConfirmButton, errorText, Face, Field, Input, RichText, useNow, useStickToBottom } from "../ui/index.tsx";
 import { activityOf, harnessName, placeOf, useShip, workTitle, type CrewRow } from "../overlay/ship.tsx";
-import { find, QuestionCard } from "./Conversation.tsx";
+import { find, QuestionCard, RepoChip } from "./Conversation.tsx";
 import { phone } from "./state.ts";
 
 // The crew tab: everyone aboard, and one of them up close (what they are doing, their live work,
@@ -257,7 +257,7 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
         <span className={`lab t-${tone}`}>{c.live ? (a === "asking" ? "Needs you" : `${ACTIVITY_LABEL[a]} · working on`) : ACTIVITY_LABEL[a]}</span>
         {c.live ? (
           <>
-            <span className="cd-task">{title ?? "Thinking"}</span>
+            <span className="cd-task">{title ?? "Thinking"}<RepoChip name={c.live.repo} /></span>
             <span className="dim cd-thread">{[c.live.taskTitle ? c.live.threadTitle : null, c.live.startedAt ? ago(now - c.live.startedAt) : null].filter(Boolean).join(" · ")}</span>
           </>
         ) : a === "arriving" ? <span className="cd-task">On the helicopter, {ago(c.arrivesAt - now)} out</span>

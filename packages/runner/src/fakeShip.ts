@@ -1,13 +1,13 @@
 import type { Look, RunEvent, RunKind } from "@offsite/contracts";
-import type { Backend, LiveRun, Outcome, ReviewInfo, RunContext, Work } from "./backend.ts";
+import type { Backend, LiveRun, Outcome, RepoInfo, ReviewInfo, RunContext, ShipStatus, ThreadPr, Work } from "./backend.ts";
 
 // An in-memory ship that follows the backend's rules (convex/runner.ts, tools.ts, flow.ts) closely enough to drive
 // the runner end to end in tests: threads wake the computer, plans become tasks, tasks start when their dependencies
 // land and someone is free, and every landing wakes the computer again.
 
 interface Crew { id: string; name: string; handle: string; role: "computer" | "crew"; harness: "sim" | "claude" | "codex" }
-interface Thread { id: string; title: string; branch: string | null; state: string; prUrl: string | null; finished: { title: string; summary: string } | null }
-interface Task { id: string; threadId: string; key: string; title: string; brief: string; dependsOn: string[]; assignee: string | null; state: string; branch: string | null; report: string | null; notes: string | null }
+interface Thread { id: string; title: string; branch: string | null; state: string; prUrl: string | null; prs: ThreadPr[]; finished: { title: string; summary: string } | null }
+interface Task { id: string; threadId: string; key: string; repo: string; title: string; brief: string; dependsOn: string[]; assignee: string | null; state: string; branch: string | null; report: string | null; notes: string | null }
 interface Run { id: string; kind: RunKind; threadId: string | null; taskId: string | null; crewId: string; state: string; prompt: string; interrupt: boolean; error: string | null; report: string | null; worktree: string | null }
 interface Question { id: string; runId: string; requestId: string; prompt: string; answer: string | null; delivered: boolean }
 
@@ -28,8 +28,12 @@ export class FakeShip implements Backend {
   private listeners: ((w: Work) => void)[] = [];
   private readonly office: RunContext["office"];
 
-  constructor(repoPath: string, opts: { crew?: string[]; setupCommand?: string | null } = {}) {
-    this.office = { id: "office1", name: "Sea Legs", repoPath, defaultBranch: "main", setupCommand: opts.setupCommand ?? null };
+  /** One repo (its path), or several: { name, path, setupCommand?, here? }. */
+  constructor(repos: string | { name: string; path: string; setupCommand?: string | null; here?: boolean }[], opts: { crew?: string[]; setupCommand?: string | null } = {}) {
+    const list: RepoInfo[] = typeof repos === "string"
+      ? [{ id: "repo1", name: "app", path: repos, defaultBranch: "main", setupCommand: opts.setupCommand ?? null, here: true }]
+      : repos.map((r, i) => ({ id: `repo${i + 1}`, name: r.name, path: r.path, defaultBranch: "main", setupCommand: r.setupCommand ?? null, here: r.here ?? true }));
+    this.office = { id: "office1", name: "Sea Legs", repos: list, repoPath: list[0]!.path, defaultBranch: "main", setupCommand: list[0]!.setupCommand };
     for (const name of opts.crew ?? ["Juniper", "Otis"]) this.hire(name);
   }
 
@@ -47,7 +51,7 @@ export class FakeShip implements Backend {
   // ---- the captain's side ----
 
   createThread(text: string): Thread {
-    const t: Thread = { id: this.id("thread"), title: text.split(/\s+/).slice(0, 6).join(" "), branch: null, state: "open", prUrl: null, finished: null };
+    const t: Thread = { id: this.id("thread"), title: text.split(/\s+/).slice(0, 6).join(" "), branch: null, state: "open", prUrl: null, prs: [], finished: null };
     this.threads.push(t);
     this.queueComputer(t, text);
     return t;
@@ -123,12 +127,13 @@ export class FakeShip implements Backend {
     const waiting = this.inbox.filter((m) => m.crewId === run.crewId && m.runId === null && !m.delivered);
     if (waiting.length) { prompt += `\n\nMessages for you:\n${waiting.map((m) => `- ${m.text}`).join("\n")}`; for (const m of waiting) m.delivered = true; }
     this.notify();
+    const repo = task ? this.office.repos.find((r) => r.name === task.repo)! : this.office.repos[0]!;
     return {
       run: { id: run.id, kind: run.kind, prompt },
-      office: run.kind === "look" ? { ...this.office, repoPath: this.office.repoPath } : this.office,
+      office: { ...this.office, repoPath: repo.path, defaultBranch: repo.defaultBranch, setupCommand: repo.setupCommand },
       crew: { id: crew.id, name: crew.name, handle: crew.handle, role: crew.role, harness: crew.harness, model: null, effort: "high", profile: null, specialty: null },
       thread: thread && { id: thread.id, title: thread.title, branch: thread.branch },
-      task: task && { id: task.id, key: task.key, title: task.title, brief: task.brief, notes: task.notes, branch: task.branch, dependsOn: task.dependsOn.map((d) => { const t = this.tasks.find((x) => x.id === d)!; return { key: t.key, title: t.title, state: t.state }; }) },
+      task: task && { id: task.id, key: task.key, repo: task.repo, title: task.title, brief: task.brief, notes: task.notes, branch: task.branch, dependsOn: task.dependsOn.map((d) => { const t = this.tasks.find((x) => x.id === d)!; return { key: t.key, title: t.title, state: t.state }; }) },
       resumeCursor: null,
       context: thread ? `Thread: "${thread.title}".` : "",
     };
@@ -222,22 +227,30 @@ export class FakeShip implements Backend {
   }
 
   readonly tools: Backend["tools"] = {
-    crewStatus: async (runId) => {
+    crewStatus: async (runId): Promise<ShipStatus> => {
       const thread = this.computerThread(runId);
       return {
+        repos: this.office.repos.map((r) => ({ name: r.name, defaultBranch: r.defaultBranch, here: r.here })),
         crew: this.crew.filter((c) => c.role === "crew").map((c) => ({ handle: c.handle, name: c.name, harness: c.harness, activity: this.liveRunOf(c.id) ? "Working" : "Off duty", task: null })),
-        tasks: this.tasks.filter((t) => t.threadId === thread.id).map((t) => ({ id: t.id, key: t.key, title: t.title, state: t.state, assignee: this.crew.find((c) => c.id === t.assignee)?.handle ?? null })),
-      };
+        tasks: this.tasks.filter((t) => t.threadId === thread.id).map((t) => ({ id: t.id, key: t.key, repo: t.repo, title: t.title, state: t.state, assignee: this.crew.find((c) => c.id === t.assignee)?.handle ?? null })),
+      } as ShipStatus;
     },
     planTasks: async (runId, tasks) => {
       this.calls.push("planTasks");
       const thread = this.computerThread(runId);
-      const made: Task[] = tasks.map((t) => ({ id: this.id("task"), threadId: thread.id, key: t.key, title: t.title, brief: t.brief, dependsOn: [], assignee: null, state: "todo", branch: null, report: null, notes: null }));
+      const repos = this.office.repos;
+      const repoFor = (t: { key: string; repo?: string }) => {
+        if (t.repo) return repos.find((r) => r.name === t.repo)?.name ?? (() => { throw new Error(`No repo called "${t.repo}". Repos: ${repos.map((r) => r.name).join(", ")}`); })();
+        if (repos.length > 1) throw new Error(`Task "${t.key}" needs a repo: this ship has ${repos.length} (${repos.map((r) => r.name).join(", ")}).`);
+        return repos[0]!.name;
+      };
+      const named = tasks.map((t) => repoFor(t));
+      const made: Task[] = tasks.map((t, i) => ({ id: this.id("task"), threadId: thread.id, key: t.key, repo: named[i]!, title: t.title, brief: t.brief, dependsOn: [], assignee: null, state: "todo", branch: null, report: null, notes: null }));
       this.tasks.push(...made);
       for (const [i, t] of tasks.entries()) made[i]!.dependsOn = (t.dependsOn ?? []).map((k) => this.resolveTask(thread, k).id);
       thread.state = "working";
       this.tick();
-      return made.map((t) => ({ key: t.key, taskId: t.id, assignee: t.assignee ? `@${this.crew.find((c) => c.id === t.assignee)!.handle}` : null, state: t.state }));
+      return made.map((t) => ({ key: t.key, taskId: t.id, repo: t.repo, assignee: t.assignee ? `@${this.crew.find((c) => c.id === t.assignee)!.handle}` : null, state: t.state }));
     },
     assignTask: async () => ({}),
     hireCrew: async (_runId, args) => { const c = this.hire(args.name ?? `Hire${this.n}`); return { handle: c.handle, name: c.name, arrivesAt: Date.now() }; },
@@ -261,19 +274,19 @@ export class FakeShip implements Backend {
       const thread = this.computerThread(runId);
       const t = this.resolveTask(thread, ref);
       const c = this.crew.find((x) => x.id === t.assignee);
-      return { id: t.id, key: t.key, title: t.title, brief: t.brief, state: t.state, branch: t.branch, report: t.report, crew: c ? { handle: c.handle, name: c.name } : null, threadBranch: thread.branch };
+      return { id: t.id, key: t.key, title: t.title, brief: t.brief, state: t.state, branch: t.branch, report: t.report, crew: c ? { handle: c.handle, name: c.name } : null, threadBranch: thread.branch, repo: t.repo };
     },
     sendBack: async (runId, ref, notes) => {
       const t = this.resolveTask(this.computerThread(runId), ref);
       t.state = "todo"; t.notes = notes; this.tick();
       return { taskId: t.id };
     },
-    finishThread: async (runId, title, summary, prUrl) => {
+    finishThread: async (runId, title, summary, prs) => {
       this.calls.push("finishThread");
       const thread = this.computerThread(runId);
       const open = this.tasks.filter((t) => t.threadId === thread.id && ["todo", "doing", "review"].includes(t.state));
       if (open.length) throw new Error(`Not every task has landed: ${open.map((t) => t.key).join(", ")}`);
-      thread.state = "done"; thread.prUrl = prUrl; thread.finished = { title, summary };
+      thread.state = "done"; thread.prs = prs; thread.prUrl = prs.find((p) => p.url)?.url ?? null; thread.finished = { title, summary };
       this.notify();
     },
   };

@@ -38,14 +38,31 @@ export default defineSchema({
     ownerId: v.id("users"),
     name: v.string(),
     world: v.string(),
-    /** The project the crew works on: a git checkout on one of your machines. */
-    repo: v.union(v.object({ machineId: v.id("machines"), path: v.string(), defaultBranch: v.string() }), v.null()),
-    /** Run once in every new task worktree, e.g. "pnpm install". */
-    setupCommand: v.union(v.string(), v.null()),
+    /** Legacy (before repos): the one project. Migrated into `repos` (repos.migrate); no longer read once it has been. */
+    repo: v.optional(v.union(v.object({ machineId: v.id("machines"), path: v.string(), defaultBranch: v.string() }), v.null())),
+    /** Legacy (before repos): now each repo's own setupCommand. */
+    setupCommand: v.optional(v.union(v.string(), v.null())),
     /** Which harness new hires use unless told otherwise. */
     defaultHarness: harness,
     createdAt: v.number(),
   }).index("by_owner", ["ownerId"]),
+
+  /**
+   * A project the crew works on: a git checkout on one of your machines. An office has one or more; each task is in
+   * one. The computer works on the machine that holds the office's first repo.
+   */
+  repos: defineTable({
+    officeId: v.id("offices"),
+    /** Short, lowercase, unique in the office: "web", "api". The computer and its plans use it. */
+    name: v.string(),
+    machineId: v.id("machines"),
+    path: v.string(),
+    defaultBranch: v.string(),
+    /** Run once in every new task worktree of this repo, e.g. "pnpm install". */
+    setupCommand: v.union(v.string(), v.null()),
+    createdAt: v.number(),
+    removedAt: v.union(v.number(), v.null()),
+  }).index("by_office", ["officeId"]),
 
   /** A crew member: an identity (name, look, specialty) powered by a harness on your machine. The ship's computer is crew too (role "computer"). */
   crew: defineTable({
@@ -97,9 +114,12 @@ export default defineSchema({
     officeId: v.id("offices"),
     title: v.string(),
     state: threadState,
-    /** offsite/<slug>-<id>: created from the office's default branch when the first task starts. */
+    /** offsite/<slug>-<id>: the same name in every repo the thread touches, made in each when its first task there starts. */
     branch: v.union(v.string(), v.null()),
+    /** The first pull request, for clients from before `prs`. */
     prUrl: v.union(v.string(), v.null()),
+    /** One per repo with work in this thread, set when the thread finishes. */
+    prs: v.optional(v.array(v.object({ repoId: v.id("repos"), url: v.union(v.string(), v.null()), branch: v.string() }))),
     createdAt: v.number(),
     lastMessageAt: v.number(),
   }).index("by_office", ["officeId", "lastMessageAt"]),
@@ -121,6 +141,8 @@ export default defineSchema({
     threadId: v.id("threads"),
     officeId: v.id("offices"),
     key: v.string(),
+    /** The repo it changes. Missing on tasks from before repos: those are the office's first repo. */
+    repoId: v.optional(v.id("repos")),
     title: v.string(),
     brief: v.string(),
     dependsOn: v.array(v.id("tasks")),

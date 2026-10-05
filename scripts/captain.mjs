@@ -4,7 +4,9 @@
 //   node scripts/captain.mjs offices                    → your offices
 //   node scripts/captain.mjs setup <repoPath>          → prints { officeId }
 //   node scripts/captain.mjs approve <userCode>        → approves the runner's device code, prints machineId
-//   node scripts/captain.mjs repo <officeId> <machineId> <repoPath> [setupCommand]
+//   node scripts/captain.mjs repo <officeId> <machineId> <repoPath> [setupCommand]   (adds or updates the repo on that path)
+//   node scripts/captain.mjs addrepo <officeId> <machineId> <repoPath> [name] [setupCommand]
+//   node scripts/captain.mjs repos <officeId>          → the ship's repos
 //   node scripts/captain.mjs thread <officeId> <text>  → prints threadId
 //   node scripts/captain.mjs watch <officeId> <threadId> [answer]   → polls until the thread is done, answering questions
 //   node scripts/captain.mjs look <officeId> <description>
@@ -22,7 +24,7 @@ const [cmd, ...args] = process.argv.slice(2);
 
 if (cmd === "offices") {
   await client.mutation(api.users.ensure, {});
-  console.log(JSON.stringify((await client.query(api.offices.mine, {})).map((o) => ({ officeId: o._id, name: o.name, repo: o.repo }))));
+  console.log(JSON.stringify((await client.query(api.offices.mine, {})).map((o) => ({ officeId: o._id, name: o.name, repos: o.repoCount }))));
 } else if (cmd === "setup") {
   await client.mutation(api.users.ensure, {});
   const officeId = await client.mutation(api.offices.create, { name: "Runner Test", world: "yacht", defaultHarness: "sim" });
@@ -30,9 +32,15 @@ if (cmd === "offices") {
 } else if (cmd === "approve") {
   console.log(JSON.stringify(await client.mutation(api.machines.approve, { userCode: args[0] })));
 } else if (cmd === "repo") {
-  await client.mutation(api.offices.setRepo, { officeId: args[0], machineId: args[1], path: args[2], defaultBranch: "main" });
-  if (args[3]) await client.mutation(api.offices.update, { officeId: args[0], setupCommand: args[3] });
+  const repoId = await client.mutation(api.offices.setRepo, { officeId: args[0], machineId: args[1], path: args[2], defaultBranch: "main" });
+  if (args[3]) await client.mutation(api.repos.update, { repoId, setupCommand: args[3] });
   console.log("ok");
+} else if (cmd === "addrepo") {
+  const [officeId, machineId, path, name, setupCommand] = args;
+  const repoId = await client.mutation(api.repos.add, { officeId, machineId, path, defaultBranch: "main", ...(name ? { name } : {}), ...(setupCommand ? { setupCommand } : {}) });
+  console.log(JSON.stringify({ repoId }));
+} else if (cmd === "repos") {
+  for (const r of await client.query(api.repos.list, { officeId: args[0] })) console.log(JSON.stringify({ name: r.name, path: r.path, machine: r.machine?.name, defaultBranch: r.defaultBranch, setupCommand: r.setupCommand }));
 } else if (cmd === "thread") {
   console.log(JSON.stringify({ threadId: await client.mutation(api.threads.create, { officeId: args[0], text: args[1] }) }));
 } else if (cmd === "watch") {
@@ -47,7 +55,7 @@ if (cmd === "offices") {
       console.log(`  ? ${q.prompt.split("\n")[0]} → ${answer}`);
       await client.mutation(api.questions.answer, { questionId: q._id, answer });
     }
-    const line = `${Math.round((Date.now() - started) / 1000)}s thread=${thread.state} branch=${thread.branch ?? "-"} tasks=${tasks.map((t) => `${t.key}:${t.state}`).join(",")}`;
+    const line = `${Math.round((Date.now() - started) / 1000)}s thread=${thread.state} branch=${thread.branch ?? "-"} tasks=${tasks.map((t) => `${t.key}${t.repo ? `@${t.repo}` : ""}:${t.state}`).join(",")}`;
     if (line.replace(/^\d+s /, "") !== last) { console.log(line); last = line.replace(/^\d+s /, ""); }
     if (thread.state === "done") break;
     if (Date.now() - started > 15 * 60_000) { console.log("timed out"); break; }

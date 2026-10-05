@@ -4,15 +4,18 @@ import { COMPUTER_NAME } from "@offsite/contracts";
 import { fail, requireOffice, requireUser } from "./lib";
 import { hire } from "./crewlib";
 import { harness } from "./schema";
+import { checkBranch, checkPath, cleanSetup, computerMachine, ensureRepos, reposOf } from "./repolib";
+import { addRepo } from "./repos";
 
-/** Your ships, newest first. */
+/** Your ships, newest first, with how many repos each has. */
 export const mine = query({
   args: {},
   handler: async (ctx) => {
     const user = await requireUser(ctx).catch(() => null);
     if (!user) return [];
     const offices = await ctx.db.query("offices").withIndex("by_owner", (q) => q.eq("ownerId", user._id)).collect();
-    return offices.sort((a, b) => b.createdAt - a.createdAt);
+    const out = await Promise.all(offices.map(async (o) => ({ ...o, repoCount: (await reposOf(ctx, o)).length })));
+    return out.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -20,8 +23,16 @@ export const get = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, { officeId }) => {
     const { office } = await requireOffice(ctx, officeId);
-    const machine = office.repo ? await ctx.db.get(office.repo.machineId) : null;
-    return { ...office, machine: machine ? { _id: machine._id, name: machine.name, lastSeenAt: machine.lastSeenAt } : null };
+    const { repo: _legacyRepo, setupCommand: _legacySetup, ...rest } = office;
+    const repos = await reposOf(ctx, office);
+    const at = computerMachine(repos);
+    const machine = at ? await ctx.db.get(at) : null;
+    return {
+      ...rest,
+      repos: repos.map((r) => ({ _id: r._id, name: r.name, machineId: r.machineId, path: r.path, defaultBranch: r.defaultBranch, setupCommand: r.setupCommand })),
+      /** The machine the computer works on: the one holding the first repo. */
+      machine: machine ? { _id: machine._id, name: machine.name, lastSeenAt: machine.lastSeenAt } : null,
+    };
   },
 });
 
@@ -40,8 +51,6 @@ export const create = mutation({
       ownerId: user._id,
       name: clean,
       world,
-      repo: null,
-      setupCommand: null,
       defaultHarness: defaultHarness ?? "claude",
       createdAt: now,
     });
@@ -67,18 +76,22 @@ export const create = mutation({
   },
 });
 
-/** Which project the crew works on: a git checkout on one of your machines. */
+/**
+ * From before repos (repos.add is the way now): the repo on that path, added, or updated when the ship already has
+ * it (on any machine).
+ */
 export const setRepo = mutation({
   args: { officeId: v.id("offices"), machineId: v.id("machines"), path: v.string(), defaultBranch: v.string() },
   handler: async (ctx, { officeId, machineId, path, defaultBranch }) => {
-    const { user } = await requireOffice(ctx, officeId);
+    const { user, office } = await requireOffice(ctx, officeId);
+    const p = checkPath(path);
+    const repos = await ensureRepos(ctx, office);
+    const same = repos.find((r) => r.path === p);
+    if (!same) return addRepo(ctx, user, office, { machineId, path: p, defaultBranch });
     const machine = await ctx.db.get(machineId);
     if (!machine || machine.ownerId !== user._id || machine.revokedAt) fail("That machine is not yours");
-    const p = path.trim();
-    if (!p.startsWith("/") && !p.startsWith("~") && !/^[a-z]:[\\/]/i.test(p)) fail("Give the project's full path on that machine, e.g. ~/code/my-app");
-    const branch = defaultBranch.trim() || "main";
-    if (!/^[\w./-]{1,100}$/.test(branch)) fail("That branch name looks wrong");
-    await ctx.db.patch(officeId, { repo: { machineId, path: p, defaultBranch: branch } });
+    await ctx.db.patch(same._id, { machineId, defaultBranch: checkBranch(defaultBranch) });
+    return same._id;
   },
 });
 
@@ -97,7 +110,11 @@ export const update = mutation({
       if (!clean) fail("Name your ship");
       patch["name"] = clean;
     }
-    if (setupCommand !== undefined) patch["setupCommand"] = setupCommand?.trim().slice(0, 300) || null;
+    if (setupCommand !== undefined) {
+      // From before repos: the setup command of the first repo (repos.update sets any repo's).
+      const [first] = await ensureRepos(ctx, (await ctx.db.get(officeId))!);
+      if (first) await ctx.db.patch(first._id, { setupCommand: cleanSetup(setupCommand) });
+    }
     if (defaultHarness !== undefined) patch["defaultHarness"] = defaultHarness;
     await ctx.db.patch(officeId, patch);
   },

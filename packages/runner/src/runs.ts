@@ -1,13 +1,14 @@
 // Adapted from Beam (github.com/SupraluminalIntelligence/beam, MIT).
 import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { Harness, RunEvent } from "@offsite/contracts";
 import { resolveProfile, type HarnessAdapter, type OffsiteTool, type Session } from "@offsite/harness";
 import {
-  allocatePort, commitAll, conflictMarkers, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, expandHome, landTask, openRepo,
-  prepareConflict, releasePort, runSetup, serialized, taskBranchName, taskWorktreePath, threadBranchName, threadWorktreePath,
+  allocatePort, commitAll, conflictMarkers, ensureComputerDir, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, expandHome, landTask,
+  openRepo, prepareConflict, releasePort, runSetup, serialized, taskBranchName, taskWorktreePath, threadBranchName, threadRepoWorktreePath,
+  threadViewRef, threadWorktreePath,
 } from "@offsite/git";
-import { readable, type Backend, type LiveRun, type Outcome, type RunContext, type Work } from "./backend.ts";
+import { readable, type Backend, type LiveRun, type Outcome, type RepoInfo, type RunContext, type Work } from "./backend.ts";
 import { offsiteHome } from "./config.ts";
 import { EventSink } from "./events.ts";
 import { LOOK_SYSTEM_PROMPT, parseLook } from "./lookPrompt.ts";
@@ -103,16 +104,32 @@ export class Runner {
   }
 }
 
+/** A repo opened on this machine: its name on the ship, its checkout's top folder, its default branch. */
+export interface LocalRepo { name: string; path: string; defaultBranch: string }
+
 /** Where a run works. */
 interface Place {
   cwd: string;
+  /** A task's repo (its checkout's top folder). */
   repo: string | null;
+  /** The computer's: every repo on this machine, each a folder in its working directory. */
+  repos: LocalRepo[];
   threadBranch?: string;
   taskBranch?: string;
+  /** The computer's worktree of the task's repo, refreshed when the task lands. */
   threadWorktree?: string;
-  /** A new task worktree: run the office's setup command in it. */
+  /** A new task worktree: run its repo's setup command in it. */
   fresh: boolean;
+  setupCommand: string | null;
   port: number | null;
+}
+
+/** The ship's repos from a claim; one made from the legacy fields when the ship's backend predates repos. */
+export function reposOf(ctx: RunContext): RepoInfo[] {
+  if (ctx.office.repos?.length) return ctx.office.repos;
+  if (!ctx.office.repoPath) return [];
+  const name = basename(ctx.office.repoPath.replace(/[\\/]+$/, "")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "repo";
+  return [{ id: null, name, path: ctx.office.repoPath, defaultBranch: ctx.office.defaultBranch, setupCommand: ctx.office.setupCommand, here: true }];
 }
 
 const short = (id: string) => id.slice(-6);
@@ -282,7 +299,7 @@ class HostedRun {
       place = await this.prepare();
       await this.opts.backend.started(this.id, place.cwd, place.threadBranch, place.taskBranch);
       this.log(`working in ${place.cwd}${place.taskBranch ? ` on ${place.taskBranch}` : ""} (${this.harness})`);
-      if (place.fresh && ctx.office.setupCommand && ctx.run.kind === "task") await this.setup(place.cwd, ctx.office.setupCommand, place.port);
+      if (place.fresh && place.setupCommand && ctx.run.kind === "task") await this.setup(place.cwd, place.setupCommand, place.port);
       if (!this.outcome) await this.startSession(place);
     } catch (e) {
       this.stop("failed", readable(e));
@@ -309,30 +326,56 @@ class HostedRun {
     await this.finish(place, landed);
   }
 
-  /** The run's worktree and branches: the thread's for the computer, the task's own for crew, a scratch folder for a look. */
+  /**
+   * The run's worktree and branches. The computer: a folder holding a worktree of the thread's branch for each repo on
+   * this machine, side by side. A task: its own worktree and branch in its repo, from the thread's branch there (made
+   * the first time a task starts in that repo). A look: a scratch folder.
+   */
   private async prepare(): Promise<Place> {
     const { ctx } = this;
     if (ctx.run.kind === "look") {
       const cwd = join(offsiteHome(), "looks", this.id);
       await mkdir(cwd, { recursive: true });
-      return { cwd, repo: null, fresh: false, port: null };
+      return { cwd, repo: null, repos: [], fresh: false, setupCommand: null, port: null };
     }
-    if (!ctx.office.repoPath) throw new Error("This ship has no project yet. Set its repo (a folder on this machine) in the app.");
+    const repos = reposOf(ctx);
+    if (!repos.length) throw new Error("This ship has no repo yet. Add one (a folder on this machine) in the app.");
     if (!ctx.thread) throw new Error("This run has no thread");
-    const repo = await openRepo(expandHome(ctx.office.repoPath));
     const thread = ctx.thread;
     const threadBranch = thread.branch ?? threadBranchName(thread.title, thread.id);
-    const threadWorktree = threadWorktreePath(ctx.office.id, thread.id);
-    // Two runs of one thread can start together; the branch and worktrees are made one at a time.
-    return serialized(`${repo}#${threadBranch}`, async () => {
-      await ensureThreadBranch(repo, threadBranch, ctx.office.defaultBranch);
-      if (ctx.run.kind === "computer" || !ctx.task) {
-        const { path } = await ensureThreadWorktree(repo, threadWorktree, threadBranch);
-        return { cwd: path, repo, threadBranch, threadWorktree: path, fresh: false, port: null };
+
+    if (ctx.run.kind === "computer" || !ctx.task) {
+      const cwd = await ensureComputerDir(threadWorktreePath(ctx.office.id, thread.id));
+      const local: LocalRepo[] = [];
+      for (const r of repos.filter((x) => x.here)) {
+        try {
+          const top = await openRepo(expandHome(r.path));
+          // Serialized with landings in that repo, which refresh this view.
+          await serialized(`${top}#${threadBranch}`, async () => {
+            await ensureThreadWorktree(top, threadRepoWorktreePath(ctx.office.id, thread.id, r.name), await threadViewRef(top, threadBranch, r.defaultBranch));
+          });
+          local.push({ name: r.name, path: top, defaultBranch: r.defaultBranch });
+        } catch (e) {
+          // One missing checkout shouldn't stop the computer from planning in the others.
+          this.emit({ type: "error", message: `The repo "${r.name}" isn't readable here: ${readable(e)}`, fatal: false });
+          this.log(`repo ${r.name}: ${readable(e)}`);
+        }
       }
-      const taskBranch = ctx.task.branch ?? taskBranchName(threadBranch, ctx.task.key);
-      const { path, created } = await ensureTaskWorktree(repo, taskWorktreePath(ctx.office.id, thread.id, ctx.task.key), taskBranch, threadBranch);
-      return { cwd: path, repo, threadBranch, taskBranch, threadWorktree, fresh: created, port: await allocatePort() };
+      if (!local.length) throw new Error(`None of this ship's repos could be opened on this machine (${repos.map((r) => `${r.name}: ${r.path}`).join(", ")}).`);
+      return { cwd, repo: null, repos: local, threadBranch, fresh: false, setupCommand: null, port: null };
+    }
+
+    const task = ctx.task;
+    const info = task.repo ? repos.find((r) => r.name === task.repo) : repos[0];
+    if (!info) throw new Error(`This task's repo "${task.repo}" isn't on this ship any more.`);
+    const repo = await openRepo(expandHome(info.path));
+    const threadWorktree = threadRepoWorktreePath(ctx.office.id, thread.id, info.name);
+    // Two runs of one thread can start together; the branch and worktrees are made one at a time, per repo.
+    return serialized(`${repo}#${threadBranch}`, async () => {
+      await ensureThreadBranch(repo, threadBranch, info.defaultBranch);
+      const taskBranch = task.branch ?? taskBranchName(threadBranch, task.key);
+      const { path, created } = await ensureTaskWorktree(repo, taskWorktreePath(ctx.office.id, thread.id, task.key), taskBranch, threadBranch);
+      return { cwd: path, repo, repos: [], threadBranch, taskBranch, threadWorktree, fresh: created, setupCommand: info.setupCommand, port: await allocatePort() };
     });
   }
 
@@ -354,8 +397,8 @@ class HostedRun {
     let tools: OffsiteTool[] = [];
     let systemPrompt = "";
     if (ctx.run.kind === "computer") {
-      tools = computerTools(this.opts.backend, this.id, { repo: place.repo!, threadBranch: place.threadBranch!, defaultBranch: ctx.office.defaultBranch }, this.awaitAnswer);
-      systemPrompt = computerPrompt(ctx, this.opts.captain ?? "The captain", { threadBranch: place.threadBranch!, cwd: place.cwd });
+      tools = computerTools(this.opts.backend, this.id, { repos: place.repos, threadBranch: place.threadBranch! }, this.awaitAnswer);
+      systemPrompt = computerPrompt(ctx, this.opts.captain ?? "The captain", { threadBranch: place.threadBranch!, cwd: place.cwd, repos: place.repos.map((r) => r.name) });
     } else if (ctx.run.kind === "task") {
       tools = crewTools(this.opts.backend, this.id, { repo: place.repo!, worktree: place.cwd, threadBranch: place.threadBranch!, author: ctx.crew.name }, this.awaitAnswer);
       systemPrompt = crewPrompt(ctx, { cwd: place.cwd, taskBranch: place.taskBranch!, threadBranch: place.threadBranch!, port: place.port });

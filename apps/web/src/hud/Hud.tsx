@@ -12,7 +12,7 @@ import "./hud.css";
 function Status() {
   const { office, machine, machines } = useShip();
   const noMachine = machines !== undefined && machines.length === 0;
-  const noProject = office !== undefined && !office.repo;
+  const noProject = office !== undefined && !office.repos.length;
   return (
     <div className="hud-status">
       <span className="hud-chip">
@@ -22,8 +22,8 @@ function Status() {
       {noMachine || noProject ? (
         <div className="hud-warn">
           <Dot tone="amber" />
-          <span>{noMachine ? "No machine connected: the crew lounges until you connect one." : "No project chosen yet: the crew lounges until you pick one."}</span>
-          <Button kind="soft-amber" size="sm" onClick={() => phone.openShip()}>{noMachine ? "Connect" : "Choose"}</Button>
+          <span>{noMachine ? "No machine connected: the crew lounges until you connect one." : "No repo yet: the crew lounges until you add one."}</span>
+          <Button kind="soft-amber" size="sm" onClick={() => phone.openShip()}>{noMachine ? "Connect" : "Add a repo"}</Button>
         </div>
       ) : null}
     </div>

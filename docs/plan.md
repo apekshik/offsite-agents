@@ -10,24 +10,24 @@ Single player for now. Later, friends come aboard over Ready Player One's peer c
 
 | Offsite | Meaning |
 |---|---|
-| Office | Your ship: a world (the yacht), a project repo on one of your machines, your crew. (Beam's workspace.) |
+| Office | Your ship: a world (the yacht), one or more repos (each a git checkout on one of your machines, with a short name like `web` or `api`), your crew. (Beam's workspace.) |
 | Captain | You. |
 | Crew member | An agent with an identity: name, look, specialty, and what powers it (harness, model, effort, which account). |
 | Ship's computer | The orchestrator. A crew member with role `computer`: a Claude or Codex agent with planning tools. |
-| Thread | One conversation with the computer about one piece of work. Its work lands on one branch, `offsite/<slug>`. |
-| Task | What the computer hands one crew member. Its own worktree and branch. |
+| Thread | One conversation with the computer about one piece of work. Its work lands on one branch name, `offsite/<slug>`, in every repo it touches. |
+| Task | What the computer hands one crew member, in one repo. Its own worktree and branch. |
 | Run | One agent working: a computer turn, a crew member on a task, or a look being designed. |
 | Machine | A computer running `offsite` (the runner), paired to your account. |
 
 ## How work flows
 
 1. You start a thread, at the helm or on the phone: "add dark mode to the settings page".
-2. A computer run starts on your machine. It reads the repo and uses its tools (contracts `tools.ts`): `plan_tasks`, `assign_task`, `hire_crew`, `message_crew`, `ask_captain`, `review_task`, `send_back`, `finish_thread`, `crew_status`.
+2. A computer run starts on the machine that holds the ship's first repo. Its working directory holds a worktree of the thread's branch for each repo on that machine, side by side (`_thread/web`, `_thread/api`). It reads them and uses its tools (contracts `tools.ts`): `plan_tasks`, `assign_task`, `hire_crew`, `message_crew`, `ask_captain`, `review_task`, `send_back`, `finish_thread`, `crew_status`.
 3. Each thread looks for someone free. If nobody is, a new crew member is hired and flown in by helicopter.
-4. A task starts when everything it depends on has landed and its crew member is free. It runs in its own worktree, branched from the thread's branch.
-5. When the crew member finishes, the runner lands their commit onto the thread's branch, one task at a time (rebase, then fast-forward). On a conflict the same crew member resolves it in their worktree.
+4. Every task is in one repo. Work that spans repos is a task per repo, ordered with `dependsOn` (the API first, then the UI that calls it). A task starts when everything it depends on has landed and its crew member is free. It runs on its repo's machine, in its own worktree, branched from the thread's branch in that repo (made from the repo's default branch when the first task there starts).
+5. When the crew member finishes, the runner lands their commit onto the thread's branch in their repo, one task at a time per repo (rebase, then fast-forward). On a conflict the same crew member resolves it in their worktree.
 6. Crew members call `sync_with_team` to pick up what teammates landed. The computer splits work by area, orders dependent tasks, and lands shared types or interfaces first.
-7. When everything has landed, the computer reviews and calls `finish_thread`: one branch, one pull request.
+7. When everything has landed, the computer reviews and calls `finish_thread`: one branch name, and one pull request in each repo with landed work.
 8. Questions (permissions, decisions) go to the captain: the crew member walks over, and the phone buzzes.
 
 Most threads get one crew member. The computer splits work only when it clearly splits.
@@ -66,7 +66,7 @@ Contracts first, then parallel streams that build against them.
 
 1. **Yacht demo.** Walk the yacht in first or third person; a simulated crew works, lounges, gets flown in, and comes to ask you things.
 2. **One real crew member.** Pair your machine; a thread with one task runs on your Claude Code or Codex; the yacht reacts.
-3. **The ship's computer.** Threads split across the crew, landing on one branch, one pull request.
+3. **The ship's computer.** Threads split across the crew and across repos, landing on one branch name, a pull request per repo.
 4. **Make it yours.** Characters, polish.
 
 Later: friends aboard, more worlds, agent-built worlds.

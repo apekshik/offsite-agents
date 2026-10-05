@@ -122,6 +122,20 @@ describe("the sim computer", () => {
     expect(new Set(plan.map((t) => t.key)).size).toBe(3);
   });
 
+  it("with several repos, plans a task per repo the ask names, the API first, and puts the rest in the named or first repo", () => {
+    const repos = ["web", "api"];
+    const plan = planFor("Add a health endpoint to the api, then show a status badge in web", new Set(), repos);
+    expect(plan.map((t) => [t.title, t.repo, t.dependsOn])).toEqual([
+      ["Add a health endpoint to the api", "api", []],
+      ["Show a status badge in web", "web", [plan[0]!.key]],
+    ]);
+    // The serving repo lands first even when the ask names it second.
+    expect(planFor("Show the status in web and add the endpoint to the api", new Set(), repos).map((t) => t.repo)).toEqual(["api", "web"]);
+    expect(planFor("Fix the flaky login test in api", new Set(), repos).map((t) => t.repo)).toEqual(["api"]);
+    expect(planFor("Add an invoices endpoint and a page that lists the invoices", new Set(), repos).map((t) => t.repo)).toEqual(["web", "web", "web"]);
+    expect(planFor("Fix the typo", new Set(), ["app"])[0]!.repo).toBeUndefined();
+  });
+
   it("plans through the real tools, then reviews and finishes once everything has landed", async () => {
     const calls: { name: string; args: Record<string, unknown> }[] = [];
     let tasks: { id: string; key: string; title: string; state: string; assignee: string | null }[] = [];

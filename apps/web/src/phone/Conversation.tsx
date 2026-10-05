@@ -78,8 +78,10 @@ export function QuestionCard({ q, context = true, findLink = true, wide = false,
 
 export function threadState(t: ThreadRow, computer: CrewRow | undefined): { label: string; tone: Tone; detail: string } {
   if (t.state === "done") {
+    const open = t.prs.filter((p) => p.url).length;
+    if (open > 1) return { label: "Done", tone: "green", detail: `${open} pull requests` };
     const pr = t.prUrl ? /\/pull\/(\d+)/.exec(t.prUrl)?.[1] : null;
-    return { label: "Done", tone: "green", detail: t.prUrl ? (pr ? `pull request #${pr}` : "pull request open") : "on its branch" };
+    return { label: "Done", tone: "green", detail: t.prUrl ? (pr ? `pull request #${pr}` : "pull request open") : t.prs.length > 1 ? "on its branches" : "on its branch" };
   }
   const thinking = computer?.live?.threadId === t._id;
   if (t.state === "working") {
@@ -170,6 +172,13 @@ const TASK_STATE: Record<string, { icon: string; label: string; tone: Tone }> = 
   cancelled: { icon: "–", label: "Stopped", tone: "dim" },
 };
 
+/** The repo a task is in, shown only when the ship has more than one. */
+export function RepoChip({ name }: { name: string | null | undefined }) {
+  const { office } = useShip();
+  if (!name || (office?.repos.length ?? 0) < 2) return null;
+  return <span className="chip repo-chip">{name}</span>;
+}
+
 function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
   const { byId } = useShip();
   const now = useNow(2000);
@@ -188,7 +197,7 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
       <div className="plan-grid">
         {rows.map(({ t, who, st }) => (
           <Card key={t._id} tone={st.tone === "dim" ? undefined : st.tone} quiet={st.tone === "dim"} className="plan-tile">
-            <span className={`lab t-${st.tone}`}>{st.label}</span>
+            <span className={`lab t-${st.tone}`}>{st.label}<RepoChip name={t.repo} /></span>
             <span className="pt-title">{t.title}</span>
             <span className="pt-who">{who ? <><Face avatar={who.avatar} look={who.look} size={22} />{who.name}</> : <span className="dim">Whoever is free</span>}</span>
           </Card>
@@ -202,7 +211,7 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
       {rows.map(({ t, who, st }) => (
         <div key={t._id} className="plan-row" title={t.brief}>
           <span className={`pr-icon t-${st.tone}`}>{st.icon}</span>
-          <span className="pr-title">{t.title}</span>
+          <span className="pr-title">{t.title}<RepoChip name={t.repo} /></span>
           {who ? <Face avatar={who.avatar} look={who.look} title={who.name} /> : null}
           <span className={`lab pr-state t-${st.tone}`}>{st.label}</span>
         </div>
@@ -290,7 +299,9 @@ export function ThreadView({ threadId, big }: { threadId: string; big?: boolean 
         <span className="th-meta">
           {t?.branch ? <span className="mono th-branch">{t.branch}</span> : null}
           {tasks.length ? <span>· {tasks.length} task{tasks.length === 1 ? "" : "s"} · {landed} landed</span> : null}
-          {t?.prUrl ? <a href={t.prUrl} target="_blank" rel="noreferrer">· pull request</a> : null}
+          {t && t.prs.filter((p) => p.url).length > 1
+            ? t.prs.filter((p) => p.url).map((p) => <a key={p.repo ?? p.url} href={p.url!} target="_blank" rel="noreferrer">· {p.repo ?? "pull request"} #{/\/pull\/(\d+)/.exec(p.url!)?.[1] ?? ""}</a>)
+            : t?.prUrl ? <a href={t.prUrl} target="_blank" rel="noreferrer">· pull request</a> : null}
         </span>
       </div>
       <div className="thread-body" ref={list}>

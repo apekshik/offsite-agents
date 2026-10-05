@@ -7,11 +7,11 @@ import { signIn, signInAvailable } from "../auth.ts";
 import { Game } from "../game/Game.tsx";
 import { Overlay } from "../overlay/Overlay.tsx";
 import { Button, Card, Chip, errorText, Face, Field, Input } from "../ui/index.tsx";
-import { CodeEntry, LoginSteps, MachineCard, ProjectForm } from "./setup.tsx";
+import { CodeEntry, HarnessField, LoginSteps, MachineCard, Repos } from "./setup.tsx";
 import "./screens.css";
 
-// The way aboard: sign in → make your ship → meet the crew → connect your machine → choose the
-// project → aboard (the game under the overlay). The machine steps can be skipped; the crew lounges
+// The way aboard: sign in → make your ship → meet the crew → connect your machine → your repos
+// → aboard (the game under the overlay). The machine steps can be skipped; the crew lounges
 // until a machine is connected. A ?connect=<code> link (from `offsite login`) approves that machine.
 
 const skipKey = (officeId: string) => `offsite:setup-skipped:${officeId}`;
@@ -33,7 +33,7 @@ function Shell({ step, children, wide }: { step?: 1 | 2 | 3; children: ReactNode
           <span className="disp wordmark">Offsite</span>
           {step ? (
             <span className="sc-steps">
-              {["Your ship", "Your machine", "The project"].map((s, i) => <span key={s} className={i + 1 === step ? "on" : i + 1 < step ? "done" : ""}>{s}</span>)}
+              {["Your ship", "Your machine", "Your repos"].map((s, i) => <span key={s} className={i + 1 === step ? "on" : i + 1 < step ? "done" : ""}>{s}</span>)}
             </span>
           ) : null}
         </div>
@@ -139,7 +139,7 @@ function Connect({ onNext, onSkip }: { onNext: () => void; onSkip: () => void })
       <CodeEntry />
       {machines?.length ? <div className="sc-machines">{machines.map((m) => <MachineCard key={m._id} m={m} />)}</div> : null}
       <div className="actions">
-        <Button kind="primary" size="lg" disabled={!machines?.length} onClick={onNext}>Next: choose the project</Button>
+        <Button kind="primary" size="lg" disabled={!machines?.length} onClick={onNext}>Next: your repos</Button>
         <Button kind="ghost" onClick={onSkip}>Skip for now and come aboard</Button>
       </div>
       <p className="dim sc-fine">Skipping is fine: the crew lounges on deck until a machine is connected. Connect one later from the phone's Ship tab.</p>
@@ -148,14 +148,20 @@ function Connect({ onNext, onSkip }: { onNext: () => void; onSkip: () => void })
 }
 
 function Project({ officeId, onDone, onSkip }: { officeId: string; onDone: () => void; onSkip: () => void }) {
+  const repos = useQuery(api.repos.list, { officeId: officeId as Id<"offices"> });
+  const some = !!repos?.length;
   return (
     <Shell step={3} wide>
       <div className="sc-hero">
-        <h1 className="disp">Choose the project</h1>
-        <p className="ink2">The folder on your machine the crew works on. Each task gets its own git worktree and branch; finished work lands on one branch per thread.</p>
+        <h1 className="disp">Your repos</h1>
+        <p className="ink2">The folders on your machines the crew works on: one, or several (say a web app and its API). The computer puts each task in the repo it changes; a thread's work lands on one branch name in each.</p>
       </div>
-      <ProjectForm officeId={officeId} onSaved={onDone} submitLabel="Save and come aboard" />
-      <div className="actions"><Button kind="ghost" onClick={onSkip}>Skip for now and come aboard</Button></div>
+      <Repos officeId={officeId} />
+      {some ? <HarnessField officeId={officeId} /> : null}
+      <div className="actions">
+        {some ? <Button kind="primary" size="lg" onClick={onDone}>Come aboard</Button> : null}
+        <Button kind="ghost" onClick={onSkip}>Skip for now and come aboard</Button>
+      </div>
     </Shell>
   );
 }
@@ -222,7 +228,7 @@ export function Gate() {
   if (stage === "connect" || (!skippedHere && stage === null && machines.length === 0)) {
     return <Connect onNext={() => setStage("project")} onSkip={skip} />;
   }
-  if (stage === "project" || (!skippedHere && stage === null && !office.repo)) {
+  if (stage === "project" || (!skippedHere && stage === null && !office.repoCount)) {
     return <Project officeId={id} onDone={() => setStage(null)} onSkip={skip} />;
   }
   return <Aboard key={id} officeId={id} />;

@@ -78,7 +78,7 @@ export function Toasts() {
       if (t.state !== "done") continue;
       const k = `done:${t._id}`;
       keys.add(k);
-      if (seen.current && !seen.current.has(k)) fresh.push({ id: k, tone: "green", title: t.prUrl ? "Pull request ready" : "Thread finished", body: t.title, threadId: t._id, ...(t.prUrl ? { href: t.prUrl } : {}), until: now + 15000 });
+      if (seen.current && !seen.current.has(k)) fresh.push({ id: k, tone: "green", title: t.prs.filter((p) => p.url).length > 1 ? "Pull requests ready" : t.prUrl ? "Pull request ready" : "Thread finished", body: t.title, threadId: t._id, ...(t.prUrl ? { href: t.prUrl } : {}), until: now + 15000 });
     }
     if (seen.current) for (const k of seen.current) keys.add(k);
     seen.current = keys;

@@ -5,6 +5,7 @@ import { LIMITS, Look, RunEvent, isLive, type RunState } from "@offsite/contract
 import { fail, requireMachine, requireOwnRun } from "./lib";
 import { crewOf, liveRunOf } from "./crewlib";
 import { closeStream, post, queueComputer, tick } from "./flow";
+import { computerMachine, ensureRepos, repoOfTask, reposOf } from "./repolib";
 
 // What `offsite` (packages/runner) calls. Every function takes the machine's token. See
 // docs/runner-api.md. Errors are ConvexErrors with a reason an agent can act on.
@@ -37,9 +38,15 @@ export const work = query({
     const offices = await ctx.db.query("offices").withIndex("by_owner", (q) => q.eq("ownerId", machine.ownerId)).collect();
     const queued: { runId: Id<"runs">; kind: Doc<"runs">["kind"]; crewId: Id<"crew">; createdAt: number }[] = [];
     for (const office of offices) {
-      const here = office.repo?.machineId === machine._id;
       const runs = await ctx.db.query("runs").withIndex("by_office_state", (q) => q.eq("officeId", office._id).eq("state", "queued")).collect();
-      for (const r of runs) if (here || r.kind === "look") queued.push({ runId: r._id, kind: r.kind, crewId: r.crewId, createdAt: r.createdAt });
+      if (!runs.length) continue;
+      const repos = await reposOf(ctx, office);
+      for (const r of runs) {
+        // A look runs anywhere; the computer where the first repo is; a task where its repo is.
+        const task = r.kind === "task" && r.taskId ? await ctx.db.get(r.taskId) : null;
+        const at = r.kind === "look" ? machine._id : r.kind === "computer" ? computerMachine(repos) : task ? repoOfTask(task, repos)?.machineId : null;
+        if (at === machine._id) queued.push({ runId: r._id, kind: r.kind, crewId: r.crewId, createdAt: r.createdAt });
+      }
     }
     const live = [];
     for (const state of LIVE_HERE) {
@@ -84,10 +91,11 @@ async function rosterText(ctx: QueryCtx, crew: Doc<"crew">[]): Promise<string> {
   return lines.join("\n") || "- nobody yet (assign with \"any\" and someone is hired)";
 }
 
-async function tasksText(ctx: QueryCtx, threadId: Id<"threads">, crew: Doc<"crew">[]): Promise<string> {
+async function tasksText(ctx: QueryCtx, threadId: Id<"threads">, crew: Doc<"crew">[], repos: Doc<"repos">[]): Promise<string> {
   const tasks = (await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", threadId)).collect()).sort((a, b) => a.createdAt - b.createdAt);
   const handle = (id: Id<"crew"> | null) => (id ? `@${crew.find((c) => c._id === id)?.handle ?? "?"}` : "unassigned");
-  return tasks.map((t) => `- [${t.state}] ${t.key}: ${t.title} (${handle(t.assignee)})${t.report ? `\n  report: ${t.report.slice(0, 600)}` : ""}`).join("\n") || "- none yet";
+  const where = (t: Doc<"tasks">) => (repos.length > 1 ? ` in ${repoOfTask(t, repos)?.name ?? "a removed repo"}` : "");
+  return tasks.map((t) => `- [${t.state}] ${t.key}: ${t.title}${where(t)} (${handle(t.assignee)})${t.report ? `\n  report: ${t.report.slice(0, 600)}` : ""}`).join("\n") || "- none yet";
 }
 
 /** Take a queued run. Null when it is gone or someone else took it. */
@@ -99,13 +107,20 @@ export const claim = mutation({
     if (!run || run.state !== "queued") return null;
     const office = await ctx.db.get(run.officeId);
     if (!office || office.ownerId !== machine.ownerId) fail("That run is not on one of your ships");
-    if (run.kind !== "look" && office!.repo?.machineId !== machine._id) fail("That ship's project is on another machine");
+    const repos = await ensureRepos(ctx, office!);
+    const task = run.taskId ? await ctx.db.get(run.taskId) : null;
+    // The run's repo: the task's, or for the computer the first (where it works).
+    const repo = run.kind === "task" ? (task ? repoOfTask(task, repos) : null) : repos[0] ?? null;
+    if (run.kind === "task" && !repo) fail("That task's repo was taken off the ship");
+    if (run.kind !== "look" && repo && repo.machineId !== machine._id) fail(`That ship's repo "${repo.name}" is on another machine`);
+    if (run.kind === "computer" && !repo) fail("That ship has no repo yet");
     const now = Date.now();
     await ctx.db.patch(runId, { state: "starting", machineId: machine._id, startedAt: now });
     const crewMember = (await ctx.db.get(run.crewId))!;
     const crew = await crewOf(ctx, run.officeId);
     const thread = run.threadId ? await ctx.db.get(run.threadId) : null;
-    const task = run.taskId ? await ctx.db.get(run.taskId) : null;
+    const machineNames = new Map<string, string>();
+    for (const r of repos) if (!machineNames.has(r.machineId)) machineNames.set(r.machineId, (await ctx.db.get(r.machineId))?.name ?? "another machine");
 
     // Resume the same harness session when this crew member worked this thread (or task) here before.
     let resumeCursor: unknown = null;
@@ -126,20 +141,24 @@ export const claim = mutation({
     if (run.kind === "computer" && thread) {
       context = [
         `Ship: ${office!.name}. Thread: "${thread.title}".`,
+        `Repos:\n${repos.map((r) => `- ${r.name}: ${r.path} (default branch ${r.defaultBranch})${r.machineId === machine._id ? "" : `, on ${machineNames.get(r.machineId)}: you can't read it from here, but you can plan tasks in it`}`).join("\n")}`,
         `Crew aboard:\n${await rosterText(ctx, crew)}`,
-        `Tasks in this thread:\n${await tasksText(ctx, thread._id, crew)}`,
+        `Tasks in this thread:\n${await tasksText(ctx, thread._id, crew, repos)}`,
         `The thread so far:\n${await renderTranscript(ctx, thread, crew)}`,
       ].join("\n\n");
     } else if (run.kind === "task" && thread && task) {
       const first = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).first();
       const tasks = await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).collect();
       const landed = tasks.filter((t) => t.state === "landed" && t._id !== task._id);
+      const many = repos.length > 1;
+      const inRepo = (t: Doc<"tasks">) => (many ? ` in ${repoOfTask(t, repos)?.name ?? "another repo"}` : "");
       context = [
         `Ship: ${office!.name}. Thread: "${thread.title}". The captain asked: ${first?.text.slice(0, 2000) ?? thread.title}`,
+        many ? `This ship has ${repos.length} repos (${repos.map((r) => r.name).join(", ")}). Your task is in ${repo!.name}; teammates may be changing the others at the same time.` : "",
         landed.length
-          ? `Teammates have already landed on the thread's branch:\n${landed.map((t) => `- "${t.title}" (${crew.find((c) => c._id === t.assignee)?.name ?? "someone"}): ${t.report?.slice(0, 500) ?? ""}`).join("\n")}`
+          ? `Teammates have already landed on the thread's branch:\n${landed.map((t) => `- "${t.title}"${inRepo(t)} (${crew.find((c) => c._id === t.assignee)?.name ?? "someone"}): ${t.report?.slice(0, 500) ?? ""}`).join("\n")}`
           : "Nothing has landed on the thread's branch yet.",
-      ].join("\n\n");
+      ].filter(Boolean).join("\n\n");
     }
 
     return {
@@ -147,9 +166,12 @@ export const claim = mutation({
       office: {
         id: office!._id,
         name: office!.name,
-        repoPath: office!.repo?.path ?? null,
-        defaultBranch: office!.repo?.defaultBranch ?? "main",
-        setupCommand: office!.setupCommand,
+        /** Every repo on the ship; `here` is whether it is on the claiming machine. */
+        repos: repos.map((r) => ({ id: r._id, name: r.name, path: r.path, defaultBranch: r.defaultBranch, setupCommand: r.setupCommand, here: r.machineId === machine._id })),
+        // The run's repo, for runners from before repos.
+        repoPath: repo?.path ?? null,
+        defaultBranch: repo?.defaultBranch ?? "main",
+        setupCommand: repo?.setupCommand ?? null,
       },
       crew: {
         id: crewMember._id,
@@ -170,6 +192,8 @@ export const claim = mutation({
         brief: task.brief,
         notes: task.notes,
         branch: task.branch,
+        /** The name of the repo it is in (office.repos). */
+        repo: repo?.name ?? null,
         dependsOn: await Promise.all(task.dependsOn.map(async (id) => {
           const d = await ctx.db.get(id);
           return { key: d?.key ?? "?", title: d?.title ?? "?", state: d?.state ?? "cancelled" };
@@ -307,11 +331,14 @@ async function endRun(ctx: MutationCtx, run: Doc<"runs">, outcome: "landed" | "f
   if (run.kind === "task" && run.taskId && thread && crew) {
     const task = (await ctx.db.get(run.taskId))!;
     const tasks = await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).collect();
+    const office = (await ctx.db.get(run.officeId))!;
+    const repos = await reposOf(ctx, office);
+    const where = repos.length > 1 ? ` in ${repoOfTask(task, repos)?.name ?? "its repo"}` : "";
     if (outcome === "landed") {
       await ctx.db.patch(task._id, { state: "landed", landedAt: now, report: report ?? task.report });
       await post(ctx, thread._id, { author: { kind: "crew", crewId: crew._id }, kind: "report", text: report?.trim() || "Done.", runId: run._id, taskId: task._id });
       const done = tasks.filter((t) => t.state === "landed" || t._id === task._id).length;
-      await queueComputer(ctx, thread, `@${crew.handle} landed "${task.title}" (${task.key}) on the thread's branch. ${done} of ${tasks.length} tasks have landed.\nTheir report: ${report?.trim() || "(none)"}`);
+      await queueComputer(ctx, thread, `@${crew.handle} landed "${task.title}" (${task.key}) on the thread's branch${where}. ${done} of ${tasks.length} tasks have landed.\nTheir report: ${report?.trim() || "(none)"}`);
     } else if (outcome === "failed") {
       await ctx.db.patch(task._id, { state: "failed", report: report ?? error });
       await post(ctx, thread._id, { author: { kind: "crew", crewId: crew._id }, kind: "report", text: `I couldn't finish "${task.title}". ${report?.trim() || error || ""}`.trim(), runId: run._id, taskId: task._id });

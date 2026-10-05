@@ -3,9 +3,9 @@ import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { ago, Button, Card, Dot, errorText, Field, Input, useNow } from "../ui/index.tsx";
+import { ago, Button, Card, Chip, ConfirmButton, Dot, errorText, Field, Input, useNow } from "../ui/index.tsx";
 
-// Connecting a machine and choosing the project: used by the first-run screens and the phone's Ship tab.
+// Connecting a machine and the ship's repos: used by the first-run screens and the phone's Ship tab.
 
 type Machine = FunctionReturnType<typeof api.machines.mine>[number];
 
@@ -131,73 +131,122 @@ export function CodeEntry({ initial = "", onApproved }: { initial?: string; onAp
   );
 }
 
-/** The project the crew works on: a folder on one of your machines, its default branch, a setup command. */
-export function ProjectForm({ officeId, onSaved, submitLabel = "Save" }: { officeId: string; onSaved?: () => void; submitLabel?: string }) {
-  const id = officeId as Id<"offices">;
-  const office = useQuery(api.offices.get, { officeId: id });
+type RepoRow = FunctionReturnType<typeof api.repos.list>[number];
+
+/** One repo: add it, or change it. A folder on one of your machines, its name on the ship, its default branch and setup command. */
+export function RepoForm({ officeId, repo, onDone, onCancel, submitLabel }: { officeId: string; repo?: RepoRow; onDone?: () => void; onCancel?: () => void; submitLabel?: string }) {
   const machines = useQuery(api.machines.mine);
-  const setRepo = useMutation(api.offices.setRepo);
-  const update = useMutation(api.offices.update);
-  const [machineId, setMachineId] = useState<string>("");
-  const [path, setPath] = useState("");
-  const [branch, setBranch] = useState("main");
-  const [setup, setSetup] = useState("");
-  const [harness, setHarness] = useState<"claude" | "codex" | "sim">("claude");
-  const [loaded, setLoaded] = useState(false);
+  const add = useMutation(api.repos.add);
+  const update = useMutation(api.repos.update);
+  const [machineId, setMachineId] = useState<string>(repo?.machineId ?? "");
+  const [path, setPath] = useState(repo?.path ?? "");
+  const [name, setName] = useState(repo?.name ?? "");
+  const [branch, setBranch] = useState(repo?.defaultBranch ?? "main");
+  const [setup, setSetup] = useState(repo?.setupCommand ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   useEffect(() => {
-    if (loaded || !office || !machines) return;
-    setLoaded(true);
-    setMachineId(office.repo?.machineId ?? machines.find((m) => m.online)?._id ?? machines[0]?._id ?? "");
-    setPath(office.repo?.path ?? "");
-    setBranch(office.repo?.defaultBranch ?? "main");
-    setSetup(office.setupCommand ?? "");
-    setHarness(office.defaultHarness);
-  }, [office, machines, loaded]);
-  if (!office || !machines) return <div className="dim">…</div>;
-  if (!machines.length) return <div className="dim">Connect a machine first: the project is a folder on it.</div>;
+    if (!machineId && machines?.length) setMachineId(machines.find((m) => m.online)?._id ?? machines[0]!._id);
+  }, [machines, machineId]);
+  if (!machines) return <div className="dim">…</div>;
+  if (!machines.length) return <div className="dim">Connect a machine first: a repo is a folder on it.</div>;
+  const folderName = path.trim().replace(/[\\/]+$/, "").split(/[\\/]/).at(-1)?.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") ?? "";
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    setSaved(false);
     try {
-      await setRepo({ officeId: id, machineId: machineId as Id<"machines">, path, defaultBranch: branch });
-      await update({ officeId: id, setupCommand: setup.trim() || null, defaultHarness: harness });
-      setSaved(true);
-      onSaved?.();
+      const fields = { machineId: machineId as Id<"machines">, path, defaultBranch: branch, setupCommand: setup.trim() || null };
+      if (repo?._id) await update({ repoId: repo._id, name: name.trim() || repo.name, ...fields });
+      else await add({ officeId: officeId as Id<"offices">, ...fields, ...(name.trim() ? { name: name.trim() } : {}) });
+      onDone?.();
     } catch (x) { setErr(errorText(x)); } finally { setBusy(false); }
   };
   return (
     <form className="project-form" onSubmit={(e) => void submit(e)}>
-      <Field label="Machine">
-        <select className="input" value={machineId} onChange={(e) => setMachineId(e.target.value)}>
-          {machines.map((m) => <option key={m._id} value={m._id}>{m.name}{m.online ? "" : " (offline)"}</option>)}
-        </select>
-      </Field>
-      <Field label="Project folder" hint="A git checkout on that machine. Each task gets its own worktree next to it.">
-        <Input className="mono" value={path} onChange={(e) => setPath(e.target.value)} placeholder="~/code/my-app" spellCheck={false} />
+      <div className="row2">
+        <Field label="Machine">
+          <select className="input" value={machineId} onChange={(e) => setMachineId(e.target.value)}>
+            {machines.map((m) => <option key={m._id} value={m._id}>{m.name}{m.online ? "" : " (offline)"}</option>)}
+          </select>
+        </Field>
+        <Field label="Name" hint="What the computer calls it.">
+          <Input className="mono" value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder={folderName || "web"} maxLength={32} spellCheck={false} />
+        </Field>
+      </div>
+      <Field label="Folder" hint="A git checkout on that machine. Each task gets its own worktree next to it.">
+        <Input className="mono" value={path} onChange={(e) => setPath(e.target.value)} placeholder="~/code/my-app" spellCheck={false} autoFocus={!repo} />
       </Field>
       <div className="row2">
         <Field label="Default branch"><Input className="mono" value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="main" spellCheck={false} /></Field>
-        <Field label="New crew run on">
-          <select className="input" value={harness} onChange={(e) => setHarness(e.target.value as typeof harness)}>
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-            <option value="sim">Sim crew (no spending)</option>
-          </select>
+        <Field label="Setup command" hint="Runs once in every new worktree.">
+          <Input className="mono" value={setup} onChange={(e) => setSetup(e.target.value)} placeholder="pnpm install" spellCheck={false} />
         </Field>
       </div>
-      <Field label="Setup command" hint="Runs once in every new worktree. Optional.">
-        <Input className="mono" value={setup} onChange={(e) => setSetup(e.target.value)} placeholder="pnpm install" spellCheck={false} />
-      </Field>
       {err ? <div className="error">{err}</div> : null}
       <div className="actions">
-        <Button kind="primary" type="submit" disabled={busy || !path.trim() || !machineId}>{busy ? "Saving…" : submitLabel}</Button>
-        {saved && !onSaved ? <span className="t-green lab">Saved</span> : null}
+        <Button kind="primary" type="submit" disabled={busy || !path.trim() || !machineId}>{busy ? "Saving…" : submitLabel ?? (repo ? "Save" : "Add repo")}</Button>
+        {onCancel ? <Button kind="ghost" onClick={onCancel}>Cancel</Button> : null}
       </div>
     </form>
+  );
+}
+
+/** A repo on the ship, compact: its name, folder, machine and branch, with edit and remove. */
+function RepoItem({ officeId, repo, first, many }: { officeId: string; repo: RepoRow; first: boolean; many: boolean }) {
+  const remove = useMutation(api.repos.remove);
+  const [editing, setEditing] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  if (editing) return <Card quiet className="repo editing"><RepoForm officeId={officeId} repo={repo} onDone={() => setEditing(false)} onCancel={() => setEditing(false)} /></Card>;
+  return (
+    <Card quiet className="repo">
+      <div className="repo-head">
+        <Chip>{repo.name}</Chip>
+        <span className="mono clip repo-path">{repo.path}</span>
+        {repo._id ? <Button kind="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button> : null}
+        {repo._id && many ? <ConfirmButton size="sm" confirm="Remove it?" onConfirm={() => void remove({ repoId: repo._id! }).catch((x) => setErr(errorText(x)))}>Remove</ConfirmButton> : null}
+      </div>
+      <div className="repo-facts dim">
+        <span>{repo.machine?.name ?? "A disconnected machine"}</span>
+        <span>· <span className="mono">{repo.defaultBranch}</span></span>
+        {repo.setupCommand ? <span className="clip">· <span className="mono">{repo.setupCommand}</span></span> : null}
+        {first && many ? <span>· the computer works here</span> : null}
+      </div>
+      {err ? <div className="error">{err}</div> : null}
+    </Card>
+  );
+}
+
+/** Which harness new hires run on. */
+export function HarnessField({ officeId }: { officeId: string }) {
+  const office = useQuery(api.offices.get, { officeId: officeId as Id<"offices"> });
+  const update = useMutation(api.offices.update);
+  if (!office) return null;
+  return (
+    <Field label="New crew run on">
+      <select className="input" value={office.defaultHarness} onChange={(e) => void update({ officeId: officeId as Id<"offices">, defaultHarness: e.target.value as "claude" | "codex" | "sim" })}>
+        <option value="claude">Claude Code</option>
+        <option value="codex">Codex</option>
+        <option value="sim">Sim crew (no spending)</option>
+      </select>
+    </Field>
+  );
+}
+
+/** The ship's repos: each one listed, edit and remove, and a form to add another (open at once when there are none). */
+export function Repos({ officeId }: { officeId: string }) {
+  const repos = useQuery(api.repos.list, { officeId: officeId as Id<"offices"> });
+  const [adding, setAdding] = useState(false);
+  if (!repos) return <div className="dim">…</div>;
+  const none = repos.length === 0;
+  return (
+    <div className="repos">
+      {repos.map((r, i) => <RepoItem key={r._id ?? r.path} officeId={officeId} repo={r} first={i === 0} many={repos.length > 1} />)}
+      {none || adding ? (
+        <Card quiet={!none} className="repo editing">
+          <RepoForm officeId={officeId} onDone={() => setAdding(false)} {...(none ? {} : { onCancel: () => setAdding(false) })} />
+        </Card>
+      ) : <div><Button kind="soft" size="sm" onClick={() => setAdding(true)}>+ Add another repo</Button></div>}
+    </div>
   );
 }

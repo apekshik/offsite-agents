@@ -1,8 +1,10 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { isLive, type RunState } from "@offsite/contracts";
+import type { Id } from "./_generated/dataModel";
 import { requireOffice } from "./lib";
 import { crewOf } from "./crewlib";
+import { repoOfTask, reposOf } from "./repolib";
 
 /**
  * Everything the yacht and the phone's crew tab need in one subscription: each crew member with
@@ -14,6 +16,11 @@ export const snapshot = query({
   handler: async (ctx, { officeId }) => {
     const { office } = await requireOffice(ctx, officeId);
     const crew = await crewOf(ctx, officeId);
+    const repos = await reposOf(ctx, office);
+    const repoOf = async (taskId: Id<"tasks"> | null) => {
+      const task = taskId ? await ctx.db.get(taskId) : null;
+      return task ? repoOfTask(task, repos)?.name ?? null : null;
+    };
     const open = await ctx.db.query("questions").withIndex("by_office_open", (q) => q.eq("officeId", officeId).eq("answeredAt", null)).collect();
     const titles = new Map<string, string>();
     const title = async (id: string | null, table: "threads" | "tasks") => {
@@ -35,6 +42,8 @@ export const snapshot = query({
           threadTitle: await title(live.threadId, "threads"),
           taskId: live.taskId,
           taskTitle: await title(live.taskId, "tasks"),
+          /** The repo their task is in. */
+          repo: await repoOf(live.taskId),
           step: live.step,
           startedAt: live.startedAt,
         },
@@ -44,7 +53,7 @@ export const snapshot = query({
       };
     }));
     return {
-      office: { _id: office._id, name: office.name, world: office.world, hasRepo: office.repo !== null },
+      office: { _id: office._id, name: office.name, world: office.world, hasRepo: repos.length > 0, repos: repos.map((r) => r.name) },
       crew: views,
       questions: open.sort((a, b) => a.createdAt - b.createdAt).map((q) => ({ ...q, crewName: crew.find((c) => c._id === q.crewId)?.name ?? "Someone" })),
     };

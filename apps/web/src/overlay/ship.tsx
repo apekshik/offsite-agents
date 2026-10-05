@@ -29,7 +29,7 @@ export interface Ship {
   computer: CrewRow | undefined;
   questions: QuestionRow[];
   byId: Map<string, CrewRow>;
-  /** The machine the project lives on, or the first one online. */
+  /** The machine the computer works on (the first repo's), or the first one online. */
   machine: MachineRow | undefined;
 }
 
@@ -45,7 +45,7 @@ export function ShipProvider({ officeId, children }: { officeId: string; childre
   const value = useMemo<Ship>(() => {
     const all = snap?.crew ?? [];
     const byId = new Map(all.map((c) => [c._id as string, c]));
-    const machine = machines?.find((m) => m._id === office?.repo?.machineId) ?? machines?.find((m) => m.online) ?? machines?.[0];
+    const machine = machines?.find((m) => m._id === office?.machine?._id) ?? machines?.find((m) => m.online) ?? machines?.[0];
     return {
       officeId: id, office, snap, threads, machines, me,
       crew: all.filter((c) => c.role === "crew"),

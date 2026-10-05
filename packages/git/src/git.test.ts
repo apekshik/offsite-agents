@@ -5,8 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
-  allocatePort, commitAll, conflictMarkers, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, finishThread, landTask,
-  prepareConflict, releasePort, runSetup, syncTask, taskBranchName, taskDiff, taskWorktreePath, threadBranchName, threadWorktreePath,
+  allocatePort, commitAll, commitsAhead, conflictMarkers, ensureComputerDir, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, finishThread,
+  landTask, prepareConflict, releasePort, runSetup, syncTask, taskBranchName, taskDiff, taskWorktreePath, threadBranchName, threadRepoWorktreePath,
+  threadViewRef, threadWorktreePath,
 } from "./index.ts";
 
 const run = promisify(execFile);
@@ -42,7 +43,7 @@ beforeEach(async () => {
 async function thread(keys: string[], id = `thread-${String(n).padStart(6, "0")}`) {
   const threadBranch = threadBranchName("Add dark mode to the settings page", id);
   await ensureThreadBranch(repo, threadBranch, "main");
-  const threadWt = (await ensureThreadWorktree(repo, threadWorktreePath("office1", id), threadBranch)).path;
+  const threadWt = (await ensureThreadWorktree(repo, threadRepoWorktreePath("office1", id, "app"), threadBranch)).path;
   const tasks: Record<string, { branch: string; wt: string }> = {};
   for (const key of keys) {
     const branch = taskBranchName(threadBranch, key);
@@ -59,7 +60,7 @@ describe("branches and worktrees", () => {
     expect(t.threadBranch).toBe("offsite/add-dark-mode-to-the-settings-page-xyz789");
     expect(t.tasks["theme"]!.branch).toBe("offsite/add-dark-mode-to-the-settings-page-xyz789-theme");
     expect(t.tasks["theme"]!.wt).toBe(join(root, "home", "worktrees", "office1", "xyz789", "theme"));
-    expect(t.threadWt).toBe(join(root, "home", "worktrees", "office1", "xyz789", "_thread"));
+    expect(t.threadWt).toBe(join(root, "home", "worktrees", "office1", "xyz789", "_thread", "app"));
     expect(await sh(t.tasks["theme"]!.wt, "rev-parse", "--abbrev-ref", "HEAD")).toBe(t.tasks["theme"]!.branch);
     // The computer's worktree is detached, so the branch is free to move.
     expect(await sh(t.threadWt, "rev-parse", "--abbrev-ref", "HEAD")).toBe("HEAD");
@@ -191,6 +192,59 @@ describe("finishing a thread", () => {
     const r = await finishThread({ repo, branch: t.threadBranch, base: "main", title: "T", body: "B" });
     expect(r).toMatchObject({ pushed: true, prUrl: null });
     expect(await sh(bare, "rev-parse", t.threadBranch)).toBe(await sh(repo, "rev-parse", t.threadBranch));
+  });
+});
+
+describe("a thread across two repos", () => {
+  it("keeps one branch name in each, side by side in the computer's folder, landing per repo", async () => {
+    const web = repo;
+    const api = join(root, `api${n}`);
+    await mkdir(api, { recursive: true });
+    await sh(api, "init", "-q");
+    await writeFile(join(api, "server.ts"), "export const routes = [];\n");
+    await sh(api, "add", "-A");
+    await sh(api, "commit", "-q", "-m", "api seed");
+    const id = "thread-two-repos";
+    const branch = threadBranchName("Health endpoint and badge", id);
+    // A computer folder from before repos was itself a worktree: it is moved aside.
+    const legacy = threadWorktreePath("office1", id);
+    await ensureThreadWorktree(web, legacy, "main");
+    const dir = await ensureComputerDir(legacy);
+    expect(dir).toBe(legacy);
+    await expect(stat(join(dir, ".git"))).rejects.toThrow();
+
+    // Before any task starts in a repo, the computer sees its default branch there.
+    expect(await threadViewRef(api, branch, "main")).toBe(await sh(api, "rev-parse", "main"));
+    const views: Record<string, string> = {};
+    for (const [name, r] of [["web", web], ["api", api]] as const) views[name] = (await ensureThreadWorktree(r, threadRepoWorktreePath("office1", id, name), await threadViewRef(r, branch, "main"))).path;
+    expect(views["api"]).toBe(join(dir, "api"));
+    expect(await readFile(join(dir, "api", "server.ts"), "utf8")).toContain("routes");
+    expect(await readFile(join(dir, "web", "app.ts"), "utf8")).toContain("a = 1");
+
+    // The API's task starts first: the thread branch is made in that repo only.
+    await ensureThreadBranch(api, branch, "main");
+    expect(await threadViewRef(web, branch, "main")).not.toBe(branch);
+    const apiTask = { branch: taskBranchName(branch, "health-api"), wt: (await ensureTaskWorktree(api, taskWorktreePath("office1", id, "health-api"), taskBranchName(branch, "health-api"), branch)).path };
+    await writeFile(join(apiTask.wt, "health.ts"), "export const health = () => 'ok';\n");
+    // Then the web's, on the same branch name in its own repo; both land at once.
+    await ensureThreadBranch(web, branch, "main");
+    const webTask = { branch: taskBranchName(branch, "health-ui"), wt: (await ensureTaskWorktree(web, taskWorktreePath("office1", id, "health-ui"), taskBranchName(branch, "health-ui"), branch)).path };
+    await writeFile(join(webTask.wt, "badge.ts"), "export const badge = 'ok';\n");
+    const [a, w] = await Promise.all([
+      landTask({ repo: api, threadBranch: branch, taskBranch: apiTask.branch, worktree: apiTask.wt, message: "Health endpoint", author: "Juniper", threadWorktree: views["api"] }),
+      landTask({ repo: web, threadBranch: branch, taskBranch: webTask.branch, worktree: webTask.wt, message: "Health badge", author: "Otis", threadWorktree: views["web"] }),
+    ]);
+    expect(a.ok && w.ok).toBe(true);
+    expect(await sh(api, "log", "--format=%s", branch)).toBe("Health endpoint\napi seed");
+    expect(await sh(web, "log", "--format=%s", branch)).toBe("Health badge\nseed");
+    // Each view follows its own repo's thread branch.
+    expect(await readFile(join(dir, "api", "health.ts"), "utf8")).toContain("ok");
+    expect(await readFile(join(dir, "web", "badge.ts"), "utf8")).toContain("ok");
+    expect(await commitsAhead(api, branch, "main")).toBe(1);
+    expect(await commitsAhead(web, "offsite/never-made", "main")).toBe(0);
+    // Review diffs stay within the task's repo.
+    expect((await taskDiff(api, branch, apiTask.branch)).stat.changed.map((c) => c.path)).toEqual(["health.ts"]);
+    expect((await taskDiff(web, branch, apiTask.branch)).landed).toBe(false);
   });
 });
 

@@ -6,12 +6,24 @@ import type { Id } from "../../../convex/_generated/dataModel.js";
 // What the runner needs from the ship's backend (docs/runner-api.md), as plain shapes. The Convex implementation is
 // below; tests use an in-memory one. Ids are plain strings here.
 
+/** One of the ship's repos. `here`: it is on this machine (the run can use it). */
+export interface RepoInfo { id: string | null; name: string; path: string; defaultBranch: string; setupCommand: string | null; here: boolean }
+
 export interface RunContext {
   run: { id: string; kind: RunKind; prompt: string };
-  office: { id: string; name: string; repoPath: string | null; defaultBranch: string; setupCommand: string | null };
+  office: {
+    id: string; name: string;
+    repos: RepoInfo[];
+    /** The run's repo (the task's, or the first for the computer), as runners before repos read it. */
+    repoPath: string | null; defaultBranch: string; setupCommand: string | null;
+  };
   crew: { id: string; name: string; handle: string; role: CrewRole; harness: Harness; model: string | null; effort: Effort; profile: string | null; specialty: string | null };
   thread: { id: string; title: string; branch: string | null } | null;
-  task: { id: string; key: string; title: string; brief: string; notes: string | null; branch: string | null; dependsOn: { key: string; title: string; state: string }[] } | null;
+  task: {
+    id: string; key: string; title: string; brief: string; notes: string | null; branch: string | null; dependsOn: { key: string; title: string; state: string }[];
+    /** The name of the repo it is in (office.repos). */
+    repo: string | null;
+  } | null;
   resumeCursor: unknown;
   context: string;
 }
@@ -28,7 +40,14 @@ export interface Work { machineId: string; queued: { runId: string; kind: RunKin
 export interface ReviewInfo {
   id: string; key: string; title: string; brief: string; state: string; branch: string | null; report: string | null;
   crew: { handle: string; name: string } | null; threadBranch: string | null;
+  repo: string | null;
 }
+
+/** What crew_status says, as far as the runner reads it. */
+export interface ShipStatus { tasks: { key: string; title: string; state: string; repo: string | null }[] }
+
+/** One pull request (or branch) per repo with work in a finished thread. */
+export interface ThreadPr { repo: string; url: string | null; branch: string }
 
 export type Outcome = "landed" | "failed" | "interrupted";
 
@@ -44,15 +63,15 @@ export interface Backend {
   finish(runId: string, outcome: Outcome, opts?: { error?: string; report?: string }): Promise<void>;
   lookResult(runId: string, look: Look): Promise<void>;
   tools: {
-    crewStatus(runId: string): Promise<unknown>;
-    planTasks(runId: string, tasks: { key: string; title: string; brief: string; dependsOn?: string[]; assignee?: string }[]): Promise<unknown>;
+    crewStatus(runId: string): Promise<ShipStatus>;
+    planTasks(runId: string, tasks: { key: string; title: string; brief: string; dependsOn?: string[]; assignee?: string; repo?: string }[]): Promise<unknown>;
     assignTask(runId: string, task: string, crew?: string): Promise<unknown>;
     hireCrew(runId: string, args: { name?: string; harness?: "claude" | "codex"; specialty?: string }): Promise<unknown>;
     messageCrew(runId: string, crew: string, text: string): Promise<unknown>;
     askCaptain(runId: string, question: string, options?: string[]): Promise<{ questionId: string; requestId: string }>;
     reviewTask(runId: string, task: string): Promise<ReviewInfo>;
     sendBack(runId: string, task: string, notes: string): Promise<unknown>;
-    finishThread(runId: string, title: string, summary: string, prUrl: string | null): Promise<void>;
+    finishThread(runId: string, title: string, summary: string, prs: ThreadPr[]): Promise<void>;
   };
   close(): Promise<void>;
 }
@@ -92,7 +111,7 @@ export function convexBackend(convexUrl: string, token: string): Backend {
     },
     lookResult: async (id, look) => { await client.mutation(api.runner.lookResult, { ...t, runId: runId(id), look }); },
     tools: {
-      crewStatus: (id) => client.query(api.tools.crewStatus, { ...t, runId: runId(id) }),
+      crewStatus: async (id) => (await client.query(api.tools.crewStatus, { ...t, runId: runId(id) })) as ShipStatus,
       planTasks: (id, tasks) => client.mutation(api.tools.planTasks, { ...t, runId: runId(id), tasks }),
       assignTask: (id, task, crew) => client.mutation(api.tools.assignTask, { ...t, runId: runId(id), task, ...(crew ? { crew } : {}) }),
       hireCrew: (id, args) => client.mutation(api.tools.hireCrew, { ...t, runId: runId(id), ...args }),
@@ -100,7 +119,7 @@ export function convexBackend(convexUrl: string, token: string): Backend {
       askCaptain: (id, question, options) => client.mutation(api.tools.askCaptain, { ...t, runId: runId(id), question, ...(options ? { options } : {}) }),
       reviewTask: async (id, task) => (await client.query(api.tools.reviewTask, { ...t, runId: runId(id), task })) as ReviewInfo,
       sendBack: (id, task, notes) => client.mutation(api.tools.sendBack, { ...t, runId: runId(id), task, notes }),
-      finishThread: async (id, title, summary, prUrl) => { await client.mutation(api.tools.finishThread, { ...t, runId: runId(id), title, summary, prUrl }); },
+      finishThread: async (id, title, summary, prs) => { await client.mutation(api.tools.finishThread, { ...t, runId: runId(id), title, summary, prs }); },
     },
     close: () => client.close(),
   };

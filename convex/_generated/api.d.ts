@@ -17,6 +17,8 @@ import type * as machines from "../machines.js";
 import type * as messages from "../messages.js";
 import type * as offices from "../offices.js";
 import type * as questions from "../questions.js";
+import type * as repolib from "../repolib.js";
+import type * as repos from "../repos.js";
 import type * as runner from "../runner.js";
 import type * as runs from "../runs.js";
 import type * as tasks from "../tasks.js";
@@ -41,6 +43,8 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   offices: typeof offices;
   questions: typeof questions;
+  repolib: typeof repolib;
+  repos: typeof repos;
   runner: typeof runner;
   runs: typeof runs;
   tasks: typeof tasks;

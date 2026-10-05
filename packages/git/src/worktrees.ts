@@ -19,10 +19,17 @@ export const threadBranchName = (title: string, threadId: string) => `offsite/${
 /** offsite/<thread-slug>-<id6>-<key>: one task's own branch (a sibling name, so both refs can exist). */
 export const taskBranchName = (threadBranch: string, key: string) => `${threadBranch}-${key}`;
 
-/** ~/.offsite/worktrees/<officeId>/<threadId6>: a thread's worktrees, one folder per task and _thread for the computer. */
+/**
+ * ~/.offsite/worktrees/<officeId>/<threadId6>: a thread's worktrees. One folder per task (keys are unique in a thread,
+ * whichever repo the task is in), and _thread for the computer: a folder holding a worktree of the thread's branch for
+ * each repo, side by side (_thread/web, _thread/api).
+ */
 export const threadDir = (officeId: string, threadId: string) => join(offsiteHome(), "worktrees", officeId, id6(threadId));
 export const taskWorktreePath = (officeId: string, threadId: string, key: string) => join(threadDir(officeId, threadId), key);
+/** The computer's working directory for a thread: one folder per repo inside. */
 export const threadWorktreePath = (officeId: string, threadId: string) => join(threadDir(officeId, threadId), "_thread");
+/** The computer's view of one repo's thread branch, inside its working directory. */
+export const threadRepoWorktreePath = (officeId: string, threadId: string, repoName: string) => join(threadWorktreePath(officeId, threadId), repoName);
 
 const exists = (p: string) => stat(p).then(() => true, () => false);
 
@@ -79,18 +86,43 @@ export async function checkedOutAt(repo: string, branch: string): Promise<string
 }
 
 /**
+ * The computer's working directory: a plain folder of per-repo worktrees. One left from before repos was itself a
+ * worktree; it is moved aside (git prunes its registration on the next `worktree add`).
+ */
+export async function ensureComputerDir(path: string): Promise<string> {
+  if (await exists(join(path, ".git"))) await rename(path, `${path}.moved-${Date.now()}`);
+  await mkdir(path, { recursive: true });
+  return path;
+}
+
+/**
+ * What the computer's worktree of a repo shows: the thread's branch once it exists there (a task in that repo made
+ * it), else the repo's default branch as it stands.
+ */
+export async function threadViewRef(repo: string, branch: string, defaultBranch: string): Promise<string> {
+  return (await revParse(`refs/heads/${branch}`, repo)) ? branch : resolveBase(repo, defaultBranch);
+}
+
+/** How many commits `branch` has that the default branch doesn't: 0 means nothing to push or open a pull request for. */
+export async function commitsAhead(repo: string, branch: string, defaultBranch: string): Promise<number> {
+  if (!(await revParse(`refs/heads/${branch}`, repo))) return 0;
+  const base = await resolveBase(repo, defaultBranch);
+  return Number(await git(["rev-list", "--count", `${base}..refs/heads/${branch}`], repo)) || 0;
+}
+
+/**
  * The computer's view of the thread: a worktree at the thread branch's tip, detached so the branch itself is free to
  * move when tasks land. Read-mostly: refreshing it discards anything written there.
  */
-export async function ensureThreadWorktree(repo: string, path: string, branch: string): Promise<{ path: string; created: boolean }> {
+export async function ensureThreadWorktree(repo: string, path: string, ref: string): Promise<{ path: string; created: boolean }> {
   if (await ownWorktree(repo, path)) {
-    await git(["checkout", "--detach", "--force", branch], path);
+    await git(["checkout", "--detach", "--force", ref], path);
     return { path, created: false };
   }
   await mkdir(dirname(path), { recursive: true });
   // A worktree folder deleted by hand stays registered and blocks `worktree add` until pruned.
   await git(["worktree", "prune"], repo);
-  await git(["worktree", "add", "--detach", path, branch], repo);
+  await git(["worktree", "add", "--detach", path, ref], repo);
   return { path, created: true };
 }
 

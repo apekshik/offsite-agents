@@ -21,7 +21,7 @@ const crewRef = z.string().min(1).describe("A crew member's handle, e.g. \"junip
 export const COMPUTER_TOOLS = {
   crew_status: tool({
     name: "crew_status",
-    description: "Everyone aboard: each crew member's handle, harness, what they are doing now, and every task in this thread with its state.",
+    description: "The ship's repos, everyone aboard (each crew member's handle, harness, what they are doing now and in which repo), and every task in this thread with its repo and state.",
     args: {},
   }),
   plan_tasks: tool({
@@ -29,7 +29,8 @@ export const COMPUTER_TOOLS = {
     description:
       "Split the captain's request into tasks. Give each a short key, a title, a self-contained brief (the crew member sees only the brief and the repo), and the keys of tasks it must wait for. " +
       "Prefer ONE task unless the work clearly splits into parts that touch different areas of the code. When parallel tasks share an interface, add a small first task that lands the shared types or API, and make the others depend on it. " +
-      "Set assignee to a crew handle, or \"any\" to give it to whoever is free (someone new is hired and flown in by helicopter when nobody is).",
+      "Set assignee to a crew handle, or \"any\" to give it to whoever is free (someone new is hired and flown in by helicopter when nobody is). " +
+      "Put each task in the repo it changes (repo: its name, from crew_status). Work that spans repos is a task per repo, ordered with dependsOn: the API first, then the UI that calls it.",
     args: {
       tasks: z.array(z.object({
         key: z.string().regex(/^[a-z0-9-]{1,32}$/),
@@ -37,6 +38,7 @@ export const COMPUTER_TOOLS = {
         brief: z.string().min(1).max(4000),
         dependsOn: z.array(z.string()).max(8).default([]),
         assignee: z.string().default("any"),
+        repo: z.string().max(32).optional().describe("The repo this task changes, by name. Required when the ship has more than one repo."),
       })).min(1).max(8),
     },
   }),
@@ -66,7 +68,7 @@ export const COMPUTER_TOOLS = {
   }),
   review_task: tool({
     name: "review_task",
-    description: "Read a finished task: the crew member's report, the files it changed, and its diff against the thread's branch.",
+    description: "Read a finished task: its repo, the crew member's report, the files it changed, and its diff against the thread's branch in that repo.",
     args: { task: taskRef },
   }),
   send_back: tool({
@@ -76,7 +78,7 @@ export const COMPUTER_TOOLS = {
   }),
   finish_thread: tool({
     name: "finish_thread",
-    description: "Every task has landed and the work is right: push the thread's branch and open one pull request (when the repo has a GitHub remote).",
+    description: "Every task has landed and the work is right: push the thread's branch in every repo with landed work, and open one pull request in each (where the repo has a GitHub remote). Title and summary go on every one.",
     args: { title: z.string().min(1).max(120), summary: z.string().min(1).max(4000) },
   }),
 } as const;

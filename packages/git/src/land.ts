@@ -7,7 +7,10 @@ import { checkedOutAt, refreshThreadWorktree } from "./worktrees.ts";
 // landed before it. A conflict is handed back (rebase aborted, nothing half-done) so the crew member who wrote the
 // work resolves it in their own worktree.
 
-/** One queue per thread branch in this process: landings and syncs on a thread never interleave. */
+/**
+ * One queue per key in this process. Keyed `<repo>#<thread branch>`: landings and syncs on a thread never interleave
+ * within a repo, while the same thread's work in another repo lands alongside.
+ */
 const queues = new Map<string, Promise<unknown>>();
 export function serialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const prev = queues.get(key) ?? Promise.resolve();
@@ -74,7 +77,7 @@ export const taskTrailer = (taskBranch: string) => `Offsite-Task: ${taskBranch}`
 
 /**
  * Land a task: squash its work since it last met the thread branch into one commit, rebase that onto the thread
- * branch's tip, and fast-forward the thread branch to it. Serialized per thread. On a conflict the rebase is aborted
+ * branch's tip, and fast-forward the thread branch to it. Serialized per thread and repo. On a conflict the rebase is aborted
  * and the files are returned; the task branch keeps its (squashed) work.
  */
 export function landTask(input: LandInput): Promise<LandResult> {

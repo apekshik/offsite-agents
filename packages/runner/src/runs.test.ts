@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -92,6 +92,62 @@ describe("a thread from request to pull request, on the sim crew", () => {
     const events = ship.eventLog.get(taskRun.id)!;
     expect(events).toContainEqual(expect.objectContaining({ type: "item.started", itemId: "setup", kind: "bash", summary: "echo ready > .setup-done" }));
     expect(events).toContainEqual(expect.objectContaining({ type: "item.completed", itemId: "setup", ok: true }));
+  }, 30_000);
+});
+
+describe("a ship with two repos", () => {
+  it("plans a task in each, lands each on the thread branch in its own repo, and finishes with one entry per repo", async () => {
+    const api = join(root, `api${n}`);
+    await mkdir(api, { recursive: true });
+    await sh(api, "init", "-q");
+    await writeFile(join(api, "README.md"), "# Invoices API\n");
+    await sh(api, "add", "-A");
+    await sh(api, "commit", "-q", "-m", "api seed");
+    const ship = new FakeShip([{ name: "web", path: repo }, { name: "api", path: api, setupCommand: "echo api > .setup-done" }]);
+    ship.autoAnswer = () => "allow";
+    const runner = start(ship);
+    const thread = ship.createThread("Add a health endpoint to the api, then show a status badge in web");
+    await settled(ship, () => thread.state === "done" && ended(ship));
+    await runner.stop(1000);
+
+    expect(ship.tasks.map((t) => [t.repo, t.state])).toEqual([["api", "landed"], ["web", "landed"]]);
+    expect(ship.tasks[1]!.dependsOn).toEqual([ship.tasks[0]!.id]);
+    // One branch name, made in each repo, one commit on each; the defaults untouched.
+    const branch = thread.branch!;
+    expect((await sh(api, "log", "--format=%s", branch)).split("\n")).toHaveLength(2);
+    expect((await sh(repo, "log", "--format=%s", branch)).split("\n")).toHaveLength(2);
+    expect(await sh(api, "log", "--format=%s", "main")).toBe("api seed");
+    expect(await sh(api, "show", `${branch}:crew-notes/${ship.tasks[0]!.key}.md`)).toContain("#");
+    expect(await sh(repo, "show", `${branch}:crew-notes/${ship.tasks[1]!.key}.md`)).toContain("#");
+    // Each task worked in its own repo, with that repo's setup command.
+    const runs = ship.runs.filter((r) => r.kind === "task");
+    expect(await realpath(await sh(runs[0]!.worktree!, "rev-parse", "--path-format=absolute", "--git-common-dir"))).toBe(await realpath(join(api, ".git")));
+    expect(await readFile(join(runs[0]!.worktree!, ".setup-done"), "utf8")).toBe("api\n");
+    await expect(readFile(join(runs[1]!.worktree!, ".setup-done"), "utf8")).rejects.toThrow();
+    // The computer worked from a folder holding both repos at the thread's branch.
+    const computer = ship.runs.find((r) => r.kind === "computer")!.worktree!;
+    expect(computer.endsWith("_thread")).toBe(true);
+    expect(await sh(join(computer, "api"), "rev-parse", "HEAD")).toBe(await sh(api, "rev-parse", branch));
+    expect(await sh(join(computer, "web"), "rev-parse", "HEAD")).toBe(await sh(repo, "rev-parse", branch));
+    // No remotes: each repo's work stays on its branch, one entry per repo.
+    expect(thread.prs).toEqual([{ repo: "web", url: null, branch }, { repo: "api", url: null, branch }]);
+    expect(ship.calls.filter((c) => c === "reviewTask")).toHaveLength(2);
+  }, 30_000);
+
+  it("refuses a plan without repos on a two-repo ship, with the names", async () => {
+    const ship = new FakeShip([{ name: "web", path: repo }, { name: "api", path: repo }]);
+    const errors: string[] = [];
+    const runner = start(ship, {
+      kind: "sim",
+      probe: async () => ({ harness: "sim", installed: true, version: null, auth: "authenticated", email: null, plan: null, models: [], message: null }),
+      start: async (input) => new SimSession(input, async (ctx) => {
+        try { await ctx.tool("plan_tasks", { tasks: [{ key: "x", title: "X", brief: "x" }] }); } catch (e) { errors.push((e as Error).message); }
+      }, { seed: 1, timeScale: 0 }),
+    });
+    ship.createThread("Do a thing");
+    await settled(ship, () => ended(ship) && ship.runs.length > 0);
+    await runner.stop(1000);
+    expect(errors.join(" ")).toMatch(/needs a repo: this ship has 2 \(web, api\)/);
   }, 30_000);
 });
 

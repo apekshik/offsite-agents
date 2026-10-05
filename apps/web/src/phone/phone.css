@@ -167,6 +167,15 @@
 .code-input { font-size: 20px !important; letter-spacing: 0.12em; max-width: 220px; }
 .code-found, .code-done { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .project-form { display: flex; flex-direction: column; gap: 12px; }
+.repos { display: flex; flex-direction: column; gap: 8px; }
+.repo { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.repo.editing { padding: 12px; }
+.repo-head { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 13px; }
+.repo-head .chip { font-size: 11px; }
+.repo-path { flex: 1; color: var(--ink-2); }
+.repo-facts { display: flex; gap: 5px; font-size: 12px; min-width: 0; }
+.sec-note { margin: -4px 0 0; font-size: 12px; }
+.repo-chip { margin-left: 6px; font-family: var(--mono); font-weight: 500; }
 
 /* off duty: the same calm sunset as their desk's monitor */
 .off-duty { position: relative; flex: 1; min-height: 160px; border-radius: var(--radius); overflow: hidden; background: linear-gradient(#081422 0 55%, #0b2238 55%); display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 22px 24px; }
