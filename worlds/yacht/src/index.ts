@@ -19,6 +19,7 @@ import { buildCanopy } from "./canopy.ts";
 import { buildSunDeck } from "./sundeck.ts";
 import { buildAft } from "./aft.ts";
 import { createHelicopters } from "./helicopter.ts";
+import { createWildlife, perchesFor } from "./wildlife.ts";
 
 export { WATERLINE } from "./dims.ts";
 export { planFlights, helicopterModel } from "./helicopter.ts";
@@ -90,6 +91,9 @@ export async function buildYacht(ctx: WorldContext, { hour = GOLDEN_HOUR }: Yach
   root.add(helicopters.root);
 
   const layout = ship.plan.finish();
+  // Gulls and dolphins; the gulls perch only where nobody sits or stands.
+  const wildlife = createWildlife(ocean, perchesFor(props, layout.slots));
+  root.add(wildlife.root);
   // For fishing lines and swimmers: where the sea's surface is (it swells about ±0.6 m).
   root.userData.waterY = 0;
   const colliders = [ship.col.mesh()];
@@ -121,6 +125,7 @@ export async function buildYacht(ctx: WorldContext, { hour = GOLDEN_HOUR }: Yach
       if (jump) lastHour = st.hour;
       if (probe.texture) scene.environment = probe.texture;
       helicopters.update(dt, now);
+      wildlife.update(now, t);
       for (const fn of ship.tick) fn(dt, t, now);
     },
     dispose() {
@@ -134,6 +139,7 @@ export async function buildYacht(ctx: WorldContext, { hour = GOLDEN_HOUR }: Yach
       });
       for (const m of Object.values(materials)) m.dispose();
       helicopters.dispose();
+      wildlife.dispose();
       ocean.dispose();
       spray.dispose();
       sky.dispose();
