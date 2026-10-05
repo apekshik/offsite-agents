@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offsite · cast</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #9cc8e4; font-family: "Saira", sans-serif; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #hud { position: fixed; left: 16px; bottom: 14px; color: #eef3f7; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
+      background: rgba(4, 7, 11, 0.6); padding: 8px 12px; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="hud"></div>
+  <script type="module" src="./cast.ts"></script>
+</body>
+</html>

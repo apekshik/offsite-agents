@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offsite · walk</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #9cc8e4; font-family: "Saira", sans-serif; color: #eef3f7; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .glass { background: rgba(4, 7, 11, 0.72); padding: 8px 14px; letter-spacing: 0.06em; }
+    #help { position: fixed; left: 16px; bottom: 14px; font-size: 12px; text-transform: uppercase; pointer-events: none; }
+    #prompt { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); font-size: 16px; display: none; pointer-events: none; }
+    #prompt b { display: inline-block; border: 1px solid #4fe3ff; color: #4fe3ff; padding: 0 7px; margin-right: 10px; }
+    #status { position: fixed; right: 16px; top: 14px; font-size: 12px; text-transform: uppercase; pointer-events: none; }
+    #cross { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(238,243,247,0.8); display: none; pointer-events: none; }
+    #helm { position: fixed; inset: 18% 22%; display: none; flex-direction: column; gap: 12px; padding: 22px; border: 1px solid rgba(79,227,255,0.5); }
+    #helm input { font: inherit; background: rgba(238,243,247,0.08); color: inherit; border: 1px solid rgba(238,243,247,0.2); padding: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="cross"></div>
+  <div id="prompt" class="glass"><b>E</b><span></span></div>
+  <div id="status" class="glass"></div>
+  <div id="help" class="glass">WASD walk · Shift jog · Space jump · E use · V view · wheel zoom · F phone · click crew</div>
+  <div id="helm" class="glass"><div>HELM CONSOLE (a stand-in for the interface) · Esc closes</div><input placeholder="Type here: the captain doesn't move"></div>
+  <script type="module" src="./walk.ts"></script>
+</body>
+</html>
