@@ -38,6 +38,12 @@ export interface BuiltWorld {
    * again; it decides nothing else. Called whenever the crew list changes.
    */
   setArrivals(touchdowns: number[]): void;
+  /**
+   * Optional: how busy the ship is, 0 (everyone off duty) to 1 (the whole crew working). The world
+   * eases toward it over a couple of seconds and shows it however it likes (the yacht: office and
+   * bridge lights, the server room's core, the radar, the wake). Call it whenever it changes.
+   */
+  setBusy?(level: number): void;
   /** Called every frame. now is ms since epoch (server-aligned), dt is seconds. */
   update(dt: number, now: number): void;
   dispose(): void;

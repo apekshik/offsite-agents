@@ -3,7 +3,7 @@
 // has a thickness and a capped edge.
 
 import * as THREE from "three";
-import { D1, D2, KEEL, PLATFORM, TRANSOM, BOW, halfBeam, hullTop, stemY } from "./dims.ts";
+import { D1, D2, KEEL, PLATFORM, STERN_DOOR, TRANSOM, BOW, halfBeam, hullTop, stemY } from "./dims.ts";
 import type { MatKey } from "./mats.ts";
 import type { Pile } from "./kit.ts";
 
@@ -52,7 +52,13 @@ function transom(): THREE.BufferGeometry {
     const y = KEEL + ((top - KEEL) * j) / n;
     pts.push(new THREE.Vector2(-halfBeam(TRANSOM, y), y));
   }
-  const g = new THREE.ShapeGeometry(new THREE.Shape(pts)).translate(0, 0, TRANSOM);
+  const shape = new THREE.Shape(pts);
+  // The beach club's doorways, either side of the well.
+  for (const sx of [1, -1]) {
+    const { x0, x1, top } = STERN_DOOR;
+    shape.holes.push(new THREE.Path([new THREE.Vector2(sx * x0, PLATFORM.y), new THREE.Vector2(sx * x1, PLATFORM.y), new THREE.Vector2(sx * x1, top), new THREE.Vector2(sx * x0, top)]));
+  }
+  const g = new THREE.ShapeGeometry(shape).translate(0, 0, TRANSOM);
   g.deleteAttribute("uv");
   return g;
 }
@@ -90,7 +96,8 @@ function coaming(pile: Pile<MatKey>) {
   const top = hullTop(TRANSOM);
   for (const sx of [1, -1]) {
     const w = halfBeam(TRANSOM, top);
-    pile.box("white", sx * WELL, top - 0.05, TRANSOM - 0.2, sx * w, top + 0.02, TRANSOM);
+    // Standing a hair proud of the transom: sharing its plane would z-fight along the top edge.
+    pile.box("white", sx * WELL, top - 0.05, TRANSOM - 0.2, sx * w, top + 0.02, TRANSOM + 0.012);
   }
 }
 

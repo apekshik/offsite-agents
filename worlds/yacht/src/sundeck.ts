@@ -135,6 +135,7 @@ export function buildSunDeck(s: Ship) {
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
     pile.cyl("lamp", BAR.x + Math.cos(a) * 2.6, D3 + 2.83, BAR.z + Math.sin(a) * 2.6, 0.08, 0.02, 8);
+    s.lights.push({ x: BAR.x + Math.cos(a) * 2.6, y: D3 + 2.83, z: BAR.z + Math.sin(a) * 2.6, r: 1.3 });
   }
   for (let i = 0; i < 9; i++) {
     const a = ((118 + (i * 212) / 8) / 180) * Math.PI;

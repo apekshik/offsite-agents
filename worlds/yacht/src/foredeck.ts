@@ -101,9 +101,12 @@ export function buildForedeck(s: Ship) {
   pad.receiveShadow = true;
   pad.name = "helipad";
   s.extra.push(pad);
+  // Its perimeter lights: green, on at night and whenever the ship is busy (mats.ts padLight).
   for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    pile.cyl("lamp", PAD.x + Math.cos(a) * (PAD.r + 0.25), D2, PAD.z + Math.sin(a) * (PAD.r + 0.25), 0.07, 0.06, 8);
+    const a = (i / 16) * Math.PI * 2, x = PAD.x + Math.cos(a) * (PAD.r + 0.25), z = PAD.z + Math.sin(a) * (PAD.r + 0.25);
+    pile.cyl("dark", x, D2, z, 0.1, 0.03, 10);
+    pile.cyl("padLight", x, D2 + 0.03, z, 0.07, 0.07, 10, 0.05);
+    s.halos.push({ x, y: D2 + 0.12, z, color: "#46ff86", size: 0.55, mode: "pad" });
   }
 
   // Rails: chrome round the bow (with bunting), glass where the deck runs out over the promenade.

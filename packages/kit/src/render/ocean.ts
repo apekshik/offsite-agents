@@ -42,7 +42,28 @@ export interface Ocean {
   material: THREE.ShaderMaterial;
   /** A plain stand-in for the sea, for environment probes (sky reflections on the hull). */
   makeEnvMesh(): THREE.Mesh;
+  /** The ship's speed through the water now (m/s). */
   speed: number;
+  /**
+   * Changes the ship's speed (m/s): the wake, the bow wave and the foam grow and shrink with it.
+   * The sea keeps scrolling from where it is (see advance), so a change never jumps.
+   */
+  setSpeed(v: number): void;
+  /** Moves the sea past the ship by dt seconds at the current speed. Call once a frame. */
+  advance(dt: number): void;
+  /**
+   * Where the sea is relative to the ship: a small turn and lift (the ship's own pitch, roll and
+   * heave on the swell, applied to the sea the other way round), so whoever rides the ship sees
+   * the horizon and the waterline move while the decks stay put under their feet.
+   */
+  setFrame(m: THREE.Matrix4): void;
+  /**
+   * Something blasting the water from above (a helicopter's downwash) at (x, z): rings of
+   * ripples and spray, `strength` 0..1, `radius` metres. strength 0 turns it off.
+   */
+  setDownwash(x: number, z: number, strength: number, radius?: number): void;
+  /** Lights under the waterline along the hull, glowing in the water at night (black: none). */
+  setHullGlow(color: THREE.ColorRepresentation): void;
   /** Swell height (m) at a point in the ship's frame at time t (seconds), for floating things. */
   heightAt(x: number, z: number, t: number): number;
   dispose(): void;
@@ -78,7 +99,7 @@ export const SKY_GLSL = /* glsl */ `
 
 const COMMON = /* glsl */ `
   #define HN ${HN}
-  uniform float uTime, uSpeed;
+  uniform float uTime, uSpeed, uTravel;
   uniform vec4 uWaves[6];
   uniform vec2 uHull[HN];
   uniform vec3 uHullZ; // bow, stern, how much the ship's speed makes waves (0..1.5)
@@ -100,6 +121,7 @@ const COMMON = /* glsl */ `
 const VERT = /* glsl */ `
   ${COMMON}
   uniform sampler2D uNoise;
+  uniform mat4 uSea;
   varying vec3 vWorld, vN;
   varying float vCrest;
   varying vec4 vWake; // hull distance, metres aft of the bow, metres aft of the stern, churn
@@ -127,7 +149,7 @@ const VERT = /* glsl */ `
   void main() {
     vec4 w0 = modelMatrix * vec4(position, 1.0);
     vec2 p = w0.xz;
-    vec2 e = p - vec2(0.0, uSpeed * uTime); // the sea's frame: the ship moves to -z through it
+    vec2 e = p - vec2(0.0, uTravel); // the sea's frame: the ship moves to -z through it
     float dist = length(p - cameraPosition.xz);
     float dh = hullDist(p);
     // Close in the hull's own lee: and the water mustn't come up through the decks.
@@ -167,11 +189,11 @@ const VERT = /* glsl */ `
       B.y += (hz - h0) / ep * att;
       crest += h0 * 1.4;
     }
-    vN = normalize(cross(B, T));
+    vN = normalize(mat3(uSea) * cross(B, T));
     vCrest = crest;
-    vWorld = g;
+    vWorld = (uSea * vec4(g, 1.0)).xyz;
     vWake = vec4(dh, a, s, churn);
-    gl_Position = projectionMatrix * viewMatrix * vec4(g, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * vec4(vWorld, 1.0);
   }`;
 
 const FRAG = /* glsl */ `
@@ -179,7 +201,9 @@ const FRAG = /* glsl */ `
   ${SKY_GLSL}
   ${FOAM_GLSL}
   uniform vec3 uSun, uTint, uFog, uDeep, uScatter, uAerated, uHullColor;
-  uniform float uFogNear, uFogFar;
+  uniform float uFogNear, uFogFar, uNight;
+  uniform vec4 uWash;
+  uniform vec3 uHullGlow;
   varying vec3 vWorld, vN;
   varying float vCrest;
   varying vec4 vWake;
@@ -189,7 +213,7 @@ const FRAG = /* glsl */ `
     float dist = length(toCam);
     vec3 V = toCam / dist;
     vec2 p = vWorld.xz;
-    vec2 e = p - vec2(0.0, uSpeed * uTime);
+    vec2 e = p - vec2(0.0, uTravel);
     float dh = vWake.x, a = vWake.y, s = vWake.z;
     vec3 L = normalize(uSunDir);
 
@@ -201,6 +225,15 @@ const FRAG = /* glsl */ `
     slope += (tn(e * 0.0047 + vec2(0.31, uTime * 0.002)).rg - 0.5) * 2.2 * smoothstep(80.0, 600.0, dist);
     if (dist < 90.0) slope += (tn(e * 0.27 + uTime * vec2(-0.05, 0.04)).rg - 0.5) * 0.7 * (1.0 - dist / 90.0);
     slope *= rf;
+    // A downwash: rings running out from under it, the water flattened and torn up into spray.
+    float wash = 0.0;
+    if (uWash.z > 0.001) {
+      vec2 wd = p - uWash.xy;
+      float wr = length(wd), wk = smoothstep(uWash.w, uWash.w * 0.15, wr) * uWash.z;
+      float rings = sin(wr * 1.7 - uTime * 11.0) * 0.5 + 0.5;
+      slope += (wd / max(wr, 0.5)) * (rings - 0.5) * 1.6 * wk;
+      wash = wk * (0.35 + 0.65 * rings) * smoothstep(0.0, 2.5, wr);
+    }
     vec3 n = normalize(vN + vec3(slope.x, 0.0, slope.y));
     float NV = max(dot(n, V), 0.0);
     float fres = 0.02 + 0.98 * pow(1.0 - NV, 5.0);
@@ -228,10 +261,11 @@ const FRAG = /* glsl */ `
 
     // Sunlight on the swell: a tight glint up close, widening to a glitter path far away.
     vec3 H = normalize(V + L);
-    float shin = mix(2600.0, 320.0, smoothstep(20.0, 1600.0, dist));
+    // By night the moon's glitter spreads into a broad path across the swell toward it.
+    float shin = mix(2600.0, 320.0, smoothstep(20.0, 1600.0, dist)) * mix(1.0, 0.22, uNight);
     float NH = max(dot(n, H), 0.0);
     float fs = 0.02 + 0.98 * pow(1.0 - max(dot(H, V), 0.0), 5.0);
-    vec3 spec = uSun * fs * pow(NH, shin) * min(shin * 0.012, 14.0) * step(0.0, L.y + 0.05);
+    vec3 spec = uSun * fs * pow(NH, shin) * min(shin * 0.012, 14.0) * step(0.0, L.y + 0.05) * (1.0 + 5.0 * uNight);
 
     // The water itself: deep blue, lighter where light comes through a crest toward you, and
     // turquoise where the wake has stirred bubbles into it.
@@ -248,6 +282,11 @@ const FRAG = /* glsl */ `
     float aeration = clamp(churn * 0.9 + hullFoam * 0.5 + moustache * 0.6 + arms * 0.3, 0.0, 1.0) * uHullZ.z;
     body = mix(body, uAerated, aeration * 0.7);
     body *= uTint;
+    // Underwater lights along the hull, after dark: a glow in the water close alongside.
+    if (uNight > 0.01 && dh > -1.0 && dh < 14.0 && p.y > uHullZ.x + 25.0) {
+      float g = exp(-max(dh, 0.0) / 3.2) * smoothstep(uHullZ.x + 25.0, uHullZ.x + 45.0, p.y) * smoothstep(uHullZ.y + 12.0, uHullZ.y - 4.0, p.y);
+      body += uHullGlow * g * uNight * (0.75 + 0.25 * sin(p.y * 0.9 + uTime * 0.7));
+    }
 
     vec3 col = body * (1.0 - fres) + refl * fres + spec;
 
@@ -255,7 +294,7 @@ const FRAG = /* glsl */ `
     // the white water behind the transom, faint streaks along the Kelvin arms.
     float caps = 0.0; // a slight sea: no whitecaps
     float wake = max(max(hullFoam * 0.9, moustache * 0.95), max(churn * (0.42 + 0.33 * exp(-max(s, 0.0) / 30.0)), arms)) * uHullZ.z;
-    float amount = clamp(max(caps, wake), 0.0, 1.0);
+    float amount = clamp(max(max(caps, wake), wash * 0.8), 0.0, 1.0);
     vec2 fp = e + vec2(0.0, -uTime * 0.6 * churn); // the white water tumbles a little faster than the sea
     float foam = foamMask(fp, amount, 1.0 - smoothstep(30.0, 70.0, dist));
     foam = mix(foam, amount * 0.6, smoothstep(150.0, 600.0, dist)); // far away, just its average
@@ -322,7 +361,11 @@ export function createOcean({ quality = "high", speed = 7.5, hull, reach = 4000,
   const material = new THREE.ShaderMaterial({
     fog: false,
     uniforms: {
-      uTime: LIGHT.uTime,
+      uTime: LIGHT.uTime, uNight: LIGHT.uNight,
+      uTravel: { value: 0 },
+      uSea: { value: new THREE.Matrix4() },
+      uWash: { value: new THREE.Vector4(0, 0, 0, 14) },
+      uHullGlow: { value: new THREE.Color(0, 0, 0) },
       uSkyTop: LIGHT.uSkyTop, uSkyHorizon: LIGHT.uSkyHorizon, uSkyGlow: LIGHT.uSkyGlow, uSkyGlowAmt: LIGHT.uSkyGlowAmt, uSkyBelow: LIGHT.uSkyBelow,
       uSun: LIGHT.uSun, uSunDir: LIGHT.uSunDir, uFog: LIGHT.uFog, uFogNear: LIGHT.uFogNear, uFogFar: LIGHT.uFogFar, uTint: LIGHT.uTint,
       uNoise: { value: waterNoise() },
@@ -369,10 +412,33 @@ export function createOcean({ quality = "high", speed = 7.5, hull, reach = 4000,
   }
 
   const k = (len: number) => (2 * Math.PI) / len;
-  return {
+  const U = material.uniforms;
+  // How far the sea has moved past the ship, and the world time it was worked out at.
+  let travel = 0, travelT = 0, clock = 0;
+  const ocean: Ocean = {
     mesh,
     material,
     speed,
+    setSpeed(v) {
+      ocean.speed = v;
+      U.uSpeed!.value = v;
+      if (hull) (U.uHullZ!.value as THREE.Vector3).z = THREE.MathUtils.clamp(v / 7.5, 0, 1.6);
+    },
+    advance(dt) {
+      clock += dt;
+      travel += ocean.speed * dt;
+      travelT = clock;
+      U.uTravel!.value = travel;
+    },
+    setFrame(m) {
+      (U.uSea!.value as THREE.Matrix4).copy(m);
+    },
+    setHullGlow(color) {
+      (U.uHullGlow!.value as THREE.Color).set(color);
+    },
+    setDownwash(x, z, strength, radius = 14) {
+      (U.uWash!.value as THREE.Vector4).set(x, z, Math.max(0, strength), radius);
+    },
     makeEnvMesh() {
       const m = new THREE.ShaderMaterial({
         fog: false,
@@ -396,7 +462,7 @@ export function createOcean({ quality = "high", speed = 7.5, hull, reach = 4000,
       return disc;
     },
     heightAt(x, z, t) {
-      const ez = z - speed * t;
+      const ez = z - (travel + (t - travelT) * ocean.speed);
       let y = 0;
       for (const w of waves) {
         const kk = k(w.w), c = Math.sqrt(9.8 / kk);
@@ -409,4 +475,5 @@ export function createOcean({ quality = "high", speed = 7.5, hull, reach = 4000,
       material.dispose();
     },
   };
+  return ocean;
 }

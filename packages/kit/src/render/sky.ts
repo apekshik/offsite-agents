@@ -48,8 +48,9 @@ interface Key {
   cloudLit: string; cloudShade: string; stars: number; env: number;
 }
 const KEYS: Key[] = [
-  { e: -0.32, top: "#03081a", horizon: "#0d1830", fog: "#0b1426", glow: "#14203c", glowAmt: 0.0, light: "#ffffff", lightI: 0, hemiSky: "#5c74ad", hemiGround: "#1c2433", hemiI: 0.62, cloudLit: "#1d2742", cloudShade: "#060a14", stars: 1, env: 0.16 },
-  { e: -0.16, top: "#0b1838", horizon: "#2b3a66", fog: "#26345a", glow: "#3a3a70", glowAmt: 0.35, light: "#ffffff", lightI: 0, hemiSky: "#6f84bf", hemiGround: "#262a38", hemiI: 0.66, cloudLit: "#3c3e66", cloudShade: "#11152c", stars: 0.75, env: 0.22 },
+  // Night: a deep blue moonlit sky, not black, so a ship (and its white hull) still reads on film.
+  { e: -0.32, top: "#04102c", horizon: "#16284e", fog: "#122142", glow: "#1c2c52", glowAmt: 0.0, light: "#ffffff", lightI: 0, hemiSky: "#6c86c4", hemiGround: "#202a3c", hemiI: 0.8, cloudLit: "#26365c", cloudShade: "#070c18", stars: 1, env: 0.3 },
+  { e: -0.16, top: "#0c1c44", horizon: "#2f4276", fog: "#2a3a64", glow: "#3e3e78", glowAmt: 0.35, light: "#ffffff", lightI: 0, hemiSky: "#7488c6", hemiGround: "#262a38", hemiI: 0.74, cloudLit: "#40446e", cloudShade: "#11152c", stars: 0.8, env: 0.3 },
   { e: -0.05, top: "#1e3370", horizon: "#b06c84", fog: "#6e6488", glow: "#ff7a52", glowAmt: 0.7, light: "#ff9a5a", lightI: 0, hemiSky: "#9a94c8", hemiGround: "#3c3a48", hemiI: 0.74, cloudLit: "#e07e82", cloudShade: "#3a3560", stars: 0.15, env: 0.32 },
   { e: 0.03, top: "#3360a6", horizon: "#ff9c55", fog: "#e0a888", glow: "#ff6a1f", glowAmt: 1.0, light: "#ff8c3c", lightI: 1.7, hemiSky: "#c4b6d6", hemiGround: "#5d6070", hemiI: 0.86, cloudLit: "#ffae6a", cloudShade: "#6c5674", stars: 0, env: 0.45 },
   { e: 0.13, top: "#3471c4", horizon: "#f8c487", fog: "#ead2b6", glow: "#ffa860", glowAmt: 0.75, light: "#ffc77e", lightI: 2.7, hemiSky: "#d0def2", hemiGround: "#6f7c8a", hemiI: 1.0, cloudLit: "#fff0da", cloudShade: "#8f90a6", stars: 0, env: 0.6 },
@@ -193,7 +194,7 @@ const FRAG = /* glsl */ `
         if (r > (l == 0 ? 0.91 : 0.975)) {
           vec3 at = vec3(hash13(c + 1.7), hash13(c + 4.1), hash13(c + 9.3)) * 0.7 + 0.15;
           float tw = 0.65 + 0.35 * sin(uTime * (1.5 + r * 4.0) + r * 80.0);
-          s += smoothstep(l == 0 ? 0.13 : 0.1, 0.0, length(f - at)) * (l == 0 ? 1.6 : 3.0) * tw;
+          s += smoothstep(l == 0 ? 0.15 : 0.12, 0.0, length(f - at)) * (l == 0 ? 2.4 : 4.5) * tw;
         }
       }
       col += vec3(0.85, 0.9, 1.0) * s * uStars * smoothstep(0.0, 0.3, h);
@@ -208,7 +209,7 @@ const FRAG = /* glsl */ `
       float maria = n3(rel * 0.9 + 40.0) * 0.6 + n3(rel * 2.3 + 9.0) * 0.4;
       float disc = smoothstep(0.99958, 0.99972, mm);
       col = mix(col, uMoonCol * (1.15 - maria * 0.45), disc * uMoonAmt);
-      col += uMoonCol * uMoonAmt * (pow(max(mm, 0.0), 900.0) * 0.25 + pow(max(mm, 0.0), 40.0) * 0.06);
+      col += uMoonCol * uMoonAmt * (pow(max(mm, 0.0), 900.0) * 0.5 + pow(max(mm, 0.0), 40.0) * 0.12);
     }
 
     if (h > 0.0) {
@@ -381,12 +382,12 @@ export function createSky({ dayMinutes = DAY_MINUTES, turn = 0, radius = 1200 }:
     } else {
       state.lightDir.copy(state.moonDir);
       state.lightColor.copy(moonLight);
-      state.lightIntensity = 0.55 * night * moonUp;
+      state.lightIntensity = 1.05 * night * moonUp;
     }
     // Keep shadows from stretching to infinity at the very low sun.
     if (state.lightDir.y < 0.12) state.lightDir.setY(0.12).normalize();
     state.specColor.copy(p.light).multiplyScalar(smooth(e, -0.02, 0.03))
-      .add(_c.copy(moonLight).multiplyScalar(0.5 * night * moonUp));
+      .add(_c.copy(moonLight).multiplyScalar(0.85 * night * moonUp));
     state.specDir.copy(e > -0.03 ? state.sunDir : state.moonDir);
 
     // Weather: the cloud cover wanders between clear spells and big skies.

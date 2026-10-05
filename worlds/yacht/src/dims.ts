@@ -17,7 +17,13 @@ export const D4 = 18.0; // the office's roof (the canopy deck), and the bridge
 export const D5 = 21.6; // the bridge's roof: mast and radomes
 export const SLAB = 0.62; // floor thickness: the white fascia round each deck's edge
 
-export const PAD = { x: 0, z: -52.5, r: 8.0 }; // the helipad, on the foredeck at D2
+export const PAD = { x: 0, z: -52.5, r: 8.0 };
+
+/** The lower deck, inside the hull at the swim platform's height, and its ceiling under D1. */
+export const LD = PLATFORM.y;
+export const LD_CEIL = D1 - SLAB;
+/** The beach club's openings in the transom, either side of the stair well (x is the starboard one's). */
+export const STERN_DOOR = { x0: 4.0, x1: 10.6, top: 4.55 }; // the helipad, on the foredeck at D2
 
 // Where things are along the ship.
 // The office's glass stands well in from the hull: a 4 m side deck runs down each side of it.

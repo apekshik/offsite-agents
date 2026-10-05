@@ -16,6 +16,34 @@ export interface Ship {
   extra: THREE.Object3D[];
   /** Called every frame: dt seconds, t world seconds. */
   tick: ((dt: number, t: number, now: number) => void)[];
+  /** Below decks, out of the sun: merged like `pile`, but casting no shadows. */
+  inner: Pile<MatKey>;
+  /** Furniture below decks, instanced like `props`, casting no shadows. */
+  innerProps: Props<MatKey>;
+  /** Where lamps hang over a deck, for the pools of light they throw on it at night. */
+  lights: { x: number; y: number; z: number; r: number; k?: number }[];
+  /** Small bright lights seen from afar (navigation lights, the helideck's): glow sprites. */
+  halos: Halo[];
+  /** Curtains that sway: where each hangs (a rod across x or z), from y1 down to y0, w wide. */
+  drapes: Drape[];
+  /** Where the coffee machine puffs, the sauna's stove steams, the engine room's needles sit. */
+  coffee?: THREE.Vector3;
+  sauna?: THREE.Vector3;
+  gauges?: THREE.Vector3[];
+}
+
+export interface Drape { x: number; z: number; y0: number; y1: number; w: number; axis: "x" | "z" }
+
+/**
+ * A point of light with a soft glow round it that reads from a long way off. `mode`: when it is
+ * lit. "always"; "night" (after dark); "pad" (after dark or when the ship is busy); "strobe" (a
+ * double flash every 1.5 s); "blink" (a slow on and off).
+ */
+export interface Halo {
+  x: number; y: number; z: number;
+  color: string;
+  size: number;
+  mode: "always" | "night" | "pad" | "strobe" | "blink";
 }
 
 export interface SlabOptions {
@@ -197,5 +225,8 @@ export function stairs(s: Ship, o: StairOptions): { low: string; high: string } 
 
 /** Small round lights under a deck's edge, lit at night. */
 export function downlights(s: Ship, run: P2[], y: number, every = 3.2) {
-  for (const p of along(run, every)) s.pile.cyl("lamp", p.x, y - 0.02, p.z, 0.09, 0.02, 10);
+  for (const p of along(run, every)) {
+    s.pile.cyl("lamp", p.x, y - 0.02, p.z, 0.09, 0.02, 10);
+    s.lights.push({ x: p.x, y: y - 0.02, z: p.z, r: 1.6 });
+  }
 }

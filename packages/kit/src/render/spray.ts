@@ -11,6 +11,8 @@ const HN = 32;
 
 export interface Spray {
   mesh: THREE.Mesh;
+  /** The ship's speed (m/s): how hard the bow throws spray and the stern boils. */
+  setSpeed(v: number): void;
   dispose(): void;
 }
 
@@ -64,7 +66,7 @@ export function createSpray(hull: HullShape, { speed = 7.5, quality = "high" }: 
         return mix(uBow[i], uBow[i + 1], u - float(i));
       }
       void main() {
-        float k = clamp(uSpeed / 7.5, 0.0, 1.5);
+        float k = clamp(uSpeed / 7.5, 0.0, 1.6);
         vec3 p; float size;
         if (aKind < 0.5) {
           // A sheet of spray off the bow: up and out, left behind as the ship runs on.
@@ -118,5 +120,9 @@ export function createSpray(hull: HullShape, { speed = 7.5, quality = "high" }: 
   mesh.name = "spray";
   mesh.frustumCulled = false;
   mesh.renderOrder = 3;
-  return { mesh, dispose() { geo.dispose(); quad.dispose(); material.dispose(); } };
+  return {
+    mesh,
+    setSpeed(v) { material.uniforms.uSpeed!.value = v; },
+    dispose() { geo.dispose(); quad.dispose(); material.dispose(); },
+  };
 }

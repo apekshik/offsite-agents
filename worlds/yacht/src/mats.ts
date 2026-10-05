@@ -75,6 +75,36 @@ function hullMaterial(): THREE.MeshPhysicalMaterial {
   }) as THREE.MeshPhysicalMaterial;
 }
 
+/**
+ * How busy the ship is, 0 (everyone off duty) to 1 (the whole crew at work), eased. Materials
+ * that react to it (office lights, status strips, the helideck) read this uniform.
+ */
+export const BUSY = { value: 0.4 };
+
+/** Emissive scaled by how busy the ship is: dim at rest, full when everyone is working. */
+function busyGlow(m: THREE.MeshStandardMaterial, key: string, rest: number, full: number, night = 0): THREE.MeshStandardMaterial {
+  return patch(m, key, (sh) => {
+    sh.uniforms.uBusy = BUSY;
+    sh.uniforms.uNight = LIGHT.uNight;
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nuniform float uBusy, uNight;")
+      .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+        totalEmissiveRadiance *= max(${rest.toFixed(3)} + ${(full - rest).toFixed(3)} * uBusy, ${night.toFixed(3)} * uNight);`);
+  }) as THREE.MeshStandardMaterial;
+}
+
+/** A floor that picks up the light of the room: a warm wash that comes up with work and with dark. */
+function litFloor(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+  return patch(m, "litfloor", (sh) => {
+    sh.uniforms.uBusy = BUSY;
+    sh.uniforms.uNight = LIGHT.uNight;
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nuniform float uBusy, uNight;")
+      .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+        totalEmissiveRadiance += diffuseColor.rgb * vec3(1.0, 0.93, 0.82) * (0.03 + 0.32 * uBusy) * (0.25 + 0.75 * uNight);`);
+  }) as THREE.MeshStandardMaterial;
+}
+
 /** Ceilings: their faint bounce light becomes the warm wash of the deck lights after dark. */
 function nightWash(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
   return patch(m, "nightwash", (sh) => {
@@ -82,6 +112,27 @@ function nightWash(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", "#include <common>\nuniform float uNight;")
       .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance *= 1.0 + 2.6 * uNight;");
+  }) as THREE.MeshStandardMaterial;
+}
+
+/** An umbrella's canopy: canvas that sways a few centimetres, each umbrella in its own time. */
+function brolly(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+  return patch(m, "brolly", (sh) => {
+    sh.uniforms.uTime = LIGHT.uTime;
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform float uTime;")
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+        {
+          float ph = 0.0;
+          #ifdef USE_INSTANCING
+            ph = dot(instanceMatrix[3].xz, vec2(0.71, 1.37));
+          #endif
+          float k = max(position.y - 2.0, 0.0);
+          float sw = sin(uTime * 1.4 + ph) * 0.7 + sin(uTime * 3.1 + ph * 2.3) * 0.3;
+          transformed.x += sw * k * 0.05;
+          transformed.z += cos(uTime * 1.1 + ph * 1.7) * k * 0.035;
+          transformed.y += sin(uTime * 2.6 + ph + position.x * 2.0) * 0.012 * smoothstep(1.2, 1.75, length(position.xz));
+        }`);
   }) as THREE.MeshStandardMaterial;
 }
 
@@ -99,7 +150,7 @@ export function makeMaterials() {
     under: nightWash(new THREE.MeshStandardMaterial({ color: "#efece6", roughness: 0.7, emissive: "#f1e2cf", emissiveIntensity: 0.16 })),
     navy: paint("#1b2b4b", 0.35),
     teak: teak(),
-    floor: nightWash(floor),
+    floor: litFloor(floor),
     darkGlass: darkGlass({ pane: 2.6, lit: 0.6 }),
     rail: glass({ color: "#a9d0da", opacity: 0.14 }), // glass balustrades
     officeGlass: glass({ color: "#5d8296", opacity: 0.2 }),
@@ -109,6 +160,7 @@ export function makeMaterials() {
     steel: chrome("#c9ced3", 0.3),
     pad,
     cushion: canvas("#f7f4ec"),
+    brolly: brolly(canvas("#f7f4ec")),
     accent: canvas("#2c5a8c"), // pillows, towels, bunting
     seat: canvas("#3a404c"), // office chairs
     wood: surfaceMaterial("wood", "#a8723f"),
@@ -123,7 +175,22 @@ export function makeMaterials() {
     sail,
     lamp: nightLight("#ffd29a", 4),
     glowBlue: new THREE.MeshStandardMaterial({ color: "#0d2233", emissive: "#3fb6ff", emissiveIntensity: 2.2, roughness: 0.3 }),
-    panel: new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#fff2df", emissiveIntensity: 1.3, roughness: 0.5 }),
+    // The office's and bridge's ceiling lights: they come up as the crew gets to work.
+    panel: busyGlow(new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#fff2df", emissiveIntensity: 1.5, roughness: 0.5 }), "panel", 0.55, 1.35),
+    // Status strips round the office: dark glass by day at rest, cyan when the crew is busy.
+    status: busyGlow(new THREE.MeshStandardMaterial({ color: "#0e2430", emissive: "#28e0ff", emissiveIntensity: 6, roughness: 0.3 }), "status", 0.0, 1.0),
+    // The helideck's perimeter lights: green, on at night and whenever the ship is busy.
+    padLight: busyGlow(new THREE.MeshStandardMaterial({ color: "#20402a", emissive: "#3dff7a", emissiveIntensity: 4, roughness: 0.3 }), "padlight", -0.15, 1.0, 0.8),
+    // Below decks: walls lit by the rooms' own lights (a warm fill, the same day and night).
+    inWall: new THREE.MeshStandardMaterial({ color: "#f1eee8", roughness: 0.62, emissive: "#fff1de", emissiveIntensity: 0.22 }),
+    inDark: new THREE.MeshStandardMaterial({ color: "#1d2533", roughness: 0.5, emissive: "#1b2c48", emissiveIntensity: 0.25 }),
+    cove: new THREE.MeshStandardMaterial({ color: "#fff4e4", emissive: "#ffd8a6", emissiveIntensity: 2.4, roughness: 0.5 }),
+    stone: surfaceMaterial("marble", "#ece8e2"),
+    engine: paint("#dfe3e8", 0.32),
+    red: paint("#b8322a", 0.35),
+    pipe: paint("#3f78a8", 0.4),
+    yellow: paint("#e8b52c", 0.45),
+    navLight: nightLight("#ffffff", 7),
     bottle: new THREE.MeshStandardMaterial({ color: "#5f8f6a", roughness: 0.15, metalness: 0.1 }),
   };
 }
@@ -133,5 +200,5 @@ export type MatKey = keyof Mats;
 
 /** Which piles cast shadows: glass, water and lights don't. */
 export function castsShadow(k: MatKey): boolean {
-  return !["rail", "officeGlass", "bridgeGlass", "poolWater", "tubWater", "lamp", "panel"].includes(k);
+  return !["rail", "officeGlass", "bridgeGlass", "poolWater", "tubWater", "lamp", "panel", "status", "padLight", "cove", "navLight"].includes(k);
 }

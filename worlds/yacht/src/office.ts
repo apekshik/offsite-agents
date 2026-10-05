@@ -60,7 +60,18 @@ export function buildOffice(s: Ship) {
   pile.add("officeGlass", band([[-G, OFFICE.z1], [G, OFFICE.z1]], D3, CEIL, { closed: false }));
   for (const m of along([[-G, OFFICE.z1], [G, OFFICE.z1]], 3.1, 1.5)) pile.box("frame", m.x - 0.035, D3, OFFICE.z1, m.x + 0.035, CEIL, OFFICE.z1 + 0.08);
 
-  // Light: long panels in the ceiling over each line of desks, always on.
+  // Status strips: a line of light along the foot and the head of the glass all round, and a
+  // frame round the wall board. Dark at rest; they glow cyan as the crew gets to work.
+  for (const side of [1, -1] as const) {
+    const x = side * (G - 0.14);
+    const cuts = [OFFICE.z0 + 0.3, ...SIDE_DOORS.flat(), OFFICE.z1 - 0.3];
+    for (let i = 0; i < cuts.length; i += 2) pile.box("status", x - 0.015, D2 + 0.1, cuts[i]!, x + 0.015, D2 + 0.155, cuts[i + 1]!);
+    pile.box("status", x - 0.015, CEIL - 0.18, OFFICE.z0 + 0.3, x + 0.015, CEIL - 0.13, OFFICE.z1 - 0.3);
+  }
+  for (const y of [D2 + 1.66, D2 + 5.5]) pile.box("status", -4.92, y, OFFICE.z0 + 0.02, 4.92, y + 0.035, OFFICE.z0 + 0.035);
+  for (const x of [-4.9, 4.9]) pile.box("status", x - 0.018, D2 + 1.66, OFFICE.z0 + 0.02, x + 0.018, D2 + 5.535, OFFICE.z0 + 0.035);
+
+  // Light: long panels in the ceiling over each line of desks; brighter as the crew gets to work.
   for (const [x] of LINES) pile.box("panel", x - 0.25, CEIL - 0.03, -19.5, x + 0.25, CEIL, 12.5);
   pile.box("panel", -0.25, CEIL - 0.03, -19.5, 0.25, CEIL, 12.5);
 

@@ -7,7 +7,26 @@ import type { Interactable } from "@offsite/kit";
 import { BRIDGE, D4, D5, SLAB } from "./dims.ts";
 import { helmChair, palm, sofa } from "./furniture.ts";
 import { inset, outline, runs, yawOf, type Outline } from "./kit.ts";
+import { BUSY } from "./mats.ts";
 import { balustrade, house, slab, type Ship } from "./parts.ts";
+
+/** The mast's top (its masthead light) and the ends of its yardarm, for lights and flags. */
+export const MAST = { z: -24.6 + 1.5, top: D5 + 11.8, yardY: D5 + 7.55, yardX: 2.62, yardZ: -24.6 + 1.2 };
+
+/** White radome skin with panel seams, so you can see it turn. */
+function radomeMaterial(): THREE.MeshStandardMaterial {
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 128;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#f2f3ef"; g.fillRect(0, 0, 256, 128);
+  g.strokeStyle = "#b9bec4"; g.lineWidth = 2;
+  for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo((i * 256) / 6, 0); g.lineTo((i * 256) / 6, 128); g.stroke(); }
+  for (const y of [42, 64, 86]) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); }
+  g.fillStyle = "#1f3f78"; g.fillRect(100, 58, 56, 12);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.32 });
+}
 import { helmScreenTexture, screen } from "./screens.ts";
 
 const BRIDGE_DECK: Outline = { zF: -34.4, zA: -22, w: 8.4, rf: 7, nf: 2.2 };
@@ -85,16 +104,38 @@ export function buildBridge(s: Ship): Interactable[] {
   for (const sx of [-1, 1]) {
     pile.rod("white", new THREE.Vector3(sx * 2.6, D5 + 6.0, mz + 1.15), new THREE.Vector3(sx * 2.65, D5 + 7.6, mz + 1.2), 0.035, 6);
     pile.cyl("white", sx * 3.5, D5, mz - 0.6, 0.5, 0.7, 14);
-    const dome = new THREE.SphereGeometry(1.32, 24, 16).translate(sx * 3.5, D5 + 1.85, mz - 0.6);
-    dome.deleteAttribute("uv");
-    pile.add("white", dome);
   }
-  // A radar bar turning on the mast's face.
-  const radar = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 0.24), s.materials.white);
+  // The radomes turn slowly on their pedestals (their panel seams show it), the radar bar on the
+  // mast's face sweeps round: both faster when the ship is busy.
+  const domeMat = radomeMaterial();
+  const domes = [1, -1].map((sx) => {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(1.32, 32, 20), domeMat);
+    d.position.set(sx * 3.5, D5 + 1.85, mz - 0.6);
+    d.castShadow = true;
+    d.receiveShadow = true;
+    d.name = "radome";
+    s.extra.push(d);
+    return d;
+  });
+  const radar = new THREE.Group();
   radar.position.set(0, D5 + 4.2, mz - 0.75);
-  radar.castShadow = true;
+  radar.name = "radar";
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 0.24), s.materials.white);
+  bar.castShadow = true;
+  const face = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 0.02), s.materials.dark);
+  face.position.z = 0.125;
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.3, 12), s.materials.dark);
+  hub.position.y = -0.2;
+  radar.add(bar, face, hub);
   s.extra.push(radar);
-  s.tick.push((_dt, t) => { radar.rotation.y = t * 2.4; });
+  let sweep = 0, turn = 0;
+  s.tick.push((dt) => {
+    sweep += dt * (1.6 + 3.4 * BUSY.value);
+    turn += dt * (0.25 + 0.5 * BUSY.value);
+    radar.rotation.y = sweep;
+    domes[0]!.rotation.y = turn;
+    domes[1]!.rotation.y = -turn * 1.3 + 1.1;
+  });
 
   // Walking: through the door, past the spawn point, up to the helm.
   plan.node("bridge-door", 0, D4, zA + 0.9);

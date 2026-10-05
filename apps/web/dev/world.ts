@@ -5,6 +5,9 @@
 //   /dev/world.html?view=hero&hour=18.5&quality=high&slots=1&nav=1&ui=0&fly=1
 //   /dev/world.html?walk&at=<nav node or slot id>&yaw=<deg>&view=first|third   walk the decks
 //   &crew=<tag|kind|all>   seat crew at the slots with that tag or kind, for checking scale
+//   &t=21.5 (or &hour=)    hold the sky at an hour: about 19.0 is sunset, 21.5 night
+//   &busy=0.8              how busy the ship is (0 off duty .. 1 the whole crew working), eased in
+//   &swell=0               hold the ship still on the swell (default 1)
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -47,6 +50,24 @@ const VIEWS: Record<string, View> = {
   bar: { pos: [9, 17.6, 52], at: [-1, 15.2, 40] },
   promenade: { pos: [10.3, 7.3, 32], at: [10.1, 6.9, -8], fov: 60 },
   stern: { pos: [16, 7.5, 95], at: [0, 4.5, 60] },
+  // Below decks.
+  beachclub: { pos: [7.4, 2.7, 61.2], at: [3.5, 1.9, 50], fov: 70 },
+  beachdoors: { pos: [6.5, 3.2, 74], at: [0, 2.6, 58], fov: 55 },
+  garage: { pos: [-3.9, 2.9, 60.8], at: [-8.5, 1.6, 50.5], fov: 70 },
+  mess: { pos: [8.6, 2.8, 18.6], at: [-2, 1.6, 6], fov: 70 },
+  galley: { pos: [-1.6, 2.6, 17.5], at: [-7, 1.7, 8], fov: 70 },
+  gym: { pos: [3.0, 2.8, 33.2], at: [9, 1.6, 23], fov: 70 },
+  cinema: { pos: [-2.6, 3.2, 33.5], at: [-6.7, 2.3, 20.5], fov: 70 },
+  spa: { pos: [2.6, 2.8, 45.4], at: [9.5, 1.6, 36.5], fov: 70 },
+  engine: { pos: [-2.4, 3.4, 45.4], at: [-7.5, 1.6, 36.5], fov: 70 },
+  server: { pos: [0, 2.6, 0.8], at: [0, 2.2, -15], fov: 65 },
+  core: { pos: [5.2, 2.2, -10.6], at: [0, 2.6, -15], fov: 65 },
+  serverstair: { pos: [10.7, 2.4, -2.5], at: [8.4, 2.4, -20], fov: 65 },
+  // Night and sunset heroes.
+  sunsetport: { pos: [-150, 26, 70], at: [0, 9, 0], fov: 40 },
+  nightquarter: { pos: [-70, 22, 140], at: [0, 9, 20], fov: 45 },
+  helideck: { pos: [-26, 22, -86], at: [0, 10.5, -50], fov: 50 },
+  stringlights: { pos: [-6, 17.6, 50], at: [0, 15.8, 22], fov: 65 },
   sternon: { pos: [0, 14, 140], at: [0, 9, 40], fov: 40 },
   wake: { pos: [70, 70, 240], at: [0, 0, 90] },
 };
@@ -77,7 +98,7 @@ setView(viewSel.value);
 
 // ---------- the world ----------
 const t0 = performance.now();
-const world = await buildYacht({ renderer, scene, camera, quality, assets: "/" });
+const world = await buildYacht({ renderer, scene, camera, quality, assets: "/" }, params.has("busy") ? { busy: Number(params.get("busy")) } : {});
 scene.add(world.root);
 const buildMs = performance.now() - t0;
 (window as unknown as Record<string, unknown>).__world = { world, scene, camera, renderer, pipeline, THREE };
@@ -132,7 +153,9 @@ if (params.has("crew")) {
 }
 
 const hour = $("hour") as HTMLInputElement, hourText = $("hourText"), clock = $("clock") as HTMLInputElement;
-const startHour = params.has("hour") ? Number(params.get("hour")) : 18.4;
+const startHour = params.has("t") ? Number(params.get("t")) : params.has("hour") ? Number(params.get("hour")) : 18.4;
+if (params.has("busy")) world.setBusy(Number(params.get("busy")));
+if (params.has("swell")) world.setSwell(Number(params.get("swell")));
 hour.value = String(startHour);
 clock.checked = params.get("clock") === "1";
 const applyHour = () => world.setHour(clock.checked ? null : Number(hour.value));
@@ -156,6 +179,7 @@ const KIND_COLOR: Record<SlotKind, string> = {
   desk: "#4fd1ff", lounger: "#ffd166", hammock: "#f4a261", "deck-chair": "#e9c46a", "bar-stool": "#e76f51",
   pool: "#2ec4b6", "hot-tub": "#00b4d8", rail: "#c0c0c0", fishing: "#90be6d", helm: "#ff4d6d", computer: "#c77dff",
   dropoff: "#ff9f1c", helipad: "#ffffff", "crew-spawn": "#80ffdb", "captain-spawn": "#ff006e",
+  gym: "#06d6a0", cinema: "#8338ec", sauna: "#fb8500", workshop: "#adb5bd", core: "#00f5ff",
 };
 function slotMarkers(layout: WorldLayout): THREE.Group {
   const g = new THREE.Group();

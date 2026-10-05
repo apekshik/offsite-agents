@@ -52,6 +52,8 @@ export const desk: Prefab<MatKey> = prefab("desk", (p) => {
   p.box("dark", -s.w / 2 - 0.02, s.y - s.h / 2 - 0.02, s.z - 0.035, s.w / 2 + 0.02, s.y + s.h / 2 + 0.02, s.z - 0.005);
   p.box("dark", -0.22, h, 0.08, 0.22, h + 0.015, 0.22); // keyboard
   p.box("white", 0.3, h, 0.1, 0.36, h + 0.02, 0.2); // mouse
+  // A status strip under the front edge: dark at rest, cyan when the ship is busy (mats.ts).
+  p.box("status", -w / 2 + 0.06, h - 0.07, d / 2 - 0.03, w / 2 - 0.06, h - 0.045, d / 2 - 0.01);
 });
 
 /** An office chair: seat 0.47 up, the user faces -z (backrest at +z). */
@@ -82,16 +84,17 @@ export const lounger: Prefab<MatKey> = prefab("lounger", (p) => {
 export const umbrella: Prefab<MatKey> = prefab("umbrella", (p) => {
   p.cyl("wood", 0, 0, 0, 0.03, 2.55, 8);
   p.cyl("white", 0, 0, 0, 0.28, 0.06, 16, 0.22);
+  // The canopy is its own material ("brolly"): it sways a little in the breeze (mats.ts).
   const cone = new THREE.ConeGeometry(1.75, 0.5, 8, 1, true).translate(0, 2.55, 0);
   cone.deleteAttribute("uv");
-  p.add("cushion", cone);
+  p.add("brolly", cone);
   const under = new THREE.ConeGeometry(1.74, 0.49, 8, 1, true).translate(0, 2.54, 0);
-  p.add("cushion", flipCopy(under));
-  p.cyl("cushion", 0, 2.78, 0, 0.12, 0.12, 8, 0.05);
+  p.add("brolly", flipCopy(under));
+  p.cyl("brolly", 0, 2.78, 0, 0.12, 0.12, 8, 0.05);
   // The valance round the rim.
   const rim = new THREE.CylinderGeometry(1.75, 1.75, 0.16, 8, 1, true).translate(0, 2.22, 0);
   rim.deleteAttribute("uv");
-  p.add("cushion", rim);
+  p.add("brolly", rim);
 });
 
 function flipCopy(g: THREE.BufferGeometry): THREE.BufferGeometry {
@@ -268,4 +271,215 @@ export const helmChair: Prefab<MatKey> = prefab("helmChair", (p) => {
   soft(p, "seat", 0, 0.62, 0, 0.62, 0.14, 0.6);
   soft(p, "seat", 0, 1.08, -0.28, 0.6, 0.8, 0.14, 0.1);
   for (const sx of [-1, 1]) soft(p, "seat", sx * 0.33, 0.8, -0.02, 0.1, 0.1, 0.5);
+});
+
+// ---------- below decks ----------
+
+/** A flat disc (a weight plate, a wheel, a gauge face): radius r, thickness t, centred on c, its axis along `axis`. */
+function disc(p: Pile<MatKey>, mat: MatKey, c: THREE.Vector3, axis: "x" | "y" | "z", r: number, t: number, seg = 14) {
+  const g = new THREE.CylinderGeometry(r, r, t, seg);
+  g.deleteAttribute("uv");
+  if (axis === "x") g.rotateZ(Math.PI / 2);
+  if (axis === "z") g.rotateX(Math.PI / 2);
+  p.add(mat, g.translate(c.x, c.y, c.z));
+}
+
+/** A treadmill: the runner faces +z, the console at that end. */
+export const TREADMILL = { belt: 0.2 };
+export const treadmill: Prefab<MatKey> = prefab("treadmill", (p) => {
+  p.box("dark", -0.42, 0, -0.95, 0.42, 0.14, 0.78);
+  p.box("pad", -0.3, 0.14, -0.9, 0.3, 0.2, 0.72);
+  for (const sx of [-1, 1]) {
+    p.box("steel", sx * 0.36 - 0.04, 0.14, -0.9, sx * 0.36 + 0.04, 0.21, 0.72);
+    p.rod("steel", V(sx * 0.36, 0.14, 0.72), V(sx * 0.33, 1.22, 0.84), 0.032, 8);
+    p.rod("steel", V(sx * 0.35, 1.02, 0.3), V(sx * 0.34, 1.12, 0.8), 0.022, 6);
+  }
+  p.obox("dark", 0, 1.28, 0.86, 0.72, 0.34, 0.08, 0, -0.55);
+  p.obox("glowBlue", 0, 1.3, 0.82, 0.46, 0.2, 0.012, 0, -0.55);
+});
+
+/** A weight bench along z (the lifter lies with their head at -z) under a barbell on its rack. */
+export const weightBench: Prefab<MatKey> = prefab("weightBench", (p) => {
+  soft(p, "seat", 0, 0.44, 0.05, 0.32, 0.1, 1.25);
+  for (const z of [-0.45, 0.5]) p.box("dark", -0.18, 0, z - 0.04, 0.18, 0.39, z + 0.04);
+  p.box("dark", -0.05, 0.02, -0.5, 0.05, 0.08, 0.55);
+  for (const sx of [-1, 1]) {
+    p.rod("steel", V(sx * 0.52, 0, -0.62), V(sx * 0.52, 1.22, -0.62), 0.035, 8);
+    p.box("dark", sx * 0.52 - 0.18, 0, -0.66, sx * 0.52 + 0.18, 0.04, -0.58);
+    p.box("steel", sx * 0.52 - 0.02, 1.0, -0.62, sx * 0.52 + 0.02, 1.04, -0.5);
+  }
+  p.rod("chrome", V(-1.0, 1.08, -0.56), V(1.0, 1.08, -0.56), 0.016, 8);
+  for (const sx of [-1, 1]) for (const [x, r] of [[0.74, 0.22], [0.8, 0.17]] as const) disc(p, "dark", V(sx * x, 1.08, -0.56), "x", r, 0.05, 16);
+});
+
+/** A two-tier rack of dumbbells, 1.6 m along x, facing +z. */
+export const dumbbellRack: Prefab<MatKey> = prefab("dumbbellRack", (p) => {
+  for (const sx of [-1, 1]) {
+    p.box("dark", sx * 0.78 - 0.03, 0, -0.25, sx * 0.78 + 0.03, 0.85, -0.19);
+    p.box("dark", sx * 0.78 - 0.03, 0, 0.19, sx * 0.78 + 0.03, 0.55, 0.25);
+  }
+  p.obox("steel", 0, 0.5, 0.05, 1.6, 0.03, 0.42, 0, 0.35);
+  p.obox("steel", 0, 0.8, -0.12, 1.6, 0.03, 0.3, 0, 0.35);
+  for (let i = 0; i < 6; i++) {
+    const x = -0.62 + i * 0.25, s = 0.06 + i * 0.008;
+    for (const [y, z] of [[0.57, 0.07], [0.86, -0.1]] as const) {
+      for (const dx of [-0.07, 0.07]) disc(p, "dark", V(x + dx, y, z), "x", s, 0.05, 10);
+      p.rod("chrome", V(x - 0.05, y, z), V(x + 0.05, y, z), 0.012, 5);
+    }
+  }
+});
+
+/** A bean bag: a slumped round cushion, sat in facing +z. */
+export const BEANBAG = { seat: 0.34 };
+function beanBag(name: string, mat: MatKey): Prefab<MatKey> {
+  return prefab(name, (p) => {
+    const body = new THREE.SphereGeometry(0.5, 16, 10).scale(1, 0.55, 1).translate(0, 0.26, 0.02);
+    body.deleteAttribute("uv");
+    p.add(mat, body);
+    const back = new THREE.SphereGeometry(0.42, 14, 8).scale(1.05, 0.95, 0.55).translate(0, 0.48, -0.26);
+    back.deleteAttribute("uv");
+    p.add(mat, back);
+  });
+}
+export const beanBagBlue = beanBag("beanBagBlue", "accent");
+export const beanBagWhite = beanBag("beanBagWhite", "cushion");
+export const beanBagGrey = beanBag("beanBagGrey", "seat");
+
+/** A server rack, 0.6 m wide, its front (where the lights blink) facing +z. */
+export const RACK = { w: 0.6, d: 1.0, h: 2.2 };
+export const rack: Prefab<MatKey> = prefab("rack", (p) => {
+  const { w, d, h } = RACK;
+  p.box("dark", -w / 2, 0, -d / 2, w / 2, h, d / 2);
+  p.box("frame", -w / 2 - 0.005, 0.06, d / 2 - 0.02, -w / 2 + 0.04, h - 0.04, d / 2 + 0.012);
+  p.box("frame", w / 2 - 0.04, 0.06, d / 2 - 0.02, w / 2 + 0.005, h - 0.04, d / 2 + 0.012);
+  p.box("frame", -w / 2, h - 0.12, d / 2 - 0.02, w / 2, h - 0.04, d / 2 + 0.012);
+  // Server faces: slots of grille between the uprights.
+  for (let k = 0; k < 9; k++) {
+    const y = 0.18 + k * 0.215;
+    p.box("frame", -w / 2 + 0.05, y, d / 2 - 0.01, w / 2 - 0.05, y + 0.16, d / 2 + 0.004);
+    p.box("dark", w / 2 - 0.2, y + 0.03, d / 2 + 0.004, w / 2 - 0.07, y + 0.13, d / 2 + 0.008);
+  }
+});
+
+/** An espresso machine on a counter, facing +z. */
+export const coffeeMachine: Prefab<MatKey> = prefab("coffeeMachine", (p) => {
+  p.box("steel", -0.3, 0, -0.22, 0.3, 0.42, 0.18);
+  p.box("dark", -0.31, 0.42, -0.23, 0.31, 0.47, 0.19);
+  for (const x of [-0.13, 0.13]) {
+    p.cyl("chrome", x, 0.24, 0.2, 0.045, 0.08, 10);
+    p.box("dark", x - 0.012, 0.22, 0.24, x + 0.012, 0.25, 0.34);
+    p.cyl("white", x, 0.04, 0.21, 0.035, 0.08, 10, 0.042);
+  }
+  p.box("dark", -0.26, 0, 0.14, 0.26, 0.03, 0.3);
+  p.box("glowBlue", -0.08, 0.34, 0.181, 0.08, 0.39, 0.185);
+  p.rod("chrome", V(0.27, 0.3, 0.18), V(0.33, 0.16, 0.26), 0.008, 5);
+  for (let i = 0; i < 4; i++) p.cyl("white", -0.24 + i * 0.16, 0.47, -0.05, 0.04, 0.07, 10, 0.045);
+});
+
+/**
+ * A small planing hull, nose to +z, keel on y = 0: length L, beam B, depth H. Its topsides and
+ * its bottom (below the chine) separately, and a deck across the top.
+ */
+function boatHull(L: number, B: number, H: number) {
+  const N = 18;
+  const st: { z: number; k: number; cy: number; cw: number; sy: number; w: number }[] = [];
+  for (let i = 0; i <= N; i++) {
+    const u = i / N; // 0 at the bow
+    const w = (B / 2) * (u < 0.42 ? Math.pow(Math.sin(((u / 0.42) * Math.PI) / 2), 0.65) : 1) * (1 - 0.06 * u);
+    const rise = H * 0.75 * Math.pow(Math.max(0, 0.36 - u) / 0.36, 1.8);
+    st.push({ z: L / 2 - u * L, k: rise, cy: H * 0.33 + rise * 0.55, cw: w * 0.9, sy: H + 0.12 * Math.pow(1 - u, 2), w: Math.max(w, 0.001) });
+  }
+  const sides: number[] = [], bottom: number[] = [], deck: number[] = [];
+  const quad = (out: number[], a: number[], b: number[], c: number[], d: number[], want: THREE.Vector3) => {
+    const A = new THREE.Vector3(...a), Bv = new THREE.Vector3(...b), C = new THREE.Vector3(...c);
+    const n = new THREE.Vector3().subVectors(Bv, A).cross(new THREE.Vector3().subVectors(C, A));
+    if (n.dot(want) >= 0) out.push(...a, ...b, ...c, ...a, ...c, ...d);
+    else out.push(...a, ...c, ...b, ...a, ...d, ...c);
+  };
+  for (let i = 0; i < N; i++) {
+    const p = st[i]!, q = st[i + 1]!;
+    for (const sx of [-1, 1]) {
+      quad(sides, [sx * p.cw, p.cy, p.z], [sx * q.cw, q.cy, q.z], [sx * q.w, q.sy, q.z], [sx * p.w, p.sy, p.z], new THREE.Vector3(sx, 0.2, 0));
+      quad(bottom, [0, p.k, p.z], [0, q.k, q.z], [sx * q.cw, q.cy, q.z], [sx * p.cw, p.cy, p.z], new THREE.Vector3(sx * 0.3, -1, 0));
+    }
+    quad(deck, [-p.w, p.sy, p.z], [p.w, p.sy, p.z], [q.w, q.sy, q.z], [-q.w, q.sy, q.z], new THREE.Vector3(0, 1, 0));
+  }
+  // The transom.
+  const t = st[N]!;
+  quad(sides, [-t.w, t.sy, t.z], [t.w, t.sy, t.z], [t.cw, t.cy, t.z], [-t.cw, t.cy, t.z], new THREE.Vector3(0, 0, -1));
+  quad(bottom, [-t.cw, t.cy, t.z], [t.cw, t.cy, t.z], [0, t.k, t.z], [0, t.k, t.z], new THREE.Vector3(0, 0, -1));
+  const geo = (arr: number[]) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3));
+    g.computeVertexNormals();
+    return g;
+  };
+  return { sides: geo(sides), bottom: geo(bottom), deck: geo(deck), sheer: st.map((s) => ({ z: s.z, y: s.sy, w: s.w })) };
+}
+
+/** A jet ski on its dolly: nose to +z, 3.2 m long. */
+export const jetSki: Prefab<MatKey> = prefab("jetSki", (p) => {
+  const lift = 0.32;
+  const h = boatHull(3.1, 1.12, 0.48);
+  const m = new THREE.Matrix4().makeTranslation(0, lift, 0);
+  p.add("white", h.sides, m);
+  p.add("navy", h.bottom, m);
+  p.add("white", h.deck, m);
+  // The seat, the steering column and bars, a red flash down each side.
+  soft(p, "navy", 0, lift + 0.62, -0.35, 0.42, 0.2, 1.3);
+  p.obox("white", 0, lift + 0.66, 0.5, 0.5, 0.32, 0.5, 0, -0.5);
+  p.rod("dark", V(-0.36, lift + 0.86, 0.55), V(0.36, lift + 0.86, 0.55), 0.02, 6);
+  for (const sx of [-1, 1]) p.obox("red", sx * 0.55, lift + 0.36, 0.2, 0.02, 0.07, 1.6, 0, 0, 0);
+  // The dolly.
+  for (const sx of [-1, 1]) {
+    p.box("dark", sx * 0.32 - 0.04, 0.16, -1.2, sx * 0.32 + 0.04, 0.24, 1.1);
+    for (const z of [-0.9, 0.8]) disc(p, "dark", V(sx * 0.42, 0.11, z), "x", 0.11, 0.07, 12);
+  }
+  p.box("dark", -0.36, 0.16, -0.05, 0.36, 0.22, 0.05);
+});
+
+/** The tender: a 7.6 m chase boat on a cradle, nose to +z. */
+export const tender: Prefab<MatKey> = prefab("tender", (p) => {
+  const lift = 0.45;
+  const h = boatHull(7.6, 2.7, 1.05);
+  const m = new THREE.Matrix4().makeTranslation(0, lift, 0);
+  p.add("white", h.sides, m);
+  p.add("navy", h.bottom, m);
+  p.add("teak", h.deck, m);
+  // A white gunwale cap and a chrome rail round the sheer.
+  const sh = h.sheer;
+  for (let i = 0; i + 1 < sh.length; i++) {
+    const a = sh[i]!, b = sh[i + 1]!;
+    for (const sx of [-1, 1]) {
+      p.rod("white", V(sx * a.w * 0.97, lift + a.y + 0.02, a.z), V(sx * b.w * 0.97, lift + b.y + 0.02, b.z), 0.06, 6);
+      if (i < 9) p.rod("chrome", V(sx * a.w * 0.93, lift + a.y + 0.32, a.z), V(sx * b.w * 0.93, lift + b.y + 0.32, b.z), 0.02, 6);
+    }
+  }
+  const top = lift + 1.07;
+  // The console with its windscreen, seats aft, a sunpad on the bow.
+  p.box("white", -0.55, top, -0.6, 0.55, top + 0.9, 0.3);
+  p.obox("darkGlass", 0, top + 1.08, 0.36, 1.0, 0.42, 0.04, 0, -0.5);
+  p.box("dark", -0.3, top + 0.9, -0.55, 0.3, top + 0.93, 0.1);
+  soft(p, "cushion", 0, top + 0.3, -1.9, 2.1, 0.5, 0.75);
+  soft(p, "cushion", 0, top + 0.7, -2.25, 2.1, 0.5, 0.18, -0.15);
+  soft(p, "cushion", 0, top + 0.28, -0.95, 0.9, 0.5, 0.6);
+  soft(p, "cushion", 0, top + 0.22, 2.0, 1.6, 0.12, 1.5);
+  soft(p, "accent", 0.3, top + 0.33, 2.3, 0.4, 0.1, 0.25);
+  // The cradle.
+  for (const z of [-2.4, 0, 2.2]) {
+    p.box("dark", -1.05, 0, z - 0.1, 1.05, 0.12, z + 0.1);
+    for (const sx of [-1, 1]) p.obox("pad", sx * 0.62, 0.32, z, 0.12, 0.42, 0.22, 0, 0, sx * 0.5);
+  }
+  p.box("dark", -0.06, 0, -3.0, 0.06, 0.12, 2.8);
+});
+
+/** A bar back: shelves of bottles against a wall, 3 m along x, facing +z. */
+export const barBack: Prefab<MatKey> = prefab("barBack", (p) => {
+  p.box("wood", -1.5, 0, -0.25, 1.5, 0.95, 0.25);
+  p.box("white", -1.52, 0.95, -0.27, 1.52, 1.0, 0.27);
+  for (const y of [1.45, 1.95]) {
+    p.box("wood", -1.5, y, -0.25, 1.5, y + 0.04, 0.0);
+    for (let i = 0; i < 14; i++) p.cyl("bottle", -1.35 + i * 0.21, y + 0.04, -0.12, 0.045, 0.28 - (i % 3) * 0.05, 6, 0.03);
+  }
+  p.box("cove", -1.45, 2.38, -0.25, 1.45, 2.42, -0.05);
 });

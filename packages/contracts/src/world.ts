@@ -14,6 +14,11 @@ export type SlotKind =
   | "hot-tub"
   | "rail"          // leaning on the railing, looking out
   | "fishing"       // a rod off the stern
+  | "gym"           // a treadmill, a bench, the weights: standing (or running) at it
+  | "cinema"        // a bean bag in front of a film: sitting low, facing the screen
+  | "sauna"         // a bench in the sauna: sitting
+  | "workshop"      // tinkering with a jet ski or the tender: standing at it
+  | "core"          // at the rail round the ship's computer core, watching it think
   | "helm"          // the bridge console: the ship's computer's big screen
   | "computer"      // where the ship's computer stands (its robot body)
   | "dropoff"       // where finished work is delivered: packages pile here
@@ -56,14 +61,14 @@ export interface WorldLayout {
 /** Which kinds of spot suit each activity, best first. The director picks a free one. */
 export const ACTIVITY_SPOTS = {
   arriving: ["crew-spawn"],
-  idle: ["lounger", "pool", "bar-stool", "hammock", "fishing", "rail", "hot-tub", "deck-chair"],
+  idle: ["lounger", "pool", "bar-stool", "hammock", "fishing", "rail", "hot-tub", "deck-chair", "gym", "cinema", "sauna", "workshop", "core"],
   thinking: ["desk", "rail", "deck-chair", "lounger"],
   reading: ["hammock", "lounger", "desk", "deck-chair"],
   searching: ["desk", "lounger"],
   editing: ["desk", "lounger"],
   running: ["lounger", "deck-chair", "desk"],
   browsing: ["lounger", "desk", "hammock"],
-  delegating: ["desk", "helm"],
+  delegating: ["desk", "helm", "core"],
   asking: [], // walks to the captain, wherever they are
   landed: ["dropoff"],
   failed: ["desk", "rail"],

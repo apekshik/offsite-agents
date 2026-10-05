@@ -309,7 +309,7 @@ export function poolTile({ color = "#1d8fb0", waterY = 0, tile = 0.06 } = {}): T
   const m = new THREE.MeshStandardMaterial({ color, roughness: 0.18, metalness: 0 });
   const u = { uWaterY: { value: waterY }, uNoise: { value: waterNoise() } };
   return patch(m, "pooltile", (sh) => {
-    Object.assign(sh.uniforms, u, { uTime: LIGHT.uTime, uSunTile: LIGHT.uSun });
+    Object.assign(sh.uniforms, u, { uTime: LIGHT.uTime, uSunTile: LIGHT.uSun, uNight: LIGHT.uNight });
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vTileP; varying vec3 vTileN;")
       .replace("#include <project_vertex>", `#include <project_vertex>
@@ -318,7 +318,8 @@ export function poolTile({ color = "#1d8fb0", waterY = 0, tile = 0.06 } = {}): T
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", `#include <common>
         varying vec3 vTileP; varying vec3 vTileN;
-        uniform float uWaterY, uTime; uniform vec3 uSunTile; uniform sampler2D uNoise;
+        uniform float uWaterY, uTime, uNight; uniform vec3 uSunTile; uniform sampler2D uNoise;
+        float tlUnder = 0.0, tlCaustic = 0.0;
         float tlHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }`)
       .replace("#include <map_fragment>", `#include <map_fragment>
         {
@@ -336,8 +337,13 @@ export function poolTile({ color = "#1d8fb0", waterY = 0, tile = 0.06 } = {}): T
             float b = smoothstep(0.5, 1.0, texture2D(uNoise, p * 0.31 + vec2(0.37 - uTime * 0.021, uTime * 0.034)).a);
             float c = a * 0.35 + b * 0.25 + a * b * 1.4;
             diffuseColor.rgb *= 1.0 + under * c * (0.4 + 0.6 * min(1.0, dot(uSunTile, vec3(0.3))));
+            tlUnder = under; tlCaustic = c;
           }
-        }`);
+        }`)
+      // After dark the pool's own lights come on under the water: the basin glows aqua, the
+      // caustics still dancing over it.
+      .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+        totalEmissiveRadiance += diffuseColor.rgb * vec3(0.55, 1.15, 1.25) * tlUnder * uNight * (0.9 + 1.6 * tlCaustic);`);
   }) as THREE.MeshStandardMaterial;
 }
 

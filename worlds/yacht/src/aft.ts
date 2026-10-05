@@ -9,6 +9,7 @@ import { HAMMOCK, LOUNGER, armchair, coffeeTable, hammock, lounger, palm, shrub,
 import { along, halfWidth, inset, outline, runs, yawOf, type Outline, type P2 } from "./kit.ts";
 import { balustrade, chromeRail, downlights, house, slab, stairs, type Ship } from "./parts.ts";
 import { WELL } from "./hull.ts";
+import { crewStairHoles } from "./lower.ts";
 
 /** The D2 deck from the office's front wall to its curved aft end. */
 export const D2_AFT: Outline = {
@@ -106,7 +107,7 @@ export function buildAft(s: Ship) {
 
 
   // ---------- D1: the deck inside the hull, its house, promenades, the stern terrace ----------
-  slab(s, D1_DECK, D1, { noUnder: true });
+  slab(s, D1_DECK, D1, { noUnder: true, holes: crewStairHoles() });
   for (const side of [1, -1]) {
     // The wings either side of the stair well, out to the transom.
     const pts: P2[] = [[side * WELL, 56]];
@@ -114,7 +115,7 @@ export function buildAft(s: Ship) {
     pts.push([side * (halfBeam(TRANSOM - 0.2, D1) - 0.21), TRANSOM - 0.2], [side * WELL, TRANSOM - 0.2]);
     slab(s, pts, D1, { noUnder: true });
     // The well's walls, down to the swim platform.
-    pile.box("white", side * WELL - 0.08, PLATFORM.y, 56, side * WELL + 0.08, D1, TRANSOM);
+    pile.box("white", side * WELL - 0.08, PLATFORM.y, 56, side * WELL + 0.08, D1, TRANSOM - 0.01); // short of the transom: no shared face
     col.box(side * WELL - 0.1, PLATFORM.y, 56, side * WELL + 0.1, D1, TRANSOM);
   }
   house(s, outline(D1_HOUSE), D1, D2 - SLAB, { glass: [D1 + 0.45, D2 - SLAB - 0.3] });
@@ -160,10 +161,12 @@ export function buildAft(s: Ship) {
     for (const z of [-14, -2, 14, 30, 44]) plan.slot("rail", `rail-d1${sn}${z}`, [side * 12.0, D1, z], yawOf(side, 0), { tags: ["promenade"] });
 
     // Walking: down the promenade from the forward stair to the terrace.
-    plan.node(`d1-${sn}f`, side * 8.9, D1, -32.6);
-    plan.node(`d1-${sn}f2`, side * 8.9, D1, -21.1);
+    // (Clear of the stairs down to the server room, which open in the deck at z -20..-15.)
+    plan.node(`d1-${sn}f`, side * 9.3, D1, -32.6);
+    plan.node(`d1-${sn}f2`, side * 9.3, D1, -21.1);
+    plan.node(`d1-${sn}f3`, side * 10.6, D1, -20.6);
     const lane = [-16, -12, -6, -2, 6, 18, 22, 30, 42, 48].map((z) => plan.node(`d1-${sn}${z}`, side * 10.9, D1, z));
-    plan.link(`d1-${sn}f`, `d1-${sn}f2`, lane[0]!);
+    plan.link(`d1-${sn}f`, `d1-${sn}f2`, `d1-${sn}f3`, lane[0]!);
     plan.link(`fore-stair-${sn}:low`, `d1-${sn}f2`);
     plan.link(`fore-stair-${sn}:low`, lane[0]!);
     plan.link(...lane);
@@ -183,16 +186,7 @@ export function buildAft(s: Ship) {
     props.put(palm, side * 3.95, D1, 57.0, side);
   }
 
-  // The transom either side of the stair: the beach club's windows and two lamps.
-  for (const side of [1, -1]) {
-    const x0 = side * (WELL + 0.9), x1 = side * (halfBeam(TRANSOM, 3) - 1.2);
-    pile.box("darkGlass", Math.min(x0, x1), PLATFORM.y + 0.9, TRANSOM, Math.max(x0, x1), D1 - 1.0, TRANSOM + 0.04);
-    for (let k = 1; k < 3; k++) {
-      const x = x0 + ((x1 - x0) * k) / 3;
-      pile.box("white", x - 0.05, PLATFORM.y + 0.9, TRANSOM, x + 0.05, D1 - 1.0, TRANSOM + 0.06);
-    }
-    pile.cyl("lamp", x0 + (x1 - x0) * 0.5, D1 - 0.55, TRANSOM + 0.02, 0.09, 0.03, 10);
-  }
+  // The transom either side of the stair: the beach club's doorways (lower.ts), the name over them (life.ts).
 
   // ---------- the swim platform ----------
   slab(s, PLAT, PLATFORM.y, { edge: "navy", under: "navy", thick: 0.6 });

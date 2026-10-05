@@ -154,7 +154,7 @@ export function perchesFor(ship: THREE.Object3D, slots: Slot[]): Perch[] {
   ship.traverse((o) => {
     const m = o as THREE.InstancedMesh;
     if (!m.isInstancedMesh || !m.name.startsWith("umbrella:")) return;
-    if (m.name !== "umbrella:cushion") return;
+    if (m.name !== "umbrella:brolly") return;
     const at = new THREE.Matrix4(), v = new THREE.Vector3();
     for (let i = 0; i < m.count; i += 3) {
       m.getMatrixAt(i, at);

@@ -51,7 +51,10 @@ export function poolWaterMaterial({ color = "#38c6d8", bubbles = 0, body = 0.42 
         vec3 L = normalize(uSunDir), H = normalize(V + L);
         vec3 spec = uSun * pow(max(dot(n, H), 0.0), 900.0) * 30.0 * fres;
         // The pool's own light comes up at night.
-        vec3 water = uColor * (uTint * 0.9 + uNight * 0.55);
+        vec3 water = uColor * (uTint * 0.9 + uNight * 0.9);
+        // A shimmer of light through the surface: caustic lines drifting over the water itself.
+        float sh = smoothstep(0.55, 1.0, tn(e * 0.35 + slope * 0.4 + uTime * vec2(0.021, -0.017)).a);
+        water += uColor * sh * (0.12 * uTint + 0.45 * uNight) * (1.0 - uBubbles);
         float a = mix(uBody, 1.0, fres);
         vec3 col = water * uBody * (1.0 - fres) + refl * fres + spec;
         if (uBubbles > 0.0) {

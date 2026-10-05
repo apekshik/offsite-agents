@@ -5,10 +5,18 @@
 //
 // Touchdowns close together share one helicopter (it waits on the pad for the next); flights
 // further apart fly separate helicopters, so one can be leaving while the next comes in.
+//
+// For a film: call world.setArrivals([T]) with T the touchdown you want (ms on the clock the world
+// is updated with). The helicopter appears FLIGHT.approachS seconds before T about 400 m off the
+// port quarter (out of the sunset), runs up the port side of the yacht at 25-35 m, swings in to a
+// hover off the helipad, slides across and touches down at exactly T; it waits FLIGHT.groundS on
+// the pad, rotors turning, then lifts and leaves to starboard over FLIGHT.departS. flightPlan(T)
+// gives the times of each phase; YachtWorld.helicopter(now) where it is, for a camera to follow.
 
 import * as THREE from "three";
 import { ARRIVAL } from "@offsite/contracts";
-import { D2, PAD } from "./dims.ts";
+import { LIGHT, type Ocean } from "@offsite/kit";
+import { D2, PAD, deckHalfBeam } from "./dims.ts";
 
 const TAU = Math.PI * 2;
 const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -87,23 +95,29 @@ export function helicopterModel(): THREE.Group {
     blade.castShadow = true;
     rotor.add(blade);
   }
-  const blurTex = (() => {
-    const c = document.createElement("canvas");
-    c.width = c.height = 128;
-    const x = c.getContext("2d")!;
-    const r = x.createRadialGradient(64, 64, 4, 64, 64, 64);
-    r.addColorStop(0, "rgba(40,44,50,0.0)");
-    r.addColorStop(0.15, "rgba(40,44,50,0.35)");
-    r.addColorStop(0.85, "rgba(40,44,50,0.22)");
-    r.addColorStop(0.97, "rgba(40,44,50,0.35)");
-    r.addColorStop(1, "rgba(40,44,50,0)");
-    x.fillStyle = r;
-    x.fillRect(0, 0, 128, 128);
-    return new THREE.CanvasTexture(c);
-  })();
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(6.0, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: blurTex, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+  // The blur: a disc that shows the blades' sweep as soft streaks trailing each blade, faint
+  // over the rest of the disc; once the rotor is up to speed it stands in for the blades.
+  const blurMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: { uAngle: { value: 0 }, uAmt: { value: 1 }, uTint: LIGHT.uTint },
+    vertexShader: "varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: /* glsl */ `
+      uniform float uAngle, uAmt; uniform vec3 uTint; varying vec2 vP;
+      void main() {
+        float r = length(vP) / 6.0;
+        if (r > 1.0 || r < 0.05) discard;
+        float a = atan(vP.y, vP.x) + uAngle;
+        float k = fract(a / 1.2566); // five blades
+        float streak = exp(-k * 9.0) + exp(-(1.0 - k) * 40.0) * 0.6;
+        float alpha = (0.07 + 0.32 * streak) * smoothstep(1.0, 0.93, r) * smoothstep(0.05, 0.2, r) * uAmt;
+        alpha += smoothstep(0.985, 0.995, r) * smoothstep(1.0, 0.995, r) * 0.25 * uAmt; // the tips' track
+        gl_FragColor = vec4(vec3(0.16, 0.17, 0.19) * (0.6 + 0.6 * uTint), alpha);
+      }`,
+  });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(6.0, 64).rotateX(-Math.PI / 2), blurMat);
   disc.name = "blur";
-  disc.position.y = 0.02;
+  disc.position.y = 0.03;
+  disc.renderOrder = 6;
   rotor.add(disc);
   g.add(rotor);
   const tail = new THREE.Group();
@@ -123,6 +137,24 @@ export function helicopterModel(): THREE.Group {
   add(new THREE.SphereGeometry(0.07, 8, 6), green, 1.06, 1.85, -5.4);
   const top = add(new THREE.SphereGeometry(0.09, 8, 6), beacon, 0, 3.75, -6.95);
   top.name = "beacon";
+  const strobe = add(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 6, 6) }), 0, 1.2, -1.6);
+  strobe.name = "strobe";
+  // Landing lights under the nose, and their beams reaching down ahead (after dark).
+  const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 1) });
+  for (const sx of [-0.35, 0.35]) add(new THREE.CircleGeometry(0.11, 12).rotateX(Math.PI / 2 + 0.5), lamp, sx, 0.62, 2.55).name = "landing-lamp";
+  const beamMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { uOn: { value: 0 } },
+    vertexShader: "varying float vL; varying vec3 vN, vV; void main(){ vL = -position.y / 22.0; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalMatrix * normal; vV = -mv.xyz; gl_Position = projectionMatrix * mv; }",
+    fragmentShader: "uniform float uOn; varying float vL; varying vec3 vN, vV; void main(){ float edge = pow(abs(dot(normalize(vN), normalize(vV))), 1.5); float a = uOn * (1.0 - vL) * (1.0 - vL) * edge * 0.16; gl_FragColor = vec4(vec3(1.0, 0.95, 0.85) * a, 1.0); }",
+  });
+  const beam = new THREE.Mesh(new THREE.ConeGeometry(4.2, 22, 24, 1, true).translate(0, -11, 0), beamMat);
+  beam.name = "landing-beam";
+  beam.position.set(0, 0.55, 2.6);
+  beam.rotation.x = -0.62;
+  beam.renderOrder = 7;
+  beam.frustumCulled = false;
+  g.add(beam);
   return g;
 }
 
@@ -164,14 +196,52 @@ class Path {
 }
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-const APPROACH_A = 10.5; // seconds of the approach spent coming in; the rest is the slide and settle
-const HOVER = V(24, 9, 0);
-const IN = new Path(V(390, 125, -330), V(190, 70, -170), V(70, 20, -28), HOVER);
+const APPROACH_A = 10.6; // seconds of the approach spent coming in; the rest is the slide and settle
+// In from the port quarter, out of the sunset; up the port side well clear of the rail, 25-35 m
+// up, so a camera alongside sees it pass the whole ship; a turn in to hover off the pad's port side.
+const HOVER = V(-21, 9, -5);
+const IN = new Path(V(-175, 72, 335), V(-78, 44, 175), V(-62, 22, 8), HOVER);
 const LIFT = 2.6;
-const OUT = new Path(V(-2, 10, 0), V(-55, 17, 5), V(-230, 62, 75), V(-540, 140, 250));
-const LANDED_YAW = -Math.PI / 2; // nose to port: the cabin door faces aft, toward the office
+const OUT = new Path(V(2, 10, 0), V(55, 17, 5), V(230, 62, 75), V(540, 140, 250));
+const LANDED_YAW = Math.PI / 2; // nose to starboard, the way it slid in: a cabin door faces aft, toward the office
 
-const _a = new THREE.Vector3(), _b = new THREE.Vector3();
+/**
+ * The choreography's timings, in seconds: the approach (APPROACH_A of it flying in, the rest the
+ * slide across and the settle), the wait on the pad, the departure.
+ */
+export const FLIGHT = {
+  approachS: ARRIVAL.approachMs / 1000,
+  inS: APPROACH_A,
+  groundS: ARRIVAL.groundMs / 1000,
+  departS: ARRIVAL.departMs / 1000,
+  /** Metres it flies on the way in, from where it appears to the hover. */
+  inLength: IN.length,
+};
+
+/** When each part of a single arrival happens, for a touchdown at `touchdown` (ms). */
+export function flightPlan(touchdown: number) {
+  const appear = touchdown - ARRIVAL.approachMs;
+  return {
+    appear,
+    hover: appear + APPROACH_A * 1000,
+    touchdown,
+    liftoff: touchdown + ARRIVAL.groundMs,
+    gone: touchdown + ARRIVAL.groundMs + ARRIVAL.departMs,
+  };
+}
+
+/** Where a helicopter is, in the world (the ship's frame), for a camera to follow. */
+export interface HelicopterView {
+  position: THREE.Vector3;
+  /** Heading: the way the nose points (0 is +z). */
+  yaw: number;
+  phase: "approach" | "settle" | "ground" | "depart";
+  /** The touchdown time (ms) of the flight. */
+  touchdown: number;
+  object: THREE.Object3D;
+}
+
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _v = new THREE.Vector3();
 
 /** Where a flight's helicopter is `t` ms after its window opens: position (pad frame) and heading. */
 function pose(f: Flight, now: number, out: THREE.Vector3): { yaw: number; visible: boolean } {
@@ -216,13 +286,59 @@ export interface Helicopters {
   root: THREE.Group;
   setArrivals(touchdowns: number[]): void;
   update(dt: number, now: number): void;
+  view(now: number): HelicopterView | null;
   dispose(): void;
 }
 
-export function createHelicopters(): Helicopters {
+function phaseOf(f: Flight, now: number): HelicopterView["phase"] {
+  if (now < f.land - ARRIVAL.approachMs + APPROACH_A * 1000) return "approach";
+  if (now < f.land) return "settle";
+  if (now <= f.leave) return "ground";
+  return "depart";
+}
+
+/** The downwash on the deck: rings of disturbed air and spray over the pad. */
+function deckWash(): THREE.Mesh {
+  const m = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+    uniforms: { uTime: LIGHT.uTime, uAmt: { value: 0 }, uTint: LIGHT.uTint },
+    vertexShader: "varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: /* glsl */ `
+      uniform float uTime, uAmt; uniform vec3 uTint; varying vec2 vP;
+      void main() {
+        float r = length(vP);
+        float rings = sin(r * 2.2 - uTime * 12.0) * 0.5 + 0.5;
+        float swirl = sin(atan(vP.y, vP.x) * 9.0 + r * 1.5 - uTime * 6.0) * 0.5 + 0.5;
+        float a = uAmt * smoothstep(11.0, 3.0, r) * smoothstep(1.0, 3.0, r) * (0.14 * rings + 0.1 * swirl * rings);
+        gl_FragColor = vec4(vec3(0.9, 0.92, 0.95) * (uTint + 0.15), a);
+      }`,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(24, 24).rotateX(-Math.PI / 2), m);
+  mesh.name = "downwash-deck";
+  mesh.renderOrder = 2;
+  return mesh;
+}
+
+export function createHelicopters(ocean?: Ocean): Helicopters {
   const root = new THREE.Group();
   root.name = "helicopters";
   const template = helicopterModel();
+  const wash = deckWash();
+  wash.visible = false;
+  root.add(wash);
+  const washMat = wash.material as THREE.ShaderMaterial;
+  // Where the landing lights fall on the deck, after dark.
+  const spotMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+    uniforms: { uOn: { value: 0 } },
+    vertexShader: "varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: "uniform float uOn; varying vec2 vP; void main(){ float r = length(vP) / 4.5; float a = uOn * exp(-r * r * 3.0) * smoothstep(1.0, 0.7, r); gl_FragColor = vec4(vec3(1.0, 0.96, 0.88) * a * 0.9, 1.0); }",
+  });
+  const spot = new THREE.Mesh(new THREE.PlaneGeometry(9, 9).rotateX(-Math.PI / 2), spotMat);
+  spot.name = "landing-spot";
+  spot.visible = false;
+  root.add(spot);
+  let spotOn = 0;
   const fleet: THREE.Group[] = [];
   let flights: Flight[] = [];
   const pad = V(PAD.x, D2, PAD.z);
@@ -231,6 +347,11 @@ export function createHelicopters(): Helicopters {
   const heli = (i: number) => {
     while (fleet.length <= i) {
       const h = template.clone();
+      // Their own blur and beam, which change with each one's flight.
+      for (const name of ["blur", "landing-beam"]) {
+        const m = h.getObjectByName(name) as THREE.Mesh;
+        m.material = (m.material as THREE.ShaderMaterial).clone();
+      }
       h.rotation.order = "YXZ";
       h.visible = false;
       root.add(h);
@@ -244,8 +365,15 @@ export function createHelicopters(): Helicopters {
     setArrivals(touchdowns) {
       flights = planFlights(touchdowns);
     },
+    view(now) {
+      const f = flights.find((x) => now >= x.land - ARRIVAL.approachMs && now <= x.leave + ARRIVAL.departMs);
+      if (!f) return null;
+      const p = pose(f, now, _v);
+      return { position: pad.clone().add(_v), yaw: p.yaw, phase: phaseOf(f, now), touchdown: f.land, object: fleet[0] ?? template };
+    },
     update(_dt, now) {
       const live = flights.filter((f) => now >= f.land - ARRIVAL.approachMs && now <= f.leave + ARRIVAL.departMs);
+      let washAmt = 0, washX = 0, washZ = 0, overDeck = false;
       for (let i = 0; i < Math.max(live.length, fleet.length); i++) {
         const f = live[i];
         if (!f) { if (fleet[i]) fleet[i]!.visible = false; continue; }
@@ -271,6 +399,44 @@ export function createHelicopters(): Helicopters {
         tail.rotation.x = ((now / 1000) * 90) % TAU;
         const beacon = h.getObjectByName("beacon");
         if (beacon) beacon.visible = Math.floor(now / 600) % 2 === 0;
+        const strobe = h.getObjectByName("strobe");
+        if (strobe) { const f = (now % 1300) / 1300; strobe.visible = f < 0.04 || (f > 0.1 && f < 0.14); }
+        // The blades blur into the disc once they're up to speed (they always are while it's here).
+        const blur = (h.getObjectByName("blur") as THREE.Mesh).material as THREE.ShaderMaterial;
+        blur.uniforms.uAngle!.value = rotor.rotation.y;
+        rotor.children.forEach((c) => { if (c.name !== "blur") c.visible = c === rotor.children[0]; });
+        // Landing lights: on after dark from the hover until it's down, and on the way up.
+        const phase = phaseOf(f, now);
+        const beam = (h.getObjectByName("landing-beam") as THREE.Mesh).material as THREE.ShaderMaterial;
+        const lit = LIGHT.uNight.value * (phase === "ground" ? 0 : phase === "depart" ? 1 - smooth(0, 6000, now - f.leave) : 1);
+        beam.uniforms.uOn!.value = lit;
+        h.getObjectByName("landing-beam")!.visible = lit > 0.01;
+        // The downwash: on the water when it's low over the sea, on the deck when it's over the pad.
+        const wx = h.position.x, wz = h.position.z;
+        const overShip = Math.abs(wx) < deckHalfBeam(wz) + 1 && wz > -72 && wz < 70;
+        const alt = overShip ? h.position.y - D2 : h.position.y;
+        const amt = (1 - smooth(6, 30, alt)) * (phase === "ground" ? 0.55 : 1);
+        if (amt > washAmt) { washAmt = amt; washX = wx; washZ = wz; overDeck = overShip; }
+        // The beam's spot: ahead of the nose by the height and the beam's tilt, if that's on deck.
+        if (lit > spotOn) {
+          const reach = Math.tan(0.62 + h.rotation.x) * Math.max(0, h.position.y - D2);
+          const sx = wx + Math.sin(h.rotation.y) * (reach + 2.6), sz = wz + Math.cos(h.rotation.y) * (reach + 2.6);
+          const onDeck = Math.abs(sx) < deckHalfBeam(sz) && sz > -66 && sz < -40;
+          if (onDeck) {
+            spotOn = lit * (1 - smooth(14, 30, h.position.y - D2));
+            spot.position.set(sx, D2 + 0.04, sz);
+          }
+        }
+      }
+      spot.visible = spotOn > 0.01;
+      spotMat.uniforms.uOn!.value = spotOn;
+      spotOn = 0;
+      // One wash at a time: the strongest.
+      ocean?.setDownwash(washX, washZ, overDeck ? 0 : washAmt, 15);
+      wash.visible = overDeck && washAmt > 0.01;
+      if (wash.visible) {
+        wash.position.set(washX, D2 + 0.05, washZ);
+        washMat.uniforms.uAmt!.value = washAmt;
       }
     },
     dispose() {
