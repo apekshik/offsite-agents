@@ -35,21 +35,29 @@ yourself: `OFFSITE_URL=https://<your-dev>.convex.cloud` (or `--url`). Without ei
 with offsiteagents.app. To run a second runner on the same computer, give it its own home:
 `OFFSITE_HOME=~/.offsite-2 pnpm runner start`. Only one runner works from each home at a time.
 
-## The published CLI (`npx offsite-agents`)
+## The published CLI
 
-`packages/runner` is published to npm as `offsite-agents`. `npm pack` (in `packages/runner`) builds
-`dist/offsite.mjs` with esbuild (`build.mjs`: Offsite's workspace packages bundled in, npm
-dependencies left external) and packs only that, the README, LICENSE and NOTICE. To try a change
-the way users get it, without publishing:
+Captains run `npx <RUNNER_SPEC>` (`packages/contracts/src/install.ts`): for now
+`npx https://offsiteagents.app/offsite-agents.tgz`, the tarball every site build packs from
+`packages/runner`; once the package is on npm, `npx offsite-agents`. Everything that shows or runs the
+command reads that constant, so switching is one line (see [docs/deploy.md](docs/deploy.md)).
+
+`npm pack` (in `packages/runner`) builds `dist/offsite.mjs` with esbuild (`build.mjs`: Offsite's
+workspace packages bundled in, npm dependencies left external) and packs only that, the README,
+LICENSE and NOTICE. `pnpm build` runs it after the web build and puts the result at
+`apps/web/dist/offsite-agents.tgz`. To try a change the way captains get it:
 
 ```sh
-cd packages/runner && npm pack --pack-destination /tmp
+pnpm build && pnpm --filter @offsite/web exec vite preview --port 5291   # serves apps/web/dist; leave it running
+# in another terminal:
 OFFSITE_HOME=/tmp/offsite-try OFFSITE_URL=https://<your-dev>.convex.cloud \
-  npx --yes --package=/tmp/offsite-agents-<version>.tgz offsite-agents --sim
+  npx --yes http://localhost:5291/offsite-agents.tgz --sim
 ```
 
-Approve the code at `http://localhost:5180/pair?code=...&dev=yourname` (the dev sign-in). Bump
-`version` in `packages/runner/package.json` before publishing (`npm publish` from `packages/runner`).
+npx keeps what it installed the first time for a URL, even after the file changes: `rm -rf ~/.npm/_npx`
+before trying a new build from the same address. Approve the code at
+`http://localhost:5180/pair?code=...&dev=yourname` (the dev sign-in). Bump `version` in
+`packages/runner/package.json` when the runner changes (and before publishing it to npm).
 
 ## Tests
 

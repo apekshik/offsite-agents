@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { RUNNER_COMMAND } from "@offsite/contracts";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { fail, limit, ONLINE_MS, randomCode, randomToken, requireUser, sha256 } from "./lib";
@@ -38,12 +39,12 @@ type Found = { ok: true; row: Doc<"deviceCodes"> } | { ok: false; error: string 
 async function findCode(ctx: MutationCtx, user: Doc<"users">, userCode: string): Promise<Found> {
   const key = `pair-miss:${user._id}`;
   const spent = await ctx.db.query("rateLimits").withIndex("by_key", (q) => q.eq("key", key)).unique();
-  const tooMany = { ok: false as const, error: "Too many codes that didn't match. Wait ten minutes, then run `npx offsite-agents` again for a fresh one." };
+  const tooMany = { ok: false as const, error: `Too many codes that didn't match. Wait ten minutes, then run \`${RUNNER_COMMAND}\` again for a fresh one.` };
   if (spent && Date.now() - spent.windowStart < PAIRING.missWindowMs && spent.count >= PAIRING.missesPerUser) return tooMany;
   const row = await ctx.db.query("deviceCodes").withIndex("by_user_code", (q) => q.eq("userCode", userCode.trim().toUpperCase())).first();
   if (row && row.status === "pending" && row.expiresAt >= Date.now()) return { ok: true, row };
   if (!(await limit(ctx, key, PAIRING.missesPerUser, PAIRING.missWindowMs))) return tooMany;
-  return { ok: false, error: "No machine is waiting with that code. Codes last 15 minutes; run `npx offsite-agents` again for a new one." };
+  return { ok: false, error: `No machine is waiting with that code. Codes last 15 minutes; run \`${RUNNER_COMMAND}\` again for a new one.` };
 }
 
 /** What the runner asking with this code said it is, for the approval screen. */

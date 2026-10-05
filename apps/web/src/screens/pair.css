@@ -1,5 +1,6 @@
 /* /pair: approving a machine in one click (Pair.tsx). On top of screens.css. */
 .pair-card { width: 520px; max-width: 100%; }
+.pair-card p .mono { overflow-wrap: anywhere; }
 .pair-machine { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
 .pair-machine-name { font-weight: 650; font-size: 18px; }
 .pair-code { margin-top: 6px; font-size: 13px; }

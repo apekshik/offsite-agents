@@ -5,6 +5,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
+import { RUNNER_SPEC } from "@offsite/contracts";
 import { offsiteHome } from "./config.ts";
 
 // Keeping `offsite start` running at login: a LaunchAgent on macOS, a systemd user unit on Linux. Each OFFSITE_HOME
@@ -27,10 +28,10 @@ export const unitPath = (label = serviceLabel()) => join(process.env["XDG_CONFIG
 
 /**
  * How the service starts the runner. Run through npx, the copy in npx's cache isn't somewhere to point a service at,
- * so it runs `npx --yes offsite-agents start` (which also picks up new versions); otherwise this same script.
+ * so it runs `npx --yes <RUNNER_SPEC> start` (which also picks up new versions); otherwise this same script.
  */
-export function startCommand(p: { execPath: string; execArgv: string[]; script: string; npx: string | null }): string[] {
-  if (p.npx && /[\\/]_npx[\\/]/.test(p.script)) return [p.execPath, p.npx, "--yes", "offsite-agents", "start"];
+export function startCommand(p: { execPath: string; execArgv: string[]; script: string; npx: string | null }, spec = RUNNER_SPEC): string[] {
+  if (p.npx && /[\\/]_npx[\\/]/.test(p.script)) return [p.execPath, p.npx, "--yes", spec, "start"];
   return [p.execPath, ...p.execArgv, p.script, "start"];
 }
 
@@ -152,7 +153,7 @@ export async function install(command: string, opts: { dryRun?: boolean } = {}):
   return {
     ok: false,
     instructions: process.platform === "win32"
-      ? `Starting at login isn't automatic on Windows yet. Keep \`${command}\` running in a terminal, or add it to Task Scheduler:\n  schtasks /Create /SC ONLOGON /TN "Offsite Agents" /TR "npx --yes offsite-agents start"`
+      ? `Starting at login isn't automatic on Windows yet. Keep \`${command}\` running in a terminal, or add it to Task Scheduler:\n  schtasks /Create /SC ONLOGON /TN "Offsite Agents" /TR "npx --yes ${RUNNER_SPEC} start"`
       : `Starting at login isn't automatic on ${process.platform} yet. Keep \`${command}\` running, with your system's service manager or in a terminal.`,
   };
 }

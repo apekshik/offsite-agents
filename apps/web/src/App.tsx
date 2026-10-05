@@ -15,7 +15,7 @@ export function App() {
 }
 
 /**
- * /pair?code= approves a machine (from `npx offsite-agents`); everything else is the way aboard. Coming back from
+ * /pair?code= approves a machine (from the runner, RUNNER_COMMAND); everything else is the way aboard. Coming back from
  * sign-in, the address is /callback until auth settles and puts back where sign-in started, so this reads it again then.
  */
 function Routes() {

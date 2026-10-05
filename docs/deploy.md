@@ -1,6 +1,6 @@
 # Deploying Offsite
 
-The hosted app is `apps/web` on Vercel (team Asterisk Inc, project `offsite-agents`, at https://offsiteagents.app), talking to the Convex production deployment `adamant-shrimp-822`. Sign-in is WorkOS AuthKit. Crews run on each captain's own machine (`npx offsite-agents`, the `offsite-agents` package on npm), never on Vercel.
+The hosted app is `apps/web` on Vercel (team Asterisk Inc, project `offsite-agents`, at https://offsiteagents.app), talking to the Convex production deployment `adamant-shrimp-822`. Sign-in is WorkOS AuthKit. Crews run on each captain's own machine (`npx https://offsiteagents.app/offsite-agents.tgz`, the runner this site serves; `npx offsite-agents` once the package is on npm), never on Vercel.
 
 The dev deployment `quaint-starfish-929` stays for development and Vercel previews. Never deploy to production to try a change.
 
@@ -11,7 +11,7 @@ The dev deployment `quaint-starfish-929` stays for development and Vercel previe
 - **Production** (`VERCEL_ENV=production`): refuses unless the production Convex deployment has no `DEV_AUTH_JWKS`, has `SITE_URL`, and has the same `WORKOS_CLIENT_ID` as Vercel. Then `convex deploy --cmd "pnpm build" --cmd-url-env-var-name CONVEX_URL`: builds the app against the production URL, then pushes `convex/` (typecheck, schema, functions, crons). If either step fails, the deploy fails and the site stays as it was.
 - **Preview**: only `pnpm build`, against the `CONVEX_URL` set for Preview (the dev deployment). Nothing is pushed to Convex.
 
-The output is `apps/web/dist`. Hashed files under `/assets/` are cached for a year (immutable); `index.html` is revalidated every time (Vercel's default for HTML); everything else that isn't a file falls back to `index.html` (the app reads `/callback`, `/pair?code=` and `?connect=` itself). `www.offsiteagents.app` redirects to the apex.
+The output is `apps/web/dist`. `pnpm build` also packs `packages/runner` into `apps/web/dist/offsite-agents.tgz` (`scripts/pack-runner.mjs`, after the web build), so every deploy serves the runner from the same commit at `/offsite-agents.tgz`, as `application/gzip` with a five-minute cache. Hashed files under `/assets/` are cached for a year (immutable); `index.html` is revalidated every time (Vercel's default for HTML); everything else that isn't a file falls back to `index.html` (the app reads `/callback`, `/pair?code=` and `?connect=` itself), except `/assets/` and the tarball. `www.offsiteagents.app` redirects to the apex.
 
 Why Convex deploys inside the Vercel build: backend and frontend go out together, in order, from the same commit, and a backend push that fails (a schema that doesn't match the data, a type error) stops the frontend too. The cost: a Vercel rollback doesn't roll back Convex (see Rollback), so keep backend changes additive.
 
@@ -103,29 +103,41 @@ vercel deploy --prod --scope asterisk-inc
 curl -sI https://offsiteagents.app/ | grep -i -E 'HTTP|cache-control'
 curl -sI https://www.offsiteagents.app/some/path | grep -i -E 'HTTP|location'      # 308 to the apex
 curl -sI "https://offsiteagents.app/assets/$(curl -s https://offsiteagents.app/ | grep -o 'index-[^"]*\.js' | head -1)" | grep -i cache-control   # immutable
+curl -sI https://offsiteagents.app/offsite-agents.tgz | grep -i -E 'HTTP|content-type|cache-control'   # 200, application/gzip, max-age=300
+npx --yes https://offsiteagents.app/offsite-agents.tgz --version                                    # the version in packages/runner/package.json
 curl -s -X POST https://adamant-shrimp-822.convex.site/device/start -H 'content-type: application/json' -d '{"name":"smoke"}'   # verifyUrl: https://offsiteagents.app/pair?code=...
 ```
 
-Then in a browser: sign in, make a ship, and pair a machine with `npx offsite-agents` (it pairs with production unless `OFFSITE_URL` or `--url` says otherwise, and opens `/pair` to approve it). `https://offsiteagents.app/?dev=anyone` must show the normal sign-in screen.
+Then in a browser: sign in, make a ship, and pair a machine with `npx https://offsiteagents.app/offsite-agents.tgz` (it pairs with production unless `OFFSITE_URL` or `--url` says otherwise, and opens `/pair` to approve it). `https://offsiteagents.app/?dev=anyone` must show the normal sign-in screen.
 
 ## Later deploys
 
 From a clean worktree of the commit (`git -C ../offsite-release checkout --detach <sha>`, then `vercel deploy --prod --scope asterisk-inc` there). Or, once Git is connected, merge to `main`. Try backend changes on the dev deployment first (`pnpm dev:backend`).
 
-## Publishing the runner (`offsite-agents` on npm)
+## The runner: from the site now, from npm later
 
-The CLI captains run (`npx offsite-agents`) is `packages/runner`, bundled by `build.mjs` into `dist/offsite.mjs` (Offsite's workspace packages inside; `@anthropic-ai/claude-agent-sdk`, `convex` and `zod` stay real dependencies). Production's Convex URL is built in, so it needs no flags; `--url` or `OFFSITE_URL` points it elsewhere.
+The CLI captains run is `packages/runner`, bundled by `build.mjs` into `dist/offsite.mjs` (Offsite's workspace packages inside; `@anthropic-ai/claude-agent-sdk`, `convex` and `zod` stay real dependencies). Production's Convex URL is built in, so it needs no flags; `--url` or `OFFSITE_URL` points it elsewhere. npm runs the `offsite-agents` bin (both bins are the same file, and that one matches the package name).
 
-Ship the app first: the CLI opens `https://offsiteagents.app/pair?code=…`, so that page must be live before a published CLI sends anyone there. Then:
+How captains get it is one constant, `RUNNER_SPEC` in `packages/contracts/src/install.ts`. The app's "Your machine" step and `/pair` page, the CLI's help and hints, the background service's command line (`npx --yes <spec> start`) and the backend's error messages all read it.
 
-```
-cd packages/runner
-npm pack --dry-run                 # the file list: README.md, package.json, dist/offsite.mjs, dist/LICENSE, dist/NOTICE
-npm publish --access public        # runs build.mjs first (prepack)
-npx offsite-agents@latest --version
-```
+**Now** it is `https://offsiteagents.app/offsite-agents.tgz`: the tarball each deploy builds (above). Shipping the site ships the runner; nothing to publish. Bump `version` in `packages/runner/package.json` when the runner changes, so `--version` tells them apart.
 
-Bump `version` in `packages/runner/package.json` for every publish. `npm deprecate offsite-agents@<version> "<why>"` warns anyone installing a bad one; publish a fixed version over it.
+npx keeps the copy it installed the first time for a given URL, even after the file there changes (it compares the URL, not the contents). Someone who ran it before a runner change keeps the old runner, and so does their background service, until npx's copy goes: `rm -rf ~/.npm/_npx` (only npx's own caches), then run the command again.
+
+**Once `offsite-agents` is on npm**:
+
+1. Ship the app first: the CLI opens `https://offsiteagents.app/pair?code=…`, so that page must be live before a published CLI sends anyone there.
+2. Publish:
+   ```
+   cd packages/runner
+   npm pack --dry-run                 # the file list: README.md, package.json, dist/offsite.mjs, dist/LICENSE, dist/NOTICE
+   npm publish --access public        # runs build.mjs first (prepack)
+   npx offsite-agents@latest --version
+   ```
+3. Set `RUNNER_SPEC = "offsite-agents"`. In the docs, swap `npx https://offsiteagents.app/offsite-agents.tgz` for `npx offsite-agents` (`git grep -n offsite-agents.tgz`: this file, CONTRIBUTING.md, README.md, packages/runner/README.md). Deploy.
+4. Keep serving the tarball (leave `scripts/pack-runner.mjs` in the build): background services installed before the switch still start with `npx --yes https://offsiteagents.app/offsite-agents.tgz start`. Running `npx offsite-agents install` once moves a machine over.
+
+Bump `version` for every publish. `npm deprecate offsite-agents@<version> "<why>"` warns anyone installing a bad one; publish a fixed version over it.
 
 ## Rollback
 

@@ -1,6 +1,7 @@
 // Adapted from Beam (github.com/SupraluminalIntelligence/beam, MIT).
 import { hostname } from "node:os";
 import { z } from "zod";
+import { RUNNER_COMMAND } from "@offsite/contracts";
 import { writeConfig, type RunnerConfig } from "./config.ts";
 import { style } from "./ui.ts";
 
@@ -39,7 +40,7 @@ export async function login(opts: {
   os?: string;
   /** Pairing on the way to taking work, which carries straight on: don't tell them to start it. */
   starting?: boolean;
-  /** How to run the CLI again, for the hints: "npx offsite-agents", "pnpm runner". */
+  /** How to run the CLI again, for the hints: RUNNER_COMMAND (`npx <spec>`), "pnpm runner". */
   command?: string;
   /** Open the approval page in a browser; false when it couldn't. Left out: only print the link. */
   open?: (url: string) => boolean | Promise<boolean>;
@@ -47,7 +48,7 @@ export async function login(opts: {
 }): Promise<RunnerConfig> {
   const log = opts.log ?? ((s: string) => console.log(s));
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
-  const command = opts.command ?? "npx offsite-agents";
+  const command = opts.command ?? RUNNER_COMMAND;
   const start = Start.parse(await post(`${opts.siteUrl}/device/start`, { name: opts.name, hostname: hostname(), ...(opts.os ? { os: opts.os } : {}) }));
   const link = pairLink(start.verifyUrl, start.userCode);
   const opened = opts.open ? await Promise.resolve(opts.open(link)).catch(() => false) : false;

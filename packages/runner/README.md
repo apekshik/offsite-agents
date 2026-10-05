@@ -5,12 +5,14 @@ Codex agents on a superyacht in your browser; this is the small runner that does
 computer, with your own subscriptions.
 
 ```sh
-npx offsite-agents
+npx https://offsiteagents.app/offsite-agents.tgz
 ```
 
-That's it. The first time, it prints a code and opens your browser so you can approve this machine
-for your ship. Then it starts taking work, and keeps doing so until you press Ctrl-C (it commits
-whatever the crew was in the middle of first). Next time, the same command just starts.
+That's it. (Until the `offsite-agents` package is on npm, offsiteagents.app serves it; after that,
+`npx offsite-agents` does the same.) The first time, it prints a code and opens your browser so you
+can approve this machine for your ship. Then it starts taking work, and keeps doing so until you
+press Ctrl-C (it commits whatever the crew was in the middle of first). Next time, the same command
+just starts.
 
 **You need** Node 22.18 or later, git, and [Claude Code](https://claude.com/claude-code) or
 [Codex](https://github.com/openai/codex) (or both) installed and signed in. For pull requests, a
@@ -19,19 +21,24 @@ signed-in [GitHub CLI](https://cli.github.com) (`gh`).
 ## Commands
 
 ```
-npx offsite-agents              pair this machine if it isn't yet, then take on work
-npx offsite-agents --sim        a scripted crew: no CLI, no spending
-npx offsite-agents status       paired? running? signed in to Claude Code and Codex?
-npx offsite-agents install      keep it running in the background, starting at login
-npx offsite-agents uninstall    stop running it in the background
-npx offsite-agents login        pair again (say, with another account)
-npx offsite-agents logout       forget this machine's pairing
+npx https://offsiteagents.app/offsite-agents.tgz [command]
+
+(no command)   pair this machine if it isn't yet, then take on work
+--sim          a scripted crew: no CLI, no spending
+status         paired? running? signed in to Claude Code and Codex?
+install        keep it running in the background, starting at login
+uninstall      stop running it in the background
+login          pair again (say, with another account)
+logout         forget this machine's pairing
 ```
 
 `install` sets up a LaunchAgent on macOS (`~/Library/LaunchAgents`) or a systemd user unit on
 Linux, with logs in `~/.offsite/logs`. Elsewhere it says how to keep it running yourself.
 
-`npm install -g offsite-agents` gives you the same as `offsite`.
+`npm install -g https://offsiteagents.app/offsite-agents.tgz` gives you the same as `offsite`.
+
+npx keeps the copy it downloaded the first time and doesn't notice a newer one at the same address.
+To update, `rm -rf ~/.npm/_npx` (npx's own cache) and run the command again.
 
 ## What it keeps, and what it doesn't
 

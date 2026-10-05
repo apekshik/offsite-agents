@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { RUNNER_COMMAND } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import { signIn, signInAvailable } from "../auth.ts";
 import { Button, Card, errorText } from "../ui/index.tsx";
 import "./screens.css";
 import "./pair.css";
 
-// /pair?code=XXXX-XXXX: where `npx offsite-agents` sends the captain to approve a machine in one click. Sign in if
+// /pair?code=XXXX-XXXX: where the runner (RUNNER_COMMAND) sends the captain to approve a machine in one click. Sign in if
 // needed (sign-in comes back here), see which machine is asking, approve it or turn it down.
 
 const CODE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
@@ -14,7 +15,6 @@ const normalize = (s: string | null) => {
   const raw = (s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
   return raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : "";
 };
-const RUN = "npx offsite-agents";
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -50,7 +50,7 @@ export function Pair() {
       <Shell>
         <div className="sc-hero">
           <h1 className="disp">Connect a machine</h1>
-          <p className="ink2">This link is missing its code. On the computer you want to connect, run <span className="mono">{RUN}</span>: it opens this page with a fresh one.</p>
+          <p className="ink2">This link is missing its code. On the computer you want to connect, run <span className="mono">{RUNNER_COMMAND}</span>: it opens this page with a fresh one.</p>
         </div>
       </Shell>
     );
@@ -129,7 +129,7 @@ function Approve({ code }: { code: string }) {
       <Shell>
         <div className="sc-hero">
           <h1 className="disp">Turned down</h1>
-          <p className="ink2">That terminal won't be connected. If it was yours after all, run <span className="mono">{RUN}</span> there again for a new code.</p>
+          <p className="ink2">That terminal won't be connected. If it was yours after all, run <span className="mono">{RUNNER_COMMAND}</span> there again for a new code.</p>
         </div>
       </Shell>
     );

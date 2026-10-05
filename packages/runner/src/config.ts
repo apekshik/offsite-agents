@@ -45,7 +45,7 @@ export function envLocal(from = process.cwd()): Record<string, string> {
   }
 }
 
-/** Offsite's hosted ship: what `npx offsite-agents` pairs with unless told otherwise. */
+/** Offsite's hosted ship: what the published CLI (RUNNER_COMMAND in @offsite/contracts) pairs with unless told otherwise. */
 export const PRODUCTION = { convexUrl: "https://adamant-shrimp-822.convex.cloud", siteUrl: "https://adamant-shrimp-822.convex.site", appUrl: "https://offsiteagents.app" } as const;
 
 export interface Deployment {

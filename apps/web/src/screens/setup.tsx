@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { COMPUTER_NAME } from "@offsite/contracts";
+import { COMPUTER_NAME, RUNNER_COMMAND, runnerCommand } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ago, Button, Card, Chip, ConfirmButton, Dot, errorText, Field, Input, useNow } from "../ui/index.tsx";
@@ -71,10 +71,9 @@ export function MachineCard({ m, chosen, onRevoke }: { m: Machine; chosen?: bool
   );
 }
 
-/** The one command that brings a machine aboard: it signs in through this page and pairs. */
-export const RUNNER_COMMAND = "npx offsite-agents";
+// RUNNER_COMMAND, the one command that brings a machine aboard, signs in through this site and pairs.
 /** Keeps the runner going in the background, across restarts. */
-export const RUNNER_INSTALL = "npx offsite-agents install";
+const RUNNER_INSTALL = runnerCommand("install");
 
 /** A command in a box, with a button that copies it. */
 export function CopyCommand({ command, label = "Copy the command" }: { command: string; label?: string }) {

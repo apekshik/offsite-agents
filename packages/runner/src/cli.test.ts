@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ProfileStatus } from "@offsite/harness";
+import { RUNNER_SPEC } from "@offsite/contracts";
 import { deployment, PRODUCTION } from "./config.ts";
 import { launchdPlist, serviceLabel, startCommand, systemdUnit } from "./service.ts";
 import { canCrew, probeLine, statusLine } from "./ui.ts";
@@ -48,7 +49,11 @@ it("says in one line what the runner is doing", () => {
 
 it("starts the background service through npx when run through npx, else this same script", () => {
   const npxRun = startCommand({ execPath: "/opt/node/bin/node", execArgv: [], script: "/Users/a/.npm/_npx/abc/node_modules/offsite-agents/dist/offsite.mjs", npx: "/opt/node/lib/npx-cli.js" });
-  expect(npxRun).toEqual(["/opt/node/bin/node", "/opt/node/lib/npx-cli.js", "--yes", "offsite-agents", "start"]);
+  expect(npxRun).toEqual(["/opt/node/bin/node", "/opt/node/lib/npx-cli.js", "--yes", RUNNER_SPEC, "start"]);
+  // The same spec captains ran: the site's tarball for now, the npm package later.
+  const fromUrl = { execPath: "/n", execArgv: [], script: "/Users/a/.npm/_npx/abc/node_modules/offsite-agents/dist/offsite.mjs", npx: "/npx" };
+  expect(startCommand(fromUrl, "https://offsiteagents.app/offsite-agents.tgz")).toEqual(["/n", "/npx", "--yes", "https://offsiteagents.app/offsite-agents.tgz", "start"]);
+  expect(startCommand(fromUrl, "offsite-agents")).toEqual(["/n", "/npx", "--yes", "offsite-agents", "start"]);
   const global = startCommand({ execPath: "/opt/node/bin/node", execArgv: [], script: "/opt/node/lib/node_modules/offsite-agents/dist/offsite.mjs", npx: "/opt/node/lib/npx-cli.js" });
   expect(global).toEqual(["/opt/node/bin/node", "/opt/node/lib/node_modules/offsite-agents/dist/offsite.mjs", "start"]);
   const checkout = startCommand({ execPath: "/n", execArgv: ["--experimental-strip-types"], script: "/repo/packages/runner/src/cli.ts", npx: null });

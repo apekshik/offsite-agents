@@ -3,7 +3,7 @@ import { ConvexError } from "convex/values";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-// Device-code pairing for `npx offsite-agents`. The runner has no browser session, so it talks plain
+// Device-code pairing for the runner (RUNNER_COMMAND in @offsite/contracts). It has no browser session, so it talks plain
 // HTTP here; the captain approves the code in the app (/pair?code=). Starting is rate limited (machines.ts PAIRING).
 
 const http = httpRouter();

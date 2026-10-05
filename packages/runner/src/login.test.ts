@@ -7,6 +7,7 @@ import { login, pairLink } from "./login.ts";
 import { readConfig } from "./config.ts";
 import { parseLook } from "./lookPrompt.ts";
 import { simLookLines } from "@offsite/harness";
+import { RUNNER_COMMAND } from "@offsite/contracts";
 
 const plain = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
@@ -42,7 +43,7 @@ it("pairs by device code and saves the token for this user only", async () => {
   // The approval page, opened and printed: /pair on the app, even from a deployment that still answers ?connect=.
   expect(opened).toEqual(["http://app/pair?code=ABCD-EFGH"]);
   expect(out.join("\n")).toContain("http://app/pair?code=ABCD-EFGH");
-  expect(out.at(-1)).toBe('✓ Paired as "Mac". Run `npx offsite-agents` to take on work.');
+  expect(out.at(-1)).toBe(`✓ Paired as "Mac". Run \`${RUNNER_COMMAND}\` to take on work.`);
   expect(seen[0]).toEqual(["/device/start", { name: "Mac", hostname: expect.any(String), os: "macOS 26.4" }]);
   expect(seen[1]).toEqual(["/device/poll", { deviceCode: "dc" }]);
   expect(await readConfig()).toEqual(config);

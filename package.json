@@ -12,7 +12,7 @@
     "dev:backend": "convex dev",
     "runner": "node --experimental-strip-types --no-warnings packages/runner/src/cli.ts",
     "sim": "node --experimental-strip-types --no-warnings packages/runner/src/cli.ts start --sim",
-    "build": "pnpm --filter @offsite/web build",
+    "build": "pnpm --filter @offsite/web build && node scripts/pack-runner.mjs",
     "typecheck": "pnpm -r typecheck && tsc -p convex",
     "test": "pnpm -r test && pnpm test:backend",
     "test:backend": "vitest run --config convex/vitest.config.ts",

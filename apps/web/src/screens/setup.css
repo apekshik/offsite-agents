@@ -19,7 +19,9 @@
 .run-step { display: flex; flex-direction: column; gap: 10px; }
 .run-lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
 .run-fine { margin: 0; font-size: 12.5px; line-height: 1.5; }
-.run-fine code { color: var(--ink-2); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--line); white-space: nowrap; }
+.run-fine code { color: var(--ink-2); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--line); overflow-wrap: anywhere; }
+/* The runner command can be a whole URL (RUNNER_SPEC): let it break on a phone rather than push the card wider. */
+.code-found .mono { overflow-wrap: anywhere; }
 .copy-cmd {
   display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; min-width: 0;
   border-radius: 10px; background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(79, 227, 255, 0.28);

@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { basename, delimiter, dirname, join } from "node:path";
 import { ConvexHttpClient } from "convex/browser";
+import { RUNNER_COMMAND } from "@offsite/contracts";
 import {
   adapters, cliInvocation, createSimAdapter, hydratePathFromLoginShell, probeAll, profileEnv, profilesDir, SIM_STATUS, which, type ProfileStatus,
 } from "@offsite/harness";
@@ -26,26 +27,28 @@ const VERSION = (() => { try { return (JSON.parse(readFileSync(new URL("../packa
 function invocation(): string {
   if (checkout) return "pnpm runner";
   const script = process.argv[1] ?? "";
-  if (/[\\/]_npx[\\/]/.test(script) || process.env["npm_command"] === "exec") return "npx offsite-agents";
+  if (/[\\/]_npx[\\/]/.test(script) || process.env["npm_command"] === "exec") return RUNNER_COMMAND;
   // A global install runs through its bin link (offsite or offsite-agents) in a folder on PATH.
   const base = basename(script);
   const onPath = (process.env["PATH"] ?? "").split(delimiter).includes(dirname(script));
-  return (base === "offsite" || base === "offsite-agents") && onPath ? base : "npx offsite-agents";
+  return (base === "offsite" || base === "offsite-agents") && onPath ? base : RUNNER_COMMAND;
 }
 const me = invocation();
 
 const HELP = `${style.bold("Offsite Agents")}: run your Offsite crew on this machine, on your own Claude Code and Codex.
 
-  ${me}                      pair this machine if it isn't yet, then take on work
-  ${me} --sim                the same with a scripted crew: no CLI, no spending
-  ${me} login                pair this machine with your ship (opens the browser)
-  ${me} start                take on work (pairs first, if needed)
-  ${me} status               paired? running? signed in to Claude Code and Codex?
-  ${me} install              keep it running in the background, starting at login (--dry-run shows how)
-  ${me} uninstall            stop running it in the background
-  ${me} logout               forget this machine's pairing
-  ${me} probe                what is installed and signed in here
-  ${me} profile add <claude|codex> <name>   another account on this machine
+Usage: ${me} [command]
+
+  (no command)         pair this machine if it isn't yet, then take on work
+  --sim                the same with a scripted crew: no CLI, no spending
+  login                pair this machine with your ship (opens the browser)
+  start                take on work (pairs first, if needed)
+  status               paired? running? signed in to Claude Code and Codex?
+  install              keep it running in the background, starting at login (--dry-run shows how)
+  uninstall            stop running it in the background
+  logout               forget this machine's pairing
+  probe                what is installed and signed in here
+  profile add <claude|codex> <name>   another account on this machine
 
 Options
   --url <convex url>   pair with another deployment (a dev or self-hosted one); also OFFSITE_URL
