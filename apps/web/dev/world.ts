@@ -4,13 +4,14 @@
 //
 //   /dev/world.html?view=hero&hour=18.5&quality=high&slots=1&nav=1&ui=0&fly=1
 //   /dev/world.html?walk&at=<nav node or slot id>&yaw=<deg>&view=first|third   walk the decks
+//   &crew=<tag|kind|all>   seat crew at the slots with that tag or kind, for checking scale
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import type { SlotKind, WorldLayout } from "@offsite/contracts";
 import {
-  CAPTAIN_PRESET, Captain, Collision, Input, SELF_LAYER, buildAvatar, createPipeline, createRenderer, formatHour, type Quality,
+  CAPTAIN_PRESET, CREW_PRESETS, Captain, Collision, CrewFigure, Input, SELF_LAYER, Walker, actFor, buildAvatar, createPipeline, createRenderer, formatHour, type Quality,
 } from "@offsite/kit";
 import { buildYacht } from "@offsite/world-yacht";
 
@@ -104,6 +105,30 @@ if (walking) {
   camera.updateProjectionMatrix();
   scene.add(captain.object);
   captain.setInteractables(world.interactables);
+}
+
+// ---------- crew at their slots, for scale ----------
+const _tagAt = new THREE.Vector3();
+function tagNear(fig: CrewFigure) {
+  const plate = (fig as unknown as { plate?: { sprite: THREE.Object3D } }).plate;
+  if (plate) plate.sprite.visible = fig.object.getWorldPosition(_tagAt).distanceTo(camera.position) < 9;
+}
+const crewFigs: { fig: CrewFigure; walker: Walker }[] = [];
+if (params.has("crew")) {
+  const want = params.get("crew") || "all";
+  const slots = world.layout.slots.filter((s) => want === "all" || s.kind === want || s.tags?.includes(want));
+  slots.forEach((slot, i) => {
+    const p = CREW_PRESETS[i % CREW_PRESETS.length]!;
+    const fig = new CrewFigure({ spec: p.spec, look: p.look, name: p.name, line: slot.kind, seed: i * 7 + 3 });
+    fig.water = 0;
+    scene.add(fig.object);
+    const walker = new Walker(fig.object);
+    walker.place(slot);
+    const working = i % 3 !== 2;
+    fig.setAct(actFor(working ? "editing" : "idle", slot.kind));
+    // Name tags only within a few metres here: the viewer doesn't hide them behind walls as the game does.
+    crewFigs.push({ fig, walker });
+  });
 }
 
 const hour = $("hour") as HTMLInputElement, hourText = $("hourText"), clock = $("clock") as HTMLInputElement;
@@ -285,6 +310,10 @@ function frame() {
   renderer.info.reset();
   const c0 = performance.now();
   world.update(dt, fixedNow ?? Date.now());
+  for (const c of crewFigs) {
+    c.fig.update(dt, t / 1000, { speed: 0, seat: c.walker.seat, camera });
+    tagNear(c.fig);
+  }
   pipeline.render(dt);
   if (slotGroup.visible) labels.render(scene, camera);
   cpu += performance.now() - c0;
@@ -332,6 +361,7 @@ if (walking && captain) {
     for (let i = 0; i < n; i++) {
       cap.update(1 / 60, performance.now() / 1000);
       world.update(1 / 60, fixedNow ?? Date.now());
+      for (const c of crewFigs) { c.fig.update(1 / 60, performance.now() / 1000, { speed: 0, seat: c.walker.seat, camera }); tagNear(c.fig); }
     }
   };
   (window as unknown as Record<string, unknown>).__walk = {

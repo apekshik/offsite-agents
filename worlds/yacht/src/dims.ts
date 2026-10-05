@@ -7,7 +7,7 @@
 export const BOW = -70; // the stem's tip at the foredeck
 export const TRANSOM = 62;
 export const PLATFORM = { z0: 62, z1: 68.6, w: 9.2, y: 1.0 }; // the swim platform
-export const BEAM = 11.4; // half the hull's width
+export const BEAM = 12.8; // half the hull's width: 25.6 m, room for real side decks
 
 // Deck levels: the floor's top surface.
 export const D1 = 5.6; // promenades along the sides, terraces aft
@@ -20,9 +20,10 @@ export const SLAB = 0.62; // floor thickness: the white fascia round each deck's
 export const PAD = { x: 0, z: -52.5, r: 8.0 }; // the helipad, on the foredeck at D2
 
 // Where things are along the ship.
-export const OFFICE = { z0: -22, z1: 15, glass: 9.8, edge: 11.2 };
-export const SUN = { z0: 15, z1: 48.6, w: 10.4 }; // the sun deck at D3
-export const CANOPY = { z0: -21, z1: 15, w: 10.6 }; // the canopy deck at D4
+// The office's glass stands well in from the hull: a 4 m side deck runs down each side of it.
+export const OFFICE = { z0: -22, z1: 15, glass: 8.2, edge: 12.45 };
+export const SUN = { z0: 15, z1: 48.6, w: 11.6 }; // the sun deck at D3
+export const CANOPY = { z0: -21, z1: 15, w: 11.6 }; // the canopy deck at D4, shading the side decks
 export const BRIDGE = { z0: -31.6, z1: -21, w: 6.9 }; // the bridge house at D4
 
 const smooth = (e0: number, e1: number, x: number) => {

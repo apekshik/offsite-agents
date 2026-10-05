@@ -5,20 +5,20 @@
 import * as THREE from "three";
 import { LIGHT } from "@offsite/kit";
 import { D1, D2, D3, PLATFORM, SLAB, TRANSOM, halfBeam, hullTop } from "./dims.ts";
-import { HAMMOCK, armchair, coffeeTable, hammock, palm, shrub, sofa } from "./furniture.ts";
-import { along, inset, outline, runs, yawOf, type Outline, type P2 } from "./kit.ts";
+import { HAMMOCK, LOUNGER, armchair, coffeeTable, hammock, lounger, palm, shrub, sofa } from "./furniture.ts";
+import { along, halfWidth, inset, outline, runs, yawOf, type Outline, type P2 } from "./kit.ts";
 import { balustrade, chromeRail, downlights, house, slab, stairs, type Ship } from "./parts.ts";
 import { WELL } from "./hull.ts";
 
 /** The D2 deck from the office's front wall to its curved aft end. */
 export const D2_AFT: Outline = {
-  zF: -22, zA: 55.5, w: 11.2, ra: 6.5, na: 2.6,
+  zF: -22, zA: 55.5, w: 12.5, ra: 6.5, na: 2.6,
   // Cut back each aft corner where the stairs come up from the stern terrace below.
   notches: [[1, 53.7, 56, 5.95], [-1, 53.7, 56, 5.95]],
 };
-const D2_HOUSE: Outline = { zF: 15, zA: 44, w: 7.4, ra: 5, na: 2.2 };
+const D2_HOUSE: Outline = { zF: 15, zA: 44, w: 7.0, ra: 5, na: 2.2 };
 const D1_DECK: Outline = { zF: -34, zA: 56, w: 11.4, hw: (z) => halfBeam(z, D1) - 0.21 };
-const D1_HOUSE: Outline = { zF: -34, zA: 50, w: 8.4, ra: 4.5, na: 2.2 };
+const D1_HOUSE: Outline = { zF: -34, zA: 50, w: 8.0, ra: 4.5, na: 2.2 };
 const PLAT: Outline = { zF: PLATFORM.z0 - 0.1, zA: PLATFORM.z1, w: PLATFORM.w, ra: 1.6, na: 4 };
 const S1 = { x0: 6.0, x1: 7.5, zLow: 60.4, zHigh: 53.7 };
 
@@ -53,9 +53,14 @@ export function buildAft(s: Ship) {
 
   // ---------- D2: promenades and the terrace ----------
   const d2 = slab(s, D2_AFT, D2);
-  const s1Head = (x: number, z: number) => z > 53.4 && Math.abs(x) > S1.x0 - 0.1 && Math.abs(x) < S1.x1 + 0.1;
+  // Rails all round, but not across the heads of the stairs up from the stern terrace: the
+  // opening's front edge is railed by hand, outboard of the stair.
+  const s1Head = (x: number, z: number) => z > 53.4 && z < 54.0 && Math.abs(x) > S1.x0 - 0.1;
   for (const run of runs(inset(d2, 0.08), (x, z) => z > 15.0 && !s1Head(x, z))) balustrade(s, run, D2);
-  for (const side of [1, -1]) balustrade(s, [[side * 5.87, 54.4], [side * 5.87, 55.45]], D2);
+  for (const side of [1, -1]) {
+    balustrade(s, [[side * 5.87, 54.4], [side * 5.87, 55.45]], D2);
+    balustrade(s, [[side * (S1.x1 + 0.08), S1.zHigh + 0.02], [side * (halfWidth(D2_AFT, S1.zHigh) - 0.1), S1.zHigh + 0.02]], D2);
+  }
   house(s, outline(D2_HOUSE), D2, D3 - SLAB, { glass: [D2 + 0.5, D3 - SLAB - 0.32], open: (_x, z) => z < D2_HOUSE.zF + 0.05 });
   downlights(s, inset(outline(D2_HOUSE), -1.9).filter(([, z]) => z > 23), D3 - SLAB, 3.2);
   plan.node("d2-c", 0, D2, 47.4);
@@ -64,26 +69,17 @@ export function buildAft(s: Ship) {
 
   for (const side of [1, -1] as const) {
     const sn = side > 0 ? "s" : "p";
-    // Hammocks down the outer edge, rail spots between them.
+    // Hammocks along the house, palms between them; a clear lane outboard.
     for (const z of [28.5, 35, 41.5]) {
-      props.put(hammock, side * 10.2, D2, z, 0);
-      plan.slot("hammock", `hammock-d2${sn}${z}`, [side * 10.2, D2, z], 0, { seat: HAMMOCK.seat, tags: ["promenade", "shade"] });
+      props.put(hammock, side * 7.95, D2, z, 0);
+      plan.slot("hammock", `hammock-d2${sn}${z}`, [side * 7.95, D2, z], 0, { seat: HAMMOCK.seat, tags: ["promenade", "shade"] });
     }
-    for (const z of [24.6, 31.75, 38.25]) plan.slot("rail", `rail-d2${sn}${z}`, [side * 10.7, D2, z], yawOf(side, 0), { tags: ["promenade"] });
-    props.put(palm, side * 7.95, D2, 25.0, 0.5);
-    props.put(palm, side * 7.95, D2, 39.0, 1.5);
-    // Walking: in from the ledge and the office's aft doors, round the stair, aft to the terrace.
-    plan.node(`d2-${sn}0`, side * 8.0, D2, 16.4);
-    plan.node(`d2-${sn}1`, side * 8.0, D2, 22.8);
-    plan.node(`d2-${sn}o1`, side * 10.65, D2, 22.8);
-    plan.node(`d2-${sn}2`, side * 8.6, D2, 24.4);
-    plan.node(`d2-${sn}3`, side * 8.6, D2, 31.8);
-    plan.node(`d2-${sn}4`, side * 8.6, D2, 38.2);
-    plan.node(`d2-${sn}5`, side * 8.3, D2, 45.2);
-    plan.link(`office-${sn}14.00`, `d2-${sn}0`, `d2-${sn}1`, `d2-${sn}2`, `d2-${sn}3`, `d2-${sn}4`, `d2-${sn}5`, "d2-c");
-    plan.link(`office-${sn}14.00`, `mid-stair-${sn}:low`);
-    plan.link(`ledge-${sn}6`, `mid-stair-${sn}:low`);
-    plan.link(`ledge-${sn}6`, `d2-${sn}o1`, `d2-${sn}2`);
+    for (const z of [24.8, 31.75, 38.25]) props.put(palm, side * 7.6, D2, z, z);
+    for (const z of [24.6, 31.75, 38.25]) plan.slot("rail", `rail-d2${sn}${z}`, [side * 12.0, D2, z], yawOf(side, 0), { tags: ["promenade"] });
+    // Walking: in from the side deck, past the stair up to the sun deck, aft to the terrace.
+    const lane = [[10.9, 16.4], [10.9, 20.5], [10.9, 24.4], [10.9, 31.8], [10.9, 38.2], [9.6, 45.2]].map(([x, z], i) => plan.node(`d2-${sn}${i}`, side * x!, D2, z!));
+    plan.link(`ledge-${sn}9`, ...lane, "d2-c");
+    plan.link(lane[0]!, `mid-stair-${sn}:low`);
   }
   // The terrace: a sofa and armchairs looking aft.
   props.put(sofa, 0, D2, 48.9, 0);
@@ -127,8 +123,8 @@ export function buildAft(s: Ship) {
     const xin = (z: number) => side * (halfBeam(z, hullTop(z)) - 0.14);
     // The promenade's forward end, and its rail on top of the hull.
     // The promenade's forward end: a white bulkhead with a door into the ship.
-    pile.box("white", side * 8.3, D1, -34.3, xin(-34), D2 - SLAB, -34);
-    col.box(Math.min(side * 8.3, xin(-34)), D1, -34.45, Math.max(side * 8.3, xin(-34)), D2, -34);
+    pile.box("white", side * 7.9, D1, -34.3, xin(-34), D2 - SLAB, -34);
+    col.box(Math.min(side * 7.9, xin(-34)), D1, -34.45, Math.max(side * 7.9, xin(-34)), D2, -34);
     pile.box("darkGlass", side * 9.0, D1 + 0.02, -34.0, side * 10.1, D1 + 2.2, -33.97);
     pile.box("chrome", side * 9.0 - 0.03, D1 + 1.0, -33.97, side * 9.0 + 0.03, D1 + 1.3, -33.92);
     const run: P2[] = [];
@@ -136,22 +132,37 @@ export function buildAft(s: Ship) {
     run.push([xin(TRANSOM - 0.25), TRANSOM - 0.25], [side * (WELL + 0.12), TRANSOM - 0.25]);
     balustrade(s, run, hullTop(0), { h: D1 + 1.06 - hullTop(0) });
     balustrade(s, [[side * (WELL + 0.12), TRANSOM - 0.25], [side * (WELL + 0.12), 56.02]], D1);
-    downlights(s, [[side * 9.9, -32], [side * 9.9, 46]], D2 - SLAB, 3.0);
+    downlights(s, [[side * 10.4, -32], [side * 10.4, 46]], D2 - SLAB, 3.0);
 
     // Hammocks along the house's glass, plants between them.
     for (const z of [-6, 2, 10, 18, 26, 34]) {
-      props.put(hammock, side * 8.95, D1, z, 0);
-      plan.slot("hammock", `hammock-d1${sn}${z}`, [side * 8.95, D1, z], 0, { seat: HAMMOCK.seat, tags: ["promenade", "shade"] });
+      props.put(hammock, side * 8.9, D1, z, 0);
+      plan.slot("hammock", `hammock-d1${sn}${z}`, [side * 8.9, D1, z], 0, { seat: HAMMOCK.seat, tags: ["promenade", "shade"] });
     }
-    for (const z of [-2, 6, 14, 22, 30]) props.put(shrub, side * 8.8, D1, z, z);
-    props.put(palm, side * 8.85, D1, 41.0, 0.4);
+    for (const z of [6, 14, 30]) props.put(shrub, side * 8.6, D1, z, z);
+    props.put(palm, side * 8.5, D1, 38.6, 0.4);
+    // Loungers in pairs, heads to the glass, looking out to sea.
+    for (const z0 of [-2.5, 21.5]) for (const dz of [0, 0.95]) {
+      const z = z0 + dz, x = side * 9.1;
+      props.put(lounger, x, D1, z, side * Math.PI / 2);
+      col.obox(x, D1 + 0.25, z, 2.0, 0.5, 0.74, side * Math.PI / 2);
+      plan.slot("lounger", `lounger-d1${sn}${z.toFixed(2)}`, [x + side * LOUNGER.hips, D1, z], yawOf(side, 0), { seat: LOUNGER.seat, tags: ["promenade", "shade"] });
+    }
+    // Sofa groups: a sofa against the house, a low table, an armchair.
+    for (const z of [-12, 43]) {
+      props.put(sofa, side * 8.55, D1, z, yawOf(side, 0));
+      props.put(coffeeTable, side * 9.75, D1, z, yawOf(side, 0));
+      props.put(armchair, side * 9.75, D1, z + 1.85, Math.PI);
+      col.box(Math.min(side * 8.1, side * 10.1), D1, z - 1.15, Math.max(side * 8.1, side * 10.1), D1 + 0.8, z + 2.3);
+      plan.slot("deck-chair", `sofa-d1${sn}${z}`, [side * 8.62, D1, z], yawOf(side, 0), { seat: 0.42, tags: ["promenade", "shade"] });
+    }
     // Rail spots looking out.
-    for (const z of [-14, -2, 14, 30, 44]) plan.slot("rail", `rail-d1${sn}${z}`, [side * 10.6, D1, z], yawOf(side, 0), { tags: ["promenade"] });
+    for (const z of [-14, -2, 14, 30, 44]) plan.slot("rail", `rail-d1${sn}${z}`, [side * 12.0, D1, z], yawOf(side, 0), { tags: ["promenade"] });
 
     // Walking: down the promenade from the forward stair to the terrace.
     plan.node(`d1-${sn}f`, side * 8.9, D1, -32.6);
     plan.node(`d1-${sn}f2`, side * 8.9, D1, -21.1);
-    const lane = [-16, -6, 6, 18, 30, 42, 48].map((z) => plan.node(`d1-${sn}${z}`, side * 10.2, D1, z));
+    const lane = [-16, -12, -6, -2, 6, 18, 22, 30, 42, 48].map((z) => plan.node(`d1-${sn}${z}`, side * 10.9, D1, z));
     plan.link(`d1-${sn}f`, `d1-${sn}f2`, lane[0]!);
     plan.link(`fore-stair-${sn}:low`, `d1-${sn}f2`);
     plan.link(`fore-stair-${sn}:low`, lane[0]!);

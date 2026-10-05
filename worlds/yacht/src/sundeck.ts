@@ -6,16 +6,17 @@
 import * as THREE from "three";
 import { D2, D3, D4, SLAB, SUN } from "./dims.ts";
 import { LOUNGER, armchair, barStool, coffeeTable, deckChair, lounger, palm, sideTable, umbrella } from "./furniture.ts";
-import { along, band, cap, inset, runs, yawOf, type Outline, type P2 } from "./kit.ts";
+import { along, band, cap, halfWidth, inset, runs, yawOf, type Outline, type P2 } from "./kit.ts";
 import { balustrade, downlights, slab, stairs, type Ship } from "./parts.ts";
 import { UP_STAIR } from "./canopy.ts";
 
 export const SUNDECK: Outline = {
   zF: SUN.z0, zA: SUN.z1, w: SUN.w, ra: 7, na: 2.4,
-  notches: [[1, SUN.z0, 22.1, 8.5], [-1, SUN.z0, 22.1, 8.5]],
+  notches: [[1, SUN.z0, 23.1, 7.0], [-1, SUN.z0, 23.1, 7.0]],
 };
-export const MID_STAIR = { x0: 8.6, x1: 10.1, zLow: 16.0, zHigh: 22.1 };
-const POOL = { x0: -8.6, x1: -2.4, z0: 24.5, z1: 38.5, depth: 1.35 };
+// Up from the D2 promenade, against the deckhouse, so the promenade keeps a wide lane outboard.
+export const MID_STAIR = { x0: 7.1, x1: 8.6, zLow: 17.0, zHigh: 23.1 };
+const POOL = { x0: -6.6, x1: -0.8, z0: 24.5, z1: 38.5, depth: 1.35 }; // inside the deckhouse below
 const TUB = { x: -6.0, z: 42.6, r: 1.55, R: 2.35 };
 const BAR = { x: 1.2, z: 43.4 };
 
@@ -35,7 +36,7 @@ export function buildSunDeck(s: Ship) {
   const tubHole = circle(TUB.x, TUB.z, TUB.r);
   const deck = slab(s, SUNDECK, D3, { holes: [poolHole, tubHole] });
   // Rails all round except the front (the office's glass) and the stair heads in the notches.
-  const keep = (x: number, z: number) => z > SUN.z0 + 0.3 && !(z > 21.9 && z < 22.3 && Math.abs(x) > 8.55);
+  const keep = (x: number, z: number) => z > SUN.z0 + 0.3 && !(z > MID_STAIR.zHigh - 0.2 && z < MID_STAIR.zHigh + 0.2 && Math.abs(x) > 6.95);
   for (const run of runs(inset(deck, 0.08), keep)) balustrade(s, run, D3);
   downlights(s, inset(deck, 0.5).filter(([, z]) => z > 22.5), D3 - SLAB, 3.0);
 
@@ -62,7 +63,7 @@ export function buildSunDeck(s: Ship) {
     pile.rod("chrome", new THREE.Vector3(x, D3 + 0.85, POOL.z0 - 0.3), new THREE.Vector3(x, D3, POOL.z0 - 0.3), 0.025);
   }
   // In the water: standing on the bottom, the surface at the chest.
-  [[-5.4, 26.2, 0.6], [-3.6, 29.4, -2.2], [-6.5, 31.0, 1.2], [-4.0, 33.8, 3.0], [-5.2, 36.4, -2.8]].forEach(([x, z, f], i) =>
+  [[-2.2, 26.2, 0.6], [-2.0, 29.4, -2.2], [-4.9, 31.0, 1.2], [-2.4, 33.8, 3.0], [-3.6, 36.4, -2.8]].forEach(([x, z, f], i) =>
     plan.slot("pool", `pool-${i + 1}`, [x!, floorY, z!], f!, { tags: ["water"] }));
 
   // ---- the hot tub: a teak drum, a tiled bowl with a bench round it ----
@@ -90,15 +91,15 @@ export function buildSunDeck(s: Ship) {
   const yawL = -Math.PI / 2; // head (the prefab's -z) to +x: the body faces -x, toward the pool
   let n = 0;
   for (let k = 0; k < 8; k++) {
-    const z0 = 24.6 + k * 2.85;
+    const z0 = 25.4 + k * 2.6;
     for (const dz of [0, 0.95]) {
-      const x = 7.25, z = z0 + dz;
+      const x = 8.4, z = z0 + dz;
       props.put(lounger, x, D3, z, yawL);
       const [hx, hz] = local(x, z, yawL, 0, LOUNGER.hips);
       plan.slot("lounger", `lounger-${++n}`, [hx, D3, hz], yawL, { seat: LOUNGER.seat, tags: ["sun", "shade"] });
       col.obox(x, D3 + 0.25, z, 2.0, 0.5, 0.74, yawL);
     }
-    props.put(umbrella, 8.4, D3, z0 + 0.475);
+    props.put(umbrella, 9.75, D3, z0 + 0.475);
   }
 
   // ---- the bar: a round counter under a white dome, stools round its front ----
@@ -143,9 +144,9 @@ export function buildSunDeck(s: Ship) {
 
   // ---- deck chairs by the pool, palms, a lounge corner up front ----
   [27.5, 31.0, 34.5].forEach((z, i) => {
-    props.put(deckChair, 2.2, D3, z, -Math.PI / 2);
-    props.put(sideTable, 2.25, D3, z + 0.9);
-    plan.slot("deck-chair", `deck-chair-sun-${i + 1}`, [2.2, D3, z], -Math.PI / 2, { seat: 0.38, tags: ["sun"] });
+    props.put(deckChair, 3.4, D3, z, -Math.PI / 2);
+    props.put(sideTable, 3.45, D3, z + 0.9);
+    plan.slot("deck-chair", `deck-chair-sun-${i + 1}`, [3.4, D3, z], -Math.PI / 2, { seat: 0.38, tags: ["sun"] });
   });
   for (const [x, z, r] of [[-3.2, 21.3, 0.3], [3.2, 21.3, 1.4], [-7.6, 46.4, 2.2], [4.6, 47.2, 0.8]] as const) props.put(palm, x, D3, z, r);
   props.put(armchair, -1.3, D3, 17.0, 0);
@@ -158,23 +159,26 @@ export function buildSunDeck(s: Ship) {
   // ---- stairs: up each side from the D2 promenade, and on up to the canopy deck ----
   for (const side of [1, -1] as const) {
     const sn = side > 0 ? "s" : "p";
-    stairs(s, { id: `mid-stair-${sn}`, x0: side * MID_STAIR.x0, x1: side * MID_STAIR.x1, zLow: MID_STAIR.zLow, yLow: D2, zHigh: MID_STAIR.zHigh, yHigh: D3 });
+    // Its inner side runs along the deckhouse: no rail there.
+    stairs(s, { id: `mid-stair-${sn}`, x0: side * MID_STAIR.x0, x1: side * MID_STAIR.x1, zLow: MID_STAIR.zLow, yLow: D2, zHigh: MID_STAIR.zHigh, yHigh: D3, bare: side > 0 ? [true, false] : [false, true] });
+    // The notch's aft edge, outboard of the stair's head.
+    balustrade(s, [[side * (MID_STAIR.x1 + 0.08), MID_STAIR.zHigh + 0.08], [side * (halfWidth(SUNDECK, MID_STAIR.zHigh) - 0.1), MID_STAIR.zHigh + 0.08]], D3);
     stairs(s, { id: `up-stair-${sn}`, x0: side * UP_STAIR.x0, x1: side * UP_STAIR.x1, zLow: 21.0, yLow: D3, zHigh: SUN.z0, yHigh: D4 });
   }
 
   // ---- walking ----
   const A = (z: number) => `sun-a${z}`, B = (z: number) => `sun-b${z}`;
-  const az = [23.2, 31.5, 39.5], bz = [23.2, 27, 31, 35, 39, 43, 46.4];
-  az.forEach((z) => plan.node(A(z), -1.2, D3, z));
-  bz.forEach((z) => plan.node(B(z), 5.3, D3, z));
+  const az = [23.2, 27, 31.5, 39.5], bz = [23.2, 27, 31, 35, 39, 43, 46.4];
+  az.forEach((z) => plan.node(A(z), 0.9, D3, z));
+  bz.forEach((z) => plan.node(B(z), 5.6, D3, z));
   plan.link(...az.map(A));
   plan.link(...bz.map(B));
-  plan.node("sun-port0", -9.55, D3, 24.2);
-  plan.node("sun-port1", -9.55, D3, 39.5);
+  plan.node("sun-port0", -9.3, D3, 24.2);
+  plan.node("sun-port1", -9.3, D3, 39.5);
   plan.node("sun-tub", -6.0, D3, 39.5);
   plan.node("sun-tubE", -2.85, D3, 43.2);
   plan.node("sun-front", 0, D3, 20.2);
-  plan.node("sun-port-mid", -9.55, D3, 31.5);
+  plan.node("sun-port-mid", -9.3, D3, 31.5);
   plan.link("mid-stair-p:high", "sun-port0", "sun-port-mid", "sun-port1", "sun-tub", A(39.5));
   plan.node("sun-aft", 0.6, D3, 47.7);
   plan.node("sun-aftP", -2.6, D3, 46.6);
@@ -193,7 +197,7 @@ export function buildSunDeck(s: Ship) {
   plan.link("up-stair-p:high", "canopy-p12.6");
 
   // Rail spots: down the port side by the pool, and round the stern.
-  for (const z of [26, 30, 34, 38]) plan.slot("rail", `rail-sun-p${z}`, [-9.75, D3, z], -Math.PI / 2, { tags: ["sun"] });
+  for (const z of [26, 30, 34, 38]) plan.slot("rail", `rail-sun-p${z}`, [-10.95, D3, z], -Math.PI / 2, { tags: ["sun"] });
   const aftRail = inset(deck, 0.55).filter(([x, z]) => z > 46.6 && x > -6.5 && x < 6);
   along(aftRail, 2.6, 0.5).forEach((p, i) => {
     let nx = p.dz, nz = -p.dx;

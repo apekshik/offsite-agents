@@ -5,7 +5,7 @@
 
 import * as THREE from "three";
 import { D2, D3, D4, OFFICE, SLAB } from "./dims.ts";
-import { DESK, desk, officeChair, palm, sofa, coffeeTable, shrub } from "./furniture.ts";
+import { DESK, HAMMOCK, LOUNGER, armchair, coffeeTable, deckChair, desk, hammock, lounger, officeChair, palm, shrub, sideTable, sofa } from "./furniture.ts";
 import { along, band, yawOf, type P2 } from "./kit.ts";
 import { balustrade, type Ship } from "./parts.ts";
 import { deskScreenTexture, screen, wallScreenTexture } from "./screens.ts";
@@ -13,7 +13,7 @@ import { deskScreenTexture, screen, wallScreenTexture } from "./screens.ts";
 const CEIL = D4 - SLAB;
 const G = OFFICE.glass;
 /** Desk lines across the office: x of the desk's centre, and which way its user faces (±1 in x). */
-const LINES: [number, 1 | -1][] = [[-6.6, 1], [-3.3, -1], [3.3, 1], [6.6, -1]];
+const LINES: [number, 1 | -1][] = [[-5.6, 1], [-2.8, -1], [2.8, 1], [5.6, -1]];
 const GROUPS = [-17.0, -10.2, -3.4];
 const PITCH = 1.75;
 export const DESK_Z = GROUPS.flatMap((z0) => [0, 1, 2].map((k) => z0 + k * PITCH));
@@ -46,29 +46,17 @@ export function buildOffice(s: Ship) {
     pile.box("white", x - 0.1, D2, OFFICE.z0, x + 0.1, D2 + 0.1, OFFICE.z1); // sill
   }
 
-  // The front wall: white, the wall board in its middle, a door in each corner.
-  pile.box("white", -8.1, D2, OFFICE.z0 - 0.2, 8.1, CEIL, OFFICE.z0);
-  col.box(-8.1, D2, OFFICE.z0 - 0.3, 8.1, CEIL, OFFICE.z0);
-  for (const side of [1, -1]) {
-    pile.box("white", side * 8.1, DOOR_TOP, OFFICE.z0 - 0.2, side * G, CEIL, OFFICE.z0);
-    pile.box("white", side * 9.6, D2, OFFICE.z0 - 0.2, side * G, DOOR_TOP, OFFICE.z0);
-    col.box(Math.min(side * 9.6, side * G), D2, OFFICE.z0 - 0.3, Math.max(side * 9.6, side * G), CEIL, OFFICE.z0);
-  }
+  // The front wall: white, the wall board in its middle. The way in is through the side doors.
+  pile.box("white", -G, D2, OFFICE.z0 - 0.2, G, CEIL, OFFICE.z0);
+  col.box(-G, D2, OFFICE.z0 - 0.3, G, CEIL, OFFICE.z0);
   const board = screen("wall", 9.6, 3.75, wallScreenTexture(), 1.1);
   board.position.set(0, D2 + 3.6, OFFICE.z0 + 0.03);
   s.extra.push(board);
   pile.box("dark", -4.95, D2 + 1.6, OFFICE.z0, 4.95, D2 + 5.6, OFFICE.z0 + 0.02);
 
-  // The aft wall: the deckhouse behind fills its middle below the sun deck; glass above, looking
-  // up at the sun deck; a door in each corner, open to the promenade and the ledge alike.
-  pile.box("white", -7.4, D2, OFFICE.z1, 7.4, D3 - SLAB, OFFICE.z1 + 0.2);
-  col.box(-7.4, D2, OFFICE.z1, 7.4, CEIL, OFFICE.z1 + 0.3);
-  for (const side of [1, -1]) {
-    pile.box("white", side * 7.4, D2, OFFICE.z1, side * 7.6, D3 - SLAB, OFFICE.z1 + 0.2);
-    pile.box("white", side * 7.4, DOOR_TOP, OFFICE.z1, side * G, D3, OFFICE.z1 + 0.2);
-    col.box(Math.min(side * 7.4, side * 7.6), D2, OFFICE.z1, Math.max(side * 7.4, side * 7.6), CEIL, OFFICE.z1 + 0.3);
-    col.box(Math.min(side * 7.4, side * G), DOOR_TOP, OFFICE.z1, Math.max(side * 7.4, side * G), CEIL, OFFICE.z1 + 0.3);
-  }
+  // The aft wall: white up to the sun deck behind it, glass above, looking up at the sun deck.
+  pile.box("white", -G, D2, OFFICE.z1, G, D3, OFFICE.z1 + 0.2);
+  col.box(-G, D2, OFFICE.z1, G, CEIL, OFFICE.z1 + 0.3);
   pile.add("officeGlass", band([[-G, OFFICE.z1], [G, OFFICE.z1]], D3, CEIL, { closed: false }));
   for (const m of along([[-G, OFFICE.z1], [G, OFFICE.z1]], 3.1, 1.5)) pile.box("frame", m.x - 0.035, D3, OFFICE.z1, m.x + 0.035, CEIL, OFFICE.z1 + 0.08);
 
@@ -98,24 +86,18 @@ export function buildOffice(s: Ship) {
   }
   // Palms in the middle aisles and the corners, a plant on the odd desk.
   for (const side of [1, -1]) {
-    for (const z of [-15.25, -8.45, -1.65, 1.5]) props.put(palm, side * 4.95, D2, z, z * 1.3);
-    props.put(palm, side * 5.8, D2, -21.3, 0.4);
+    for (const z of [-15.25, -8.45, -1.65, 1.5]) props.put(palm, side * 4.2, D2, z, z * 1.3);
+    props.put(palm, side * 6.0, D2, -21.55, 0.4);
   }
-  for (const [x, z] of [[-6.6, -13.5], [3.3, -8.45], [6.6, -1.65], [-3.3, 0.1]] as const) props.put(shrub, x, D2 + DESK.h, z + 0.55, 0, 0.55);
+  for (const [x, z] of [[-5.6, -13.5], [2.8, -8.45], [5.6, -1.65], [-2.8, 0.1]] as const) props.put(shrub, x, D2 + DESK.h, z + 0.55, 0, 0.55);
 
   // The lounge aft: sofas facing across coffee tables.
   for (const side of [1, -1]) {
     props.put(sofa, side * 3.6, D2, 6.2, 0);
     props.put(sofa, side * 3.6, D2, 10.6, Math.PI);
     props.put(coffeeTable, side * 3.6, D2, 8.4, 0);
-    props.put(palm, side * 6.4, D2, 8.4, 0.7);
+    props.put(palm, side * 6.3, D2, 8.4, 0.7);
     col.box(side * 3.6 - 1.15, D2, 5.7, side * 3.6 + 1.15, D2 + 0.8, 11.1);
-  }
-
-  // The ledge outside the glass: teak, a balustrade, and the promenade's rail spots.
-  for (const side of [1, -1] as const) {
-    balustrade(s, [[side * 11.1, OFFICE.z0 - 0.02], [side * 11.1, OFFICE.z1]], D2);
-    balustrade(s, [[side * G, OFFICE.z0], [side * 11.1, OFFICE.z0]], D2);
   }
 
   // Walking: a central aisle, an aisle down each window, cross aisles between the desk groups.
@@ -124,19 +106,70 @@ export function buildOffice(s: Ship) {
   plan.link(...centre);
   for (const side of [1, -1] as const) {
     const sn = side > 0 ? "s" : "p";
-    const win = [-20.8, -19.6, ...DESK_Z, ...CROSS, 3.0, 7.0, 12.6, 14.0].sort((a, b) => a - b).map((z) => plan.node(`office-${sn}${z.toFixed(2)}`, side * 8.75, D2, z));
+    const win = [-20.8, -19.6, ...DESK_Z, ...CROSS, 3.0, 7.0, 12.6, 14.0].sort((a, b) => a - b).map((z) => plan.node(`office-${sn}${z.toFixed(2)}`, side * 7.45, D2, z));
     plan.link(...win);
     for (const z of [-20.8, ...CROSS, 3.0]) {
-      const mid = plan.node(`office-${sn}m${z.toFixed(2)}`, side * 4.95, D2, z);
+      const mid = plan.node(`office-${sn}m${z.toFixed(2)}`, side * 4.2, D2, z);
       plan.link(`office-c${z.toFixed(2)}`, mid, `office-${sn}${z.toFixed(2)}`);
     }
-    // Through the doors.
-    plan.link(`office-${sn}-20.80`, `fore-${sn}4`);
-    const ledge = [-21.2, -19.6, -12, -4, 4, 12.6, 15.6].map((z, i) => plan.node(`ledge-${sn}${i}`, side * (i === 6 ? 10.6 : 10.5), D2, z));
-    plan.link(...ledge);
-    plan.link(`ledge-${sn}1`, `office-${sn}-19.60`);
-    plan.link(`ledge-${sn}5`, `office-${sn}12.60`);
-    // Rail spots along the ledge, looking out to sea.
-    for (const z of [-15, -6, 3]) plan.slot("rail", `rail-ledge-${sn}${z}`, [side * 10.65, D2, z], yawOf(side, 0), { tags: ["ledge"] });
+  }
+  buildSideDecks(s);
+}
+
+/**
+ * The side decks: four metres of teak down each side of the office, between its glass and the
+ * rail, in the shade of the canopy deck above. Along the glass, a band of things to sit and lie
+ * on (sofa groups, hammocks, loungers facing the sea, deck chairs, palms); along the rail, a
+ * clear lane to walk past people.
+ */
+function buildSideDecks(s: Ship) {
+  const { col, plan, props } = s;
+  const LANE = 11.3, RAIL = OFFICE.edge;
+  const laneZ = [-21.0, -19.6, -15.0, -10.5, -6.0, -1.0, 3.0, 7.5, 12.6, 15.6];
+  for (const side of [1, -1] as const) {
+    const sn = side > 0 ? "s" : "p";
+    balustrade(s, [[side * RAIL, OFFICE.z0 - 0.02], [side * RAIL, OFFICE.z1]], D2);
+    // The lane: the first node sits clear of the stair opening forward of it.
+    const lane = laneZ.map((z, i) => plan.node(`ledge-${sn}${i}`, side * (i === 0 ? 10.0 : LANE), D2, z));
+    plan.link(...lane);
+    plan.link(`fore-${sn}4`, lane[0]!);
+    plan.link(lane[1]!, `office-${sn}-19.60`); // the side doors
+    plan.link(lane[8]!, `office-${sn}12.60`);
+    const near = (z: number) => lane[laneZ.reduce((b, lz, i) => (Math.abs(lz - z) < Math.abs(laneZ[b]! - z) ? i : b), 1)]!;
+    const out = yawOf(side, 0); // facing the sea
+    const x = (d: number) => side * (OFFICE.glass + d); // d metres out from the glass
+
+    // A sofa group: the sofa's back to the glass, a low table, an armchair at its end.
+    for (const z of [-15.2, 9.6]) {
+      props.put(sofa, x(0.55), D2, z, out);
+      props.put(coffeeTable, x(1.75), D2, z, out);
+      props.put(armchair, x(1.75), D2, z + 1.85, Math.PI);
+      col.box(Math.min(x(0.1), x(2.1)), D2, z - 1.15, Math.max(x(0.1), x(2.1)), D2 + 0.8, z + 2.3);
+      plan.slot("deck-chair", `sofa-side-${sn}${z}`, [x(0.62), D2, z], out, { seat: 0.42, nav: near(z), tags: ["side-deck", "shade"] });
+    }
+    // Hammocks along the glass.
+    for (const z of [-10.5, 3.0]) {
+      props.put(hammock, x(0.95), D2, z, 0);
+      plan.slot("hammock", `hammock-side-${sn}${z}`, [x(0.95), D2, z], 0, { seat: HAMMOCK.seat, nav: near(z), tags: ["side-deck", "shade"] });
+    }
+    // Loungers in pairs, heads to the glass, looking out to sea.
+    for (const z0 of [-6.6, 6.2]) for (const dz of [0, 0.95]) {
+      const z = z0 + dz;
+      props.put(lounger, x(1.25), D2, z, side * Math.PI / 2);
+      col.obox(x(1.25), D2 + 0.25, z, 2.0, 0.5, 0.74, side * Math.PI / 2);
+      plan.slot("lounger", `lounger-side-${sn}${z.toFixed(2)}`, [x(1.25 + LOUNGER.hips), D2, z], out, { seat: LOUNGER.seat, nav: near(z), tags: ["side-deck", "shade"] });
+    }
+    // Deck chairs either side of a little table.
+    for (const z of [-1.8, -0.2]) {
+      props.put(deckChair, x(0.9), D2, z, out);
+      plan.slot("deck-chair", `deck-chair-side-${sn}${z}`, [x(0.9), D2, z], out, { seat: 0.38, nav: near(z), tags: ["side-deck", "shade"] });
+    }
+    props.put(sideTable, x(0.9), D2, -1.0);
+    // Palms between, a shrub by each door.
+    for (const z of [-17.6, -13.0, -8.0, 0.8, 5.4]) props.put(palm, x(0.45), D2, z, z);
+    props.put(shrub, x(0.35), D2, -21.6, 1);
+    props.put(shrub, x(0.35), D2, 14.4, 2);
+    // Rail spots, looking out.
+    for (const z of [-17.0, -10.5, -4.0, 3.0, 9.5]) plan.slot("rail", `rail-side-${sn}${z}`, [side * (RAIL - 0.45), D2, z], out, { nav: near(z), tags: ["side-deck"] });
   }
 }

@@ -10,14 +10,14 @@ import { balustrade, chromeRail, downlights, house, slab, stairs, type Ship } fr
 
 /** The D2 slab from the stem to the office, notched each side for the stair up from the promenade. */
 export const FORE: Outline = {
-  zF: -69.05, zA: -22, w: 11.2,
-  hw: (z) => Math.max(0, Math.min(halfBeam(z, D2) - 0.22, 11.18)),
-  notches: [[1, -28.6, -22, 9.2], [-1, -28.6, -22, 9.2]],
+  zF: -69.05, zA: -22, w: 12.6,
+  hw: (z) => Math.max(0, Math.min(halfBeam(z, D2) - 0.22, 12.58)),
+  notches: [[1, -28.6, -22, 10.6], [-1, -28.6, -22, 10.6]],
 };
 export const TIER2: Outline = { zF: -40, zA: -22, w: 8.0, rf: 7, nf: 2.2 };
 const TIER3_DECK: Outline = { zF: -41.2, zA: -22, w: 9.0, rf: 8, nf: 2.2 };
 const TIER3: Outline = { zF: -36.6, zA: -22, w: 7.4, rf: 6, nf: 2.2 };
-export const FORE_STAIR = { x0: 9.4, x1: 10.9, zLow: -22.0, zHigh: -28.6 };
+export const FORE_STAIR = { x0: 10.8, x1: 12.3, zLow: -22.0, zHigh: -28.6 };
 
 function padTexture(): THREE.CanvasTexture {
   const S = 1024, c = document.createElement("canvas");
@@ -115,8 +115,10 @@ export function buildForedeck(s: Ship) {
   for (const side of [1, -1] as const) {
     const run = edge.filter(([x, z]) => Math.sign(x) === side && z >= -38.6 && z <= -28.6).sort((a, b) => a[1] - b[1]);
     balustrade(s, run, D2);
-    // Round the notch: along its inner edge.
-    balustrade(s, [[side * 9.2, -28.6], [side * 9.2, -22.02]], D2);
+    // Round the stair's opening: along its inner edge, and across its aft end, where the side
+    // deck runs up to it.
+    balustrade(s, [[side * 10.6, -28.6], [side * 10.6, -22.02]], D2);
+    balustrade(s, [[side * 10.6, -22.02], [side * 12.45, -22.02]], D2);
   }
 
   // The bridge house's lower tiers: dark glass bands under white eyebrows.
@@ -146,10 +148,10 @@ export function buildForedeck(s: Ship) {
     const n = side > 0 ? "s" : "p";
     plan.node(`pad-${n}`, side * 6.2, D2, PAD.z + 0.5);
     plan.node(`fore-${n}0`, side * 6.4, D2, -42.6);
-    plan.node(`fore-${n}1`, side * 9.4, D2, -37.5);
-    plan.node(`fore-${n}2`, side * 9.4, D2, -31.0);
-    plan.node(`fore-${n}3`, side * 8.6, D2, -27.0);
-    plan.node(`fore-${n}4`, side * 8.75, D2, -23.0);
+    plan.node(`fore-${n}1`, side * 10.0, D2, -37.5);
+    plan.node(`fore-${n}2`, side * 10.0, D2, -31.0);
+    plan.node(`fore-${n}3`, side * 9.3, D2, -27.0);
+    plan.node(`fore-${n}4`, side * 9.3, D2, -23.2);
     plan.link("pad", `pad-${n}`);
     plan.link("pad-fore", `pad-${n}`);
     plan.link("pad-aft", `fore-${n}0`, `fore-${n}1`, `fore-${n}2`, `fore-${n}3`, `fore-${n}4`);

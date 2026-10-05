@@ -9,11 +9,11 @@ import { balustrade, slab, type Ship } from "./parts.ts";
 
 export const CANOPY_DECK: Outline = { zF: CANOPY.z0 - 1, zA: CANOPY.z1, w: CANOPY.w, ra: 1.6, na: 4 };
 /** The stairs up from the sun deck land on the canopy deck's aft edge, here. */
-export const UP_STAIR = { x0: 5.2, x1: 6.9 };
+export const UP_STAIR = { x0: 5.0, x1: 6.7 };
 
 /** The sail: a tensioned membrane over the posts, its edges sagging between them. */
 function sail(): THREE.BufferGeometry {
-  const W = 8.3, z0 = -18.5, z1 = 12.5, NX = 28, NZ = 44, base = D4 + 3.5;
+  const W = 9.4, z0 = -18.5, z1 = 12.5, NX = 28, NZ = 44, base = D4 + 3.5;
   const pos: number[] = [], index: number[] = [];
   for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NX; i++) {
     const u = (i / NX) * 2 - 1, v = j / NZ, x = u * W, z = z0 + (z1 - z0) * v;
@@ -65,14 +65,14 @@ export function buildCanopy(s: Ship) {
   let n = 0;
   for (const side of [1, -1] as const) {
     for (const z of [-15, -10, -6.2, 1.0, 6.5]) {
-      const x = side * 9.0;
+      const x = side * 10.4;
       props.put(deckChair, x, D4, z, yawOf(side, 0));
       props.put(sideTable, x, D4, z + 0.85);
       plan.slot("deck-chair", `deck-chair-canopy-${++n}`, [x, D4, z], yawOf(side, 0), { seat: 0.38, tags: ["canopy", "shade"] });
     }
     // A palm at each corner.
-    props.put(palm, side * 9.6, D4, 13.9, 1);
-    props.put(palm, side * 9.7, D4, -17.8, 2);
+    props.put(palm, side * 10.9, D4, 13.9, 1);
+    props.put(palm, side * 10.9, D4, -17.8, 2);
   }
   // The lounge at the front, by the bridge's door.
   props.put(sofa, -4.5, D4, -19.2, 0);
@@ -89,11 +89,11 @@ export function buildCanopy(s: Ship) {
   plan.link(...zs.map((z) => plan.node(`canopy-c${z}`, 0, D4, z)));
   for (const side of [1, -1] as const) {
     const sn = side > 0 ? "s" : "p";
-    plan.link(...zs.slice(1).map((z) => plan.node(`canopy-${sn}${z}`, side * 6.6, D4, z)));
+    plan.link(...zs.slice(1).map((z) => plan.node(`canopy-${sn}${z}`, side * 7.8, D4, z)));
     for (const z of zs.slice(1)) plan.link(`canopy-c${z}`, `canopy-${sn}${z}`);
-    plan.node(`canopy-${sn}-front`, side * 8.0, D4, -20.6);
+    plan.node(`canopy-${sn}-front`, side * 8.8, D4, -20.6);
     plan.link(`canopy-${sn}-11.5`, `canopy-${sn}-front`);
-    plan.slot("rail", `rail-canopy-${sn}`, [side * 9.9, D4, -20.8], yawOf(side, 0), { nav: `canopy-${sn}-front`, tags: ["canopy"] });
+    plan.slot("rail", `rail-canopy-${sn}`, [side * 11.0, D4, -20.8], yawOf(side, 0), { nav: `canopy-${sn}-front`, tags: ["canopy"] });
   }
   plan.link("canopy-c-20.2", "bridge-door");
 }
