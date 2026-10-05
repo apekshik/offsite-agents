@@ -58,6 +58,14 @@ export function buildLookout(s: Base) {
   pile.cyl("white", cx, F + h, cz, r + 0.6, 0.38, 40);
   pile.cyl("orange", cx, F + h + 0.38, cz, r + 0.62, 0.1, 40);
   inner.add("whiteIn", cap(arc(cx, cz, r + 0.55, 0, Math.PI * 2, Math.PI / 32).slice(0, -1), F + h - 0.005, true));
+  // Under the roof: white ribs out from a ring of light in the middle.
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    inner.rod("white", V(a, 1.6, F + h - 0.16), V(a, r - 0.1, F + h - 0.16), 0.11, 6);
+  }
+  const hub = arc(cx, cz, 1.5, 0, Math.PI * 2, Math.PI / 16);
+  for (let i = 0; i + 1 < hub.length; i++) inner.rod("lamp", new THREE.Vector3(hub[i]![0], F + h - 0.2, hub[i]![1]), new THREE.Vector3(hub[i + 1]![0], F + h - 0.2, hub[i + 1]![1]), 0.09, 6);
+  inner.cyl("white", cx, F + h - 0.3, cz, 1.3, 0.3, 24);
   for (const [a0, a1] of [[0, Math.PI * 2]] as const) {
     const ring = arc(cx, cz, r - 0.25, a0, a1, Math.PI / 32);
     for (let i = 0; i + 1 < ring.length; i++) inner.rod("amber", new THREE.Vector3(ring[i]![0], F + h - 0.06, ring[i]![1]), new THREE.Vector3(ring[i + 1]![0], F + h - 0.06, ring[i + 1]![1]), 0.03, 4);

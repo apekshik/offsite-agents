@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { GREENHOUSE, HAB, HAB_IN, LOOKOUT, PLAIN_R, RIM_R, RISER_R, SPORTS, TIER_Y, TOWER, dugAt, onRamp, wrap } from "./dims.ts";
 import { bigCrate, crate, dish, greyBox, hab, mast, MAST_TOP, radiator, rocks, solarPanel, tank } from "./furniture.ts";
 import { angleOf, deg, inward, polar } from "./kit.ts";
+import { hillY } from "./crater.ts";
 import type { Base } from "./parts.ts";
 
 export function rng(seed: number) {
@@ -65,7 +66,7 @@ export function buildTerraces(s: Base) {
       }
       // The door's warm glow, which reads from across the crater.
       const [dx, dz] = polar(a, rc - HAB.d / 2 + 0.45);
-      s.halos.push({ x: dx, y: y + 1.25, z: dz, color: "#ffb35a", size: 0.9, mode: "always" });
+      s.halos.push({ x: dx, y: y + 1.25, z: dz, color: "#ffb35a", size: 1.3, mode: "always" });
     }
   }
 
@@ -120,7 +121,7 @@ export function buildTerraces(s: Base) {
     const [x, z] = polar(a, rr);
     if (Math.abs(rr - (RIM_R + 4)) < 4) continue;
     const sc = 0.4 + r() * r() * 2.2;
-    props.put(rocks[i % 3]!, x, TIER_Y[4]! - 0.2 * sc, z, r() * 6, sc);
+    props.put(rocks[i % 3]!, x, (rr > PLAIN_R ? hillY(rr, a) : TIER_Y[4]!) - 0.2 * sc, z, r() * 6, sc);
   }
   for (let k = 0; k < 4; k++) {
     for (let i = 0; i < 26; i++) {

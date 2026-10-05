@@ -167,7 +167,7 @@ function iceFloor(): THREE.MeshStandardMaterial {
 
 export function makeMaterials() {
   // Floor plates inside: light grey, worn, with a warm wash from the rooms' own light.
-  const floor = new THREE.MeshStandardMaterial({ color: "#a7abb0", roughness: 0.5, metalness: 0.15, emissive: "#ffe2c0", emissiveIntensity: 0.05 });
+  const floor = new THREE.MeshStandardMaterial({ color: "#b4b7bb", roughness: 0.5, metalness: 0.1, emissive: "#ffe2c0", emissiveIntensity: 0.1 });
   wear(floor, "painted-metal", { albedo: 0.6, normal: 0.9, tile: 1.1 });
   const white = paint("#eceae4", 0.42);
   wear(white, "painted-metal", { albedo: 0.25, normal: 0.35, tile: 2.0 });

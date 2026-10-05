@@ -96,7 +96,7 @@ export function buildGarage(s: Base) {
   });
   {
     const p = f.v(0, C - 0.6, 6);
-    s.rooms.push({ x: p.x, y: p.y, z: p.z, intensity: 6, distance: 16, color: "#ffe2bf" });
+    s.rooms.push({ x: p.x, y: p.y, z: p.z, intensity: 8, distance: 18, color: "#ffe2bf", always: true });
   }
 
   // Out front: a rover parked, cases waiting to go in.

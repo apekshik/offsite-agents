@@ -26,7 +26,7 @@ export const TIER_Y = [0, RISE, 2 * RISE, 3 * RISE, 4 * RISE] as const;
 export const RISER_R = [FLOOR_R, FLOOR_R + TREAD, FLOOR_R + 2 * TREAD, FLOOR_R + 3 * TREAD] as const;
 export const RIM_R = RISER_R[3];
 /** How far out the rim plain stays flat before it rolls away into hills. */
-export const PLAIN_R = 175;
+export const PLAIN_R = 150;
 /** The berm along each terrace's edge: how deep (from the edge) and how high. */
 export const BERM = { d: 0.9, h: 0.55 };
 /** Where the road runs round each terrace: this far out from its edge. */
@@ -129,7 +129,7 @@ export const GREENHOUSE = { r: 92.5, a0: deg(-12), a1: deg(9), half: 3.5, h: 6.2
 /** The sports dome: a glass capsule on T3, north-east. */
 export const SPORTS = { a: deg(35), r: 90.5, len: 30, half: 5.1, h: 6.8 };
 /** The lookout pavilion on the rim, north-west, facing Earth across the crater. */
-export const LOOKOUT = { x: polar(deg(-56), 108)[0], z: polar(deg(-56), 108)[1], r: 7.2, h: 3.6 };
+export const LOOKOUT = { x: polar(deg(-56), 108)[0], z: polar(deg(-56), 108)[1], r: 7.2, h: 4.4 };
 /** The tower: the lift and comms spine on T2, west. */
 export const TOWER = { x: polar(deg(-40), 80.8)[0], z: polar(deg(-40), 80.8)[1], w: 5.2, top: 46 };
 

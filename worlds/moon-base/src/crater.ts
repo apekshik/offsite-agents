@@ -77,9 +77,9 @@ function profile(a: number): [number, number][][] {
 
 /** The hills beyond the rim plain: a few broad swells. */
 export function hillY(r: number, a: number): number {
-  const k = THREE.MathUtils.smoothstep(r, PLAIN_R, 900);
-  const swell = 9 + 7 * Math.sin(3 * a + 1.1) + 4 * Math.sin(7 * a + 2.3) + 2.5 * Math.sin(13 * a + 0.4);
-  const near = 3.5 * Math.sin(5 * a + r * 0.02) * THREE.MathUtils.smoothstep(r, PLAIN_R, PLAIN_R + 60);
+  const k = THREE.MathUtils.smoothstep(r, PLAIN_R, 520);
+  const swell = 20 + 9 * Math.sin(3 * a + 1.1) + 5 * Math.sin(7 * a + 2.3) + 3 * Math.sin(13 * a + 0.4);
+  const near = 2.5 * Math.sin(5 * a + r * 0.02) * THREE.MathUtils.smoothstep(r, PLAIN_R, PLAIN_R + 60);
   return TIER_Y[4]! + k * swell + near;
 }
 
@@ -136,7 +136,7 @@ export function buildCrater(s: Base) {
 
   // The hills: a broad apron from the rim plain's edge out to the horizon.
   const hills = new THREE.BufferGeometry();
-  const HR = [PLAIN_R, 190, 215, 250, 300, 370, 460, 580, 720, 900, 1100];
+  const HR = [PLAIN_R, 165, 185, 215, 260, 320, 400, 500, 650, 850, 1100];
   const hp: number[] = [], hi: number[] = [];
   const NA = 180;
   for (let i = 0; i < HR.length; i++) for (let j = 0; j <= NA; j++) {
@@ -158,8 +158,8 @@ export function buildCrater(s: Base) {
   {
     // The near hills are walkable up to that ring.
     const near = new THREE.BufferGeometry();
-    near.setAttribute("position", new THREE.Float32BufferAttribute(hp.slice(0, 3 * (NA + 1) * 3), 3));
-    near.setIndex(hi.slice(0, 6 * NA * 2));
+    near.setAttribute("position", new THREE.Float32BufferAttribute(hp.slice(0, 3 * (NA + 1) * 4), 3));
+    near.setIndex(hi.slice(0, 6 * NA * 3));
     s.col.add(near);
   }
 

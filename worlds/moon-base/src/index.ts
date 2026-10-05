@@ -78,7 +78,9 @@ export async function buildMoonBase(ctx: WorldContext, { hour = MOON_HOUR, busy:
   // What the base reflects: the black sky above, the sunlit regolith all round below.
   const groundMat = new THREE.MeshBasicMaterial({ color: "#5c5955", side: THREE.DoubleSide });
   const ground = new THREE.Mesh(new THREE.CircleGeometry(3000, 32).rotateX(-Math.PI / 2).translate(0, 18, 0), groundMat);
-  probe.scene.add(sky.makeDome(), ground);
+  // ...and the crater's sunlit walls round the horizon, the light that reaches into its shadows.
+  const walls = new THREE.Mesh(new THREE.CylinderGeometry(300, 300, 40, 32, 1, true).translate(0, 36, 0), groundMat);
+  probe.scene.add(sky.makeDome(), ground, walls);
   let busy = THREE.MathUtils.clamp(busy0, 0, 1), busyTarget = busy;
   BUSY.value = busy;
 
@@ -186,6 +188,7 @@ export async function buildMoonBase(ctx: WorldContext, { hour = MOON_HOUR, busy:
       daylight.dispose();
       probe.dispose();
       ground.geometry.dispose();
+      walls.geometry.dispose();
       groundMat.dispose();
       built.collision.dispose();
       colliders[0]!.geometry.dispose();

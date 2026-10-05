@@ -188,7 +188,7 @@ function palette(): SkyPalette {
   const c = (s: string) => new THREE.Color(s);
   return {
     top: c("#000000"), horizon: c("#05060a"), fog: c("#0a0b0e"), glow: c("#000000"), glowAmt: 0,
-    light: c("#fff4e6"), lightI: 3.6, hemiSky: c("#2a3040"), hemiGround: c("#a19e97"), hemiI: 2.6,
+    light: c("#fff4e6"), lightI: 3.6, hemiSky: c("#8c919b"), hemiGround: c("#b2aea6"), hemiI: 3.4,
     cloudLit: c("#ffffff"), cloudShade: c("#000000"), stars: 1, env: 0.6,
   };
 }
@@ -267,7 +267,7 @@ export function createMoonSky(radius = 1500): MoonSky {
     const p = state.p;
     p.hemiSky.copy(day.hemiSky).lerp(dark.hemiSky, night);
     p.hemiGround.copy(day.hemiGround).lerp(dark.hemiGround, night);
-    p.hemiI = 2.6 - 1.5 * night;
+    p.hemiI = 3.4 - 2.2 * night;
     p.env = 0.6 - 0.3 * night;
     p.light.copy(state.lightColor);
     p.lightI = state.lightIntensity;

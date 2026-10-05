@@ -155,7 +155,8 @@ export function buildWorkHall(s: Base) {
   }
 
   // ---- light: the panels, and real lights over the floor at night (brighter with work on) ----
-  for (const x of [-7, 7]) { const p = f.v(x, C - 1.0, 12); s.rooms.push({ x: p.x, y: p.y, z: p.z, intensity: 12, distance: 20, color: "#ffe2bf", busy: 0.5 }); }
+  // Underground: the lights are on day and night, brighter with work under way.
+  for (const x of [-7, 7]) { const p = f.v(x, C - 1.0, 12); s.rooms.push({ x: p.x, y: p.y, z: p.z, intensity: 16, distance: 22, color: "#ffe9d0", busy: 0.4, always: true }); }
 
   // ---- walking: in through the porch, along the mezzanine, down the stairs, between the pods ----
   const porchOut = plan.node("hall:porch", ...xyz(f, 0, Y, -3.3));
