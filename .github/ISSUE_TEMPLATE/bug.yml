@@ -1,0 +1,44 @@
+name: Bug
+description: Something on the ship doesn't work, or looks wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report. If you can, reproduce it in demo mode (`pnpm dev:demo`) and say which state.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      placeholder: |
+        1. pnpm dev:demo, open /?state=phone-open
+        2. …
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Demo mode (pnpm dev:demo)
+        - offsiteagents.app
+        - My own dev backend (pnpm dev)
+        - The runner (npx … / pnpm runner)
+    validations:
+      required: true
+  - type: textarea
+    id: shots
+    attributes:
+      label: Screenshots or logs
+      description: A screenshot, the browser console, or the runner's output. Remove emails, tokens and private paths.
+  - type: input
+    id: env
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 140 on macOS 15

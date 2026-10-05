@@ -1,0 +1,23 @@
+/* The gallery page (main.tsx). One cell: the interface over the night poster, as aboard. The index: frames in a grid. */
+body.gallery-one { background: #05070b; }
+.gallery-world { position: fixed; inset: 0; background: #040a18 url(/landing/night.webp) 60% 50% / cover no-repeat; }
+.gallery-world::after { content: ""; position: absolute; inset: 0; background: rgba(3, 6, 12, 0.35); }
+
+html:has(> body.gallery-index), body.gallery-index { height: auto; overflow: auto; }
+.gallery { font: 500 14px/1.45 "Saira", system-ui, sans-serif; color: #eef3f7; padding: 24px 28px 60px; max-width: 1600px; margin: 0 auto; }
+.gallery a { color: #4fe3ff; text-decoration: none; }
+.gallery a:hover { color: #9ff0ff; }
+.gallery code { font: 12px "JetBrains Mono", ui-monospace, monospace; color: #9aa8b6; }
+.gl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 8px; }
+.gl-head h1 { margin: 0; font-size: 22px; font-weight: 600; }
+.gl-head p { margin: 0; color: #c7d0d9; flex: 1; min-width: 280px; }
+.gl-size { display: flex; gap: 4px; }
+.gl-size button { font: inherit; font-size: 12.5px; color: #c7d0d9; background: rgba(238, 243, 247, 0.04); border: 1px solid rgba(238, 243, 247, 0.14); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.gl-size button.on { color: #4fe3ff; border-color: rgba(79, 227, 255, 0.45); background: rgba(79, 227, 255, 0.08); }
+.gallery h2 { margin: 28px 0 10px; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #9aa8b6; }
+.gl-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+.gl-grid.phone { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.gl-cell { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gl-frame { position: relative; overflow: hidden; border: 1px solid rgba(238, 243, 247, 0.12); border-radius: 8px; background: #05070b; }
+.gl-frame iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; }
+.gl-cell figcaption { font-size: 13px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }

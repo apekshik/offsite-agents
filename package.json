@@ -9,16 +9,19 @@
   },
   "scripts": {
     "dev": "pnpm --filter @offsite/web dev",
+    "dev:demo": "pnpm --filter @offsite/web dev:demo",
     "dev:backend": "convex dev",
     "runner": "node --experimental-strip-types --no-warnings packages/runner/src/cli.ts",
     "sim": "node --experimental-strip-types --no-warnings packages/runner/src/cli.ts start --sim",
     "build": "pnpm --filter @offsite/web build && node scripts/pack-runner.mjs",
+    "build:demo": "pnpm --filter @offsite/web build:demo",
     "typecheck": "pnpm -r typecheck && tsc -p convex",
     "test": "pnpm -r test && pnpm test:backend",
     "test:backend": "vitest run --config convex/vitest.config.ts",
     "film": "node scripts/film/film.mjs",
     "film:stills": "node scripts/film/film.mjs --stills",
-    "video": "node scripts/video/build.mjs"
+    "video": "node scripts/video/build.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@offsite/contracts": "workspace:*",

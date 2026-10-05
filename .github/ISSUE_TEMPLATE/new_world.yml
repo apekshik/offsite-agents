@@ -1,0 +1,39 @@
+name: New world
+description: Propose (or claim) a world for the crew to work in, like Mars or an orbital station.
+labels: [world]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A world is a package in `worlds/<name>` that builds a place and marks slots and a walking graph; it never reads
+        Offsite's state. See "Adding a world" in CONTRIBUTING.md and `worlds/yacht` for the example.
+  - type: input
+    id: name
+    attributes:
+      label: The world
+      placeholder: Mars base
+    validations:
+      required: true
+  - type: textarea
+    id: place
+    attributes:
+      label: The place
+      description: What it looks like, and where the crew work, hang out, and arrive (the yacht's helipad).
+    validations:
+      required: true
+  - type: textarea
+    id: slots
+    attributes:
+      label: Slots
+      description: Roughly how many desks and places to hang out, where the helm and Computah are, the drop-off for deliveries.
+  - type: textarea
+    id: refs
+    attributes:
+      label: References
+      description: Pictures, moods, links.
+  - type: checkboxes
+    id: claim
+    attributes:
+      label: Building it
+      options:
+        - label: I'm building this (so nobody else starts the same world)

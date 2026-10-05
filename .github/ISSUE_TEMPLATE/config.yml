@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Try it first
+    url: https://github.com/apekshik/offsite-agents/blob/main/CONTRIBUTING.md#five-minutes-to-a-pull-request
+    about: "`pnpm i && pnpm dev:demo` runs the whole interface in your browser, no account needed."
+  - name: Starter tasks
+    url: https://github.com/apekshik/offsite-agents/blob/main/docs/good-first-issues.md
+    about: Small, real tasks for a first pull request.

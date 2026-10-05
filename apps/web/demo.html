@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offsite · demo</title>
+  <meta name="theme-color" content="#05070b">
+  <meta name="description" content="Offsite in demo mode: the real interface on a pretend ship, in your browser. No account, no backend, no runner.">
+  <meta name="robots" content="noindex">
+  <link rel="preload" as="image" href="/landing/night.webp" type="image/webp" media="(min-aspect-ratio: 4/5)" fetchpriority="high">
+  <link rel="preload" as="image" href="/landing/night-portrait.webp" type="image/webp" media="(max-aspect-ratio: 4/5)" fetchpriority="high">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; background: #05070b; color: #eef3f7; overflow: hidden; }
+    #root:empty { position: fixed; inset: 0; background: #040a18 url(/landing/night.webp) 60% 50% / cover no-repeat; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <!-- Demo mode (src/demo): the real app against an in-browser fake backend. The production entry is index.html. -->
+  <script type="module" src="/src/demo/main.tsx"></script>
+</body>
+</html>

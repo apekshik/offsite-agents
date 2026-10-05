@@ -1,13 +1,26 @@
 name: CI
 
+# Checks run on every push to main and every pull request, forks included: nothing here needs a secret.
+# The PR comment with the screenshots is posted by visual-comment.yml, which runs after this one with its own
+# (write) token and never runs a pull request's code.
+
 on:
   push:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
+    name: Typecheck, test, build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -17,4 +30,68 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm test
+      - name: Test (packages and the web app)
+        run: pnpm -r test
+      - name: Test (backend, on convex-test)
+        run: pnpm test:backend
+      # The real app and the runner tarball it serves. No deployment or keys: CONVEX_URL is only read in the browser.
+      - run: pnpm build
+      - name: Build demo mode (static)
+        run: pnpm build:demo
+
+  visual:
+    name: Screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.18
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:demo
+      - name: Playwright's Chromium (cached)
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm exec playwright-core install --with-deps --only-shell chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm exec playwright-core install-deps chromium
+      # The UI gallery and demo mode's key states at desktop and phone widths; the 3D world on SwiftShader.
+      - name: Take the screenshots
+        id: shots
+        run: pnpm screenshots
+      - name: Summary
+        if: always()
+        run: cat .shots/ci/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "No screenshots were taken." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the screenshots
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: .shots/ci
+          retention-days: 14
+          if-no-files-found: warn
+      # For visual-comment.yml: which PR, this commit, where the pictures are, and what to say.
+      - name: Note for the PR comment
+        if: always() && github.event_name == 'pull_request'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          OUTCOME: ${{ steps.shots.outcome }}
+        run: |
+          mkdir -p .shots/meta
+          node -e 'const fs=require("fs");let s="";try{s=fs.readFileSync(".shots/ci/summary.md","utf8")}catch{};fs.writeFileSync(".shots/meta/meta.json",JSON.stringify({pr:Number(process.env.PR),sha:process.env.SHA,artifactUrl:process.env.ARTIFACT_URL||null,outcome:process.env.OUTCOME,summary:s.slice(0,6000)}))'
+      - uses: actions/upload-artifact@v4
+        if: always() && github.event_name == 'pull_request'
+        with:
+          name: visual-meta
+          path: .shots/meta/meta.json
+          retention-days: 3

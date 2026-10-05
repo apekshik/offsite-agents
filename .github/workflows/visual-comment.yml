@@ -1,0 +1,59 @@
+name: Visual checks comment
+
+# After CI finishes on a pull request, post (or update) one comment on it with the screenshot summary and a link to
+# the pictures. Runs in this repository's context, so it works for pull requests from forks too, and it never checks
+# out or runs their code: it reads one small JSON file CI uploaded, checks it belongs to that pull request's head
+# commit, and writes a comment.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: visual-meta
+          path: meta
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+        continue-on-error: true
+      - uses: actions/github-script@v7
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        with:
+          script: |
+            const fs = require("fs");
+            let meta;
+            try { meta = JSON.parse(fs.readFileSync("meta/meta.json", "utf8")); } catch { core.info("No visual-meta artifact: nothing to say."); return; }
+            const pr = Number(meta.pr);
+            if (!Number.isInteger(pr) || pr <= 0) { core.warning("Bad PR number in visual-meta"); return; }
+            // The file came from the pull request's own run: only trust it for that pull request's current head.
+            const { data: pull } = await github.rest.pulls.get({ ...context.repo, pull_number: pr });
+            if (pull.head.sha !== process.env.HEAD_SHA || meta.sha !== process.env.HEAD_SHA) { core.info("Not this pull request's head commit; skipping."); return; }
+            const artifact = typeof meta.artifactUrl === "string" && meta.artifactUrl.startsWith(`https://github.com/${context.repo.owner}/${context.repo.repo}/`) ? meta.artifactUrl : process.env.RUN_URL;
+            // Our own summary, as text: no HTML, no mentions, kept short.
+            const summary = String(meta.summary || "").replace(/<[^>]*>/g, "").replace(/@(?=\w)/g, "@​").slice(0, 6000);
+            const marker = "<!-- offsite-visual-checks -->";
+            const body = [
+              marker,
+              summary || "### Visual checks\n\nNo summary: the screenshot job didn't get that far.",
+              "",
+              `**[Download the screenshots](${artifact})** (a zip of PNGs: the UI gallery and demo mode, desktop and phone) · [the run](${process.env.RUN_URL}) · commit \`${process.env.HEAD_SHA.slice(0, 7)}\``,
+              "",
+              "<sub>Try it yourself: `pnpm i && pnpm dev:demo`. Updated on every push.</sub>",
+            ].join("\n");
+            const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: pr, per_page: 100 });
+            const mine = comments.find((c) => c.user?.type === "Bot" && c.body?.includes(marker));
+            if (mine) await github.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body });
+            else await github.rest.issues.createComment({ ...context.repo, issue_number: pr, body });

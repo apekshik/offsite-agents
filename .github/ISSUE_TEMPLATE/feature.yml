@@ -1,0 +1,27 @@
+name: Idea
+description: Something Offsite could do, or do better.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The situation and what gets in the way, before any solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How it could work. Sketches and screenshots welcome.
+  - type: textarea
+    id: plan
+    attributes:
+      label: Fits the plan?
+      description: docs/plan.md holds the settled decisions. Say if this touches one.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Building it
+      options:
+        - label: I'd like to build this myself
