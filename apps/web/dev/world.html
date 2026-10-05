@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>World viewer</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; background: #05070b; color: #eef3f7; overflow: hidden; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #panel { position: fixed; top: 10px; left: 10px; width: 250px; padding: 10px 12px; background: rgba(8, 14, 22, 0.78); border: 1px solid rgba(120, 160, 200, 0.25); border-radius: 8px; backdrop-filter: blur(6px); }
+    #panel h1 { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.06em; color: #8fd3ff; }
+    #panel label { display: flex; align-items: center; gap: 6px; margin: 3px 0; cursor: pointer; }
+    #panel .row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+    #panel input[type=range] { flex: 1; }
+    #panel button, #panel select { background: #12263c; color: #eef3f7; border: 1px solid #2f5d8a; border-radius: 5px; padding: 4px 8px; font: inherit; cursor: pointer; }
+    #panel button:hover { background: #1b3a5c; }
+    #stats { color: #9fb6cc; white-space: pre; }
+    #check { color: #f2c46d; white-space: pre-wrap; margin-top: 6px; max-height: 160px; overflow: auto; }
+    .slot-label { font: 10px/1 ui-monospace, Menlo, monospace; color: #fff; background: rgba(0, 0, 0, 0.55); padding: 1px 3px; border-radius: 3px; white-space: nowrap; pointer-events: none; }
+    body.clean #panel { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="panel">
+    <h1>OFFSITE · WORLD</h1>
+    <div id="stats">loading…</div>
+    <div class="row"><span>hour</span><input id="hour" type="range" min="0" max="24" step="0.05"><span id="hourText"></span></div>
+    <label><input id="clock" type="checkbox"> follow the clock</label>
+    <label><input id="slots" type="checkbox"> slots</label>
+    <label><input id="nav" type="checkbox"> walking graph</label>
+    <label><input id="cols" type="checkbox"> colliders</label>
+    <div class="row">
+      <select id="view"></select>
+      <button id="fly">Fly one in</button>
+    </div>
+    <div id="check"></div>
+  </div>
+  <script type="module" src="./world.ts"></script>
+</body>
+</html>
