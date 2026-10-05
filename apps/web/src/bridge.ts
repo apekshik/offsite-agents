@@ -59,6 +59,26 @@ export const ui = {
   typing: () => state.phone === "open" || state.helm,
 };
 
+/** Where something is on screen this frame: CSS pixels, whether it's in front of the camera, metres away. */
+export interface ScreenSpot {
+  x: number;
+  y: number;
+  onScreen: boolean;
+  distance: number;
+}
+
+/**
+ * Live answers from the game, for things that change every frame (the HUD's ping marker, a crew
+ * card that follows its person). Call from requestAnimationFrame; never put these in React state.
+ * The game replaces these functions when it starts; until then they return null.
+ */
+export const scene = {
+  /** A crew member's head, projected. */
+  locate: (_crewId: string): ScreenSpot | null => null,
+  /** The captain's position on deck, in metres. */
+  captain: (): { x: number; y: number; z: number } | null => null,
+};
+
 /** React: re-renders when the selected slice changes. */
 export function useUi<T>(select: (s: UiState) => T): T {
   return useSyncExternalStore(ui.subscribe, () => select(state));

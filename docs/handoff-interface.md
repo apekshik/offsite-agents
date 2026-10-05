@@ -27,6 +27,7 @@ Only through `apps/web/src/bridge.ts`, a tiny store both sides read and write (`
 - You set `phone` ("open" / "closed"), `helm`, `threadId`, and `ping` ({ crewId, at }) when the captain hits "Find" on a crew member.
 - The game sets `prompt` (what the captain could use right now), `view` ("first" / "third"), `pointerLocked`, and `crewCard` (a crew member clicked in the world).
 - While the phone or helm is open the game releases the pointer and ignores movement keys, so typing goes to you. `ui.typing()` says whether you own the keyboard.
+- For things that move every frame, `scene.locate(crewId)` returns where a crew member's head is on screen (`{ x, y, onScreen, distance }`), and `scene.captain()` the captain's position. Call them from `requestAnimationFrame` (the ping marker, a card that follows someone); never put them in React state.
 
 Keys: **F** takes the phone out and puts it away (handle it in the overlay; ignore it while typing in an input). **E** uses the thing in `prompt`; the game handles E and sets `helm: true` at the helm. **V** switches the view (game). **Esc** closes the phone or helm first.
 
@@ -65,7 +66,7 @@ The phone can be warmer than the shell (it's a device you hold on vacation), but
 
 ## Data (Convex)
 
-The backend is being written now in the core thread. These are the functions it will have, in `convex/` (`api.<file>.<name>`). Use `useQuery` and `useMutation` from `convex/react`. Until a function exists, build against fixtures in `apps/web/src/mock/` typed to these shapes, and swap in the real call when `convex/_generated/api.d.ts` has it.
+The backend is live on the dev deployment: every function below exists in `convex/` (`api.<file>.<name>`), with generated types in `convex/_generated/api.d.ts`. Use `useQuery` and `useMutation` from `convex/react`. Read the function itself for the exact return shape. For screens you want to design before there is data (questions, a busy crew), fixtures in `apps/web/src/mock/` are fine. `convex/flow.test.ts` walks a whole thread end to end if you want to see the order things happen in.
 
 | Function | Args | Returns |
 |---|---|---|
@@ -87,7 +88,11 @@ The backend is being written now in the core thread. These are the functions it 
 | `crew.dismiss` | `{ crewId }` | |
 | `crew.describeLook` | `{ crewId, prompt }` | queues a look design on your machine |
 | `world.snapshot` (query) | `{ officeId }` | `{ crew: CrewView[], questions: Question[] }`. CrewView = crew + `live: { runId, kind, state, threadId, threadTitle, taskId, taskTitle, step: { kind, summary, since } \| null } \| null`, `lastEnded: { state, endedAt } \| null`, `asking: boolean`, `lastStep: string \| null`. Feed it to `crewActivity` (contracts) for the label. |
-| `threads.list` (query) | `{ officeId }` | `[{ _id, title, state, lastMessageAt, crewIds, openQuestions }]` |
+| `threads.list` (query) | `{ officeId }` | `[{ _id, title, state, branch, prUrl, lastMessageAt, crewIds, tasks: { total, landed }, openQuestions }]` |
+| `threads.rename` | `{ threadId, title }` | |
+| `runs.forThread` (query) | `{ threadId }` | the thread's runs, newest first |
+| `questions.open` (query) | `{ officeId }` | open questions with `crewName`, `crewHandle` |
+| `users.setName` | `{ name }` | |
 | `threads.create` | `{ officeId, text }` | threadId; the computer starts on it |
 | `threads.send` | `{ threadId, text }` | |
 | `threads.archive` | `{ threadId }` | |
