@@ -146,7 +146,7 @@ export function buildAft(s: Ship) {
     for (const z0 of [-2.5, 21.5]) for (const dz of [0, 0.95]) {
       const z = z0 + dz, x = side * 9.1;
       props.put(lounger, x, D1, z, side * Math.PI / 2);
-      col.obox(x, D1 + 0.25, z, 2.0, 0.5, 0.74, side * Math.PI / 2);
+      col.obox(x, D1 + 0.25, z, 0.74, 0.5, 2.0, side * Math.PI / 2);
       plan.slot("lounger", `lounger-d1${sn}${z.toFixed(2)}`, [x + side * LOUNGER.hips, D1, z], yawOf(side, 0), { seat: LOUNGER.seat, tags: ["promenade", "shade"] });
     }
     // Sofa groups: a sofa against the house, a low table, an armchair.

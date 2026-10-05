@@ -3,6 +3,8 @@
 // Each notes which way it faces and where a body goes on it.
 
 import * as THREE from "three";
+import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
+import { FIT } from "@offsite/kit";
 import type { MatKey } from "./mats.ts";
 import { prefab, type Pile, type Prefab } from "./kit.ts";
 
@@ -68,16 +70,67 @@ export const officeChair: Prefab<MatKey> = prefab("officeChair", (p) => {
   for (const sx of [-1, 1]) p.box("dark", sx * 0.27 - 0.02, 0.55, -0.1, sx * 0.27 + 0.02, 0.66, 0.18);
 });
 
+/**
+ * A raised back for lying on, fitted to the lounging poses (FIT.lounger in the kit): for hips at
+ * z = hips on a seat whose top is `seat` up, head toward -z, where the back's surface meets the
+ * seat (the hinge), a point `along` up that surface and `out` behind it, and the tilt (about x)
+ * that lays a box's -z along the back with its +y facing the body.
+ */
+function reclined(seat: number, hips: number) {
+  const { back: r, behind } = FIT.lounger;
+  const up = V(0, Math.cos(r), -Math.sin(r)), away = V(0, -Math.sin(r), -Math.cos(r));
+  // The hip point is 0.1 over the seat; the back's surface passes `behind` it.
+  const p0 = V(0, seat + 0.1, hips).addScaledVector(away, behind);
+  const hinge = p0.clone().addScaledVector(up, (seat - p0.y) / up.y);
+  const at = (along: number, out: number) => hinge.clone().addScaledVector(up, along).addScaledVector(away, out);
+  return { hinge, at, tilt: Math.PI / 2 - r };
+}
+
 /** A sun lounger, head (raised back) at -z, feet at +z: the body lies facing +z, hips at z = -0.1, 0.4 up. */
 export const LOUNGER = { hips: -0.1, seat: 0.4 };
 export const lounger: Prefab<MatKey> = prefab("lounger", (p) => {
+  const { seat, hips } = LOUNGER;
   p.box("wood", -0.36, 0.14, -0.95, 0.36, 0.26, 1.0);
   for (const [x, z] of [[-0.3, -0.85], [0.3, -0.85], [-0.3, 0.9], [0.3, 0.9]] as const) p.box("wood", x - 0.04, 0, z - 0.04, x + 0.04, 0.14, z + 0.04);
-  soft(p, "cushion", 0, 0.32, 0.25, 0.7, 0.12, 1.45);
-  // The back, raised about 40 degrees.
-  soft(p, "cushion", 0, 0.52, -0.68, 0.7, 0.12, 0.68, -0.7);
-  p.box("wood", -0.36, 0.26, -1.0, 0.36, 0.3, -0.55);
+  // The back rises from the hips toward the head: a cushion on a teak board, propped on two struts.
+  const back = reclined(seat, hips), len = 0.85, t = 0.12;
+  const z0 = back.hinge.z - 0.05; // the seat tucks a little under the back, so the fold shows no gap
+  soft(p, "cushion", 0, (0.26 + seat) / 2, (z0 + 0.975) / 2, 0.7, seat - 0.26, 0.975 - z0);
+  const c = back.at(len / 2, t / 2), b = back.at(len / 2, t + 0.02), s = back.at(len * 0.7, t + 0.04);
+  soft(p, "cushion", 0, c.y, c.z, 0.7, t, len, back.tilt);
+  p.obox("wood", 0, b.y, b.z, 0.72, 0.04, len, 0, back.tilt);
+  for (const sx of [-1, 1]) p.rod("wood", V(sx * 0.3, 0.26, s.z + 0.25), V(sx * 0.3, s.y, s.z), 0.02, 6);
   soft(p, "accent", 0, 0.4, 0.82, 0.5, 0.1, 0.22); // a rolled towel at the foot
+});
+
+/**
+ * A round daybed, 2.3 m across, its back raised at -z: the body lies facing +z, hips at the
+ * middle, 0.5 up.
+ */
+export const DAYBED = { hips: 0, seat: 0.5 };
+export const daybed: Prefab<MatKey> = prefab("daybed", (p) => {
+  const { seat, hips } = DAYBED, R = 1.08, base = 0.28, e = 0.07;
+  p.cyl("wood", 0, 0, 0, 1.15, base, 28);
+  // The mattress: flat on top (a body lies on it), its edge rolled.
+  const prof: THREE.Vector2[] = [];
+  for (let i = 0; i <= 4; i++) { const a = -Math.PI / 2 + (i / 4) * Math.PI / 2; prof.push(new THREE.Vector2(R - e + Math.cos(a) * e, base + e + Math.sin(a) * e)); }
+  for (let i = 0; i <= 4; i++) { const a = (i / 4) * Math.PI / 2; prof.push(new THREE.Vector2(R - e + Math.cos(a) * e, seat - e + Math.sin(a) * e)); }
+  prof.push(new THREE.Vector2(0, seat));
+  const mattress = new THREE.LatheGeometry(prof, 28);
+  mattress.deleteAttribute("uv");
+  p.add("cushion", mattress);
+  // The back: a cushion over a wedge that stands on the mattress, two pillows leaning on it.
+  const back = reclined(seat, hips), len = 0.8, t = 0.12, w = 1.5;
+  const c = back.at(len / 2, t / 2);
+  soft(p, "cushion", 0, c.y, c.z, w, t, len, back.tilt);
+  // The wedge's top runs just inside the cushion's underside, from where that meets the mattress.
+  const u = t - 0.02, foot = back.at(u * Math.tan(FIT.lounger.back), u), top = back.at(len - 0.04, u);
+  const wedge: THREE.Vector3[] = [];
+  for (const x of [-w / 2 + 0.03, w / 2 - 0.03]) wedge.push(V(x, foot.y, foot.z), V(x, top.y, top.z), V(x, seat, top.z));
+  p.add("cushion", new ConvexGeometry(wedge));
+  // Either side of the body, so they never sit under its back or its head.
+  const on = back.at(0.36, -0.05);
+  for (const [x, m] of [[-0.55, "accent"], [0.55, "yellow"]] as const) soft(p, m, x, on.y, on.z, 0.42, 0.13, 0.4, back.tilt);
 });
 
 /** A white market umbrella: pole at the origin, canopy 2.5 m up. */
