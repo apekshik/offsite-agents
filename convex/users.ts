@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { DEFAULT_AVATAR } from "@offsite/contracts";
 import { currentUser, fail, requireUser } from "./lib";
 
 /** You, or null until users.ensure has made your row (right after signing in). */
@@ -21,12 +20,12 @@ export const ensure = mutation({
     const existing = await currentUser(ctx);
     if (existing) return existing._id;
     const name = (identity.givenName || identity.name || identity.nickname || identity.email?.split("@")[0] || "Captain").slice(0, 20);
-    // The captain's hat is a designed look the app adds in the customizer; the default figure starts plain.
+    // No avatar yet: the world dresses you as the captain (the kit's CAPTAIN_PRESET) until you make your own.
     return ctx.db.insert("users", {
       tokenIdentifier: identity.tokenIdentifier,
       name,
       email: identity.email ?? null,
-      avatar: { ...DEFAULT_AVATAR, top: "#f4f1ea", bottom: "#1d2a44", accent: "#c9a24a" },
+      avatar: null,
       look: null,
       createdAt: Date.now(),
     });

@@ -1,6 +1,7 @@
 // Plays the captain from a terminal, against your dev deployment: dev sign-in (OFFSITE_DEV_USER, default
 // "runner-test"), a throwaway office, pairing a runner, threads. For testing the runner without the app.
 //   (needs `node scripts/devauth.mjs` once)
+//   node scripts/captain.mjs offices                    → your offices
 //   node scripts/captain.mjs setup <repoPath>          → prints { officeId }
 //   node scripts/captain.mjs approve <userCode>        → approves the runner's device code, prints machineId
 //   node scripts/captain.mjs repo <officeId> <machineId> <repoPath> [setupCommand]
@@ -19,7 +20,10 @@ const client = new ConvexHttpClient(env.CONVEX_URL);
 client.setAuth(devToken(env.DEV_AUTH_PRIVATE_KEY, process.env.OFFSITE_DEV_USER ?? "runner-test"));
 const [cmd, ...args] = process.argv.slice(2);
 
-if (cmd === "setup") {
+if (cmd === "offices") {
+  await client.mutation(api.users.ensure, {});
+  console.log(JSON.stringify((await client.query(api.offices.mine, {})).map((o) => ({ officeId: o._id, name: o.name, repo: o.repo }))));
+} else if (cmd === "setup") {
   await client.mutation(api.users.ensure, {});
   const officeId = await client.mutation(api.offices.create, { name: "Runner Test", world: "yacht", defaultHarness: "sim" });
   console.log(JSON.stringify({ officeId }));

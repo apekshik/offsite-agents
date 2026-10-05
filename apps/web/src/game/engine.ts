@@ -1,0 +1,397 @@
+import * as THREE from "three";
+import {
+  Captain, Collision, CodeScreen, ComputerBot, CrewFigure, Input, SELF_LAYER, Walker,
+  buildAvatar, createPipeline, createRenderer, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
+  type ActId, type BotMood, type BuiltWorld, type Pipeline, type PropKind, type Quality, type Tone, type WorldModule,
+} from "@offsite/kit";
+import type { AvatarSpec, Look, Slot } from "@offsite/contracts";
+import { scene as sceneBridge, ui, type UiState } from "../bridge.ts";
+import { Director, type Act, type CrewView, type Direction } from "./director.ts";
+
+// The game: one world, the captain, and the crew as the backend sees them. The Game component feeds
+// it world.snapshot; everything else (where people go, what they do there, the helicopter, pings)
+// happens here, every frame. It meets the interface only through ../bridge.ts.
+
+export interface Snapshot {
+  crew: (CrewView & { avatar: unknown; look: unknown })[];
+  questions: { crewId: string; prompt: string }[];
+}
+
+export interface GameOptions {
+  canvas: HTMLCanvasElement;
+  world: WorldModule;
+  quality?: Quality;
+  captain: { avatar: unknown; look: unknown } | null;
+}
+
+interface Body {
+  id: string;
+  name: string;
+  fig: CrewFigure;
+  walker: Walker;
+  /** What they were told last, so the same direction twice changes nothing. */
+  key: string;
+  dir: Direction | null;
+  arrived: boolean;
+  asking: string | null;
+}
+
+const ACT: Record<Act, ActId | null> = {
+  type: "type", laptop: "laptop", "lounge-laptop": "lounge-laptop", sunbathe: "sunbathe", hammock: "hammock",
+  fish: "fish", carry: "carry", slump: "slump", think: "think", celebrate: "celebrate", rail: "rail",
+  swim: "swim", stool: "stool", wave: "wave", stand: null,
+};
+const PROP: Record<string, PropKind> = { laptop: "laptop", box: "box", rod: "rod", drink: "drink" };
+
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+function spec(avatar: unknown): AvatarSpec {
+  return sanitizeAvatar(avatar) as AvatarSpec;
+}
+function look(l: unknown): Look | null {
+  return l ? (sanitizeLook(l) as Look | null) : null;
+}
+
+export class Game {
+  readonly renderer: THREE.WebGLRenderer;
+  readonly scene = new THREE.Scene();
+  readonly camera = new THREE.PerspectiveCamera(60, 1, 0.1, 6000);
+  private pipeline!: Pipeline;
+  private world!: BuiltWorld;
+  private collision!: Collision;
+  private captain!: Captain;
+  private input!: Input;
+  private director!: Director;
+  private slots = new Map<string, Slot>();
+  private bodies = new Map<string, Body>();
+  private bot: { id: string; holder: THREE.Group; bot: ComputerBot } | null = null;
+  private monitors = new Map<string, CodeScreen>();
+  private snapshot: Snapshot | null = null;
+  private lastPlan = 0;
+  private ping: { crewId: string; at: number; beacon: THREE.Group; line: THREE.Line; routedAt: number } | null = null;
+  private waterY = 0;
+  private timer = new THREE.Timer();
+  private raf = 0;
+  private unsub: (() => void) | null = null;
+  private disposed = false;
+
+  private readonly o: GameOptions;
+
+  private constructor(o: GameOptions) {
+    this.o = o;
+    this.renderer = createRenderer(o.canvas, { quality: o.quality ?? "high" });
+  }
+
+  static async start(o: GameOptions): Promise<Game> {
+    const g = new Game(o);
+    await g.build();
+    return g;
+  }
+
+  private async build() {
+    const { renderer, scene, camera, o } = this;
+    this.pipeline = createPipeline(renderer, scene, camera, { quality: o.quality ?? "high" });
+    this.world = await o.world.build({ renderer, scene, camera, quality: o.quality ?? "high", assets: "/" });
+    if (this.disposed) return;
+    scene.add(this.world.root);
+    // The captain keeps a shadow in first person.
+    this.world.root.traverse((x) => { if (x instanceof THREE.DirectionalLight && x.castShadow) x.shadow.camera.layers.enable(SELF_LAYER); });
+    this.waterY = typeof this.world.root.userData["waterY"] === "number" ? this.world.root.userData["waterY"] : 0;
+
+    this.collision = new Collision().add(...this.world.colliders).build();
+    for (const s of this.world.layout.slots) this.slots.set(s.id, s);
+    this.director = new Director(this.world.layout.slots);
+
+    // Desk monitors are meshes named screen:<slotId>; the helm's is screen:helm.
+    this.world.root.traverse((x) => {
+      if (!(x instanceof THREE.Mesh) || !x.name.startsWith("screen:")) return;
+      const screen = new CodeScreen({ seed: hash(x.name) });
+      screen.write(["Offsite"], "");
+      x.material = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false });
+      this.monitors.set(x.name.slice("screen:".length), screen);
+    });
+
+    this.input = new Input({ element: o.canvas, suspended: () => ui.typing() });
+    const spawn = this.world.layout.slots.find((s) => s.kind === "captain-spawn");
+    const me = o.captain;
+    this.captain = new Captain({
+      camera, collision: this.collision, input: this.input,
+      avatar: buildAvatar(me?.avatar ? spec(me.avatar) : CAPTAIN_PRESET.spec, me?.avatar ? look(me.look) : CAPTAIN_PRESET.look),
+      interactables: this.world.interactables,
+      ...(spawn ? { spawn: { pos: spawn.pos, facing: spawn.facing } } : {}),
+      view: ui.get().view,
+    });
+    scene.add(this.captain.object);
+    this.captain.onPrompt = (it) => ui.set({ prompt: it ? { id: it.id, label: it.label } : null });
+    this.captain.onUse = (it) => { if (it.id === "helm") this.openInterface({ helm: true }); };
+    this.captain.onView = (view) => ui.set({ view });
+    this.captain.onPointerLock = (pointerLocked) => ui.set({ pointerLocked });
+    this.captain.onClick = (ndc) => {
+      const hit = pick(ndc, camera, [...this.bodies.values()].map((b) => b.fig.object));
+      const body = [...this.bodies.values()].find((b) => b.fig.object === hit);
+      if (body) ui.set({ crewCard: body.id });
+    };
+    this.unsub = ui.subscribe(() => this.onUi(ui.get()));
+    this.onUi(ui.get());
+
+    sceneBridge.locate = (id) => this.locate(id);
+    sceneBridge.captain = () => {
+      const p = this.captain.position;
+      return { x: p.x, y: p.y, z: p.z };
+    };
+
+    addEventListener("resize", this.resize);
+    this.resize();
+    this.loop();
+  }
+
+  private openInterface(patch: Partial<UiState>) {
+    if (document.pointerLockElement) document.exitPointerLock();
+    ui.set(patch);
+  }
+
+  private phoneWas: UiState["phone"] = "closed";
+  private pingWas: UiState["ping"] = null;
+  private onUi(s: UiState) {
+    if (s.phone !== this.phoneWas) {
+      this.phoneWas = s.phone;
+      this.captain.setPhoneOut(s.phone === "open", true);
+      if (s.phone === "open" && document.pointerLockElement) document.exitPointerLock();
+    }
+    if (s.helm && document.pointerLockElement) document.exitPointerLock();
+    if (s.ping !== this.pingWas) {
+      this.pingWas = s.ping;
+      this.setPing(s.ping);
+    }
+  }
+
+  private resize = () => this.pipeline.setSize(innerWidth, innerHeight);
+
+  /** The newest crew list from the backend. */
+  setSnapshot(snap: Snapshot) {
+    this.snapshot = snap;
+    if (!this.world) return;
+    const now = Date.now();
+    this.world.setArrivals(snap.crew.filter((c) => c.role === "crew" && c.arrivesAt > now - 60_000).map((c) => c.arrivesAt));
+    this.plan(now);
+  }
+
+  private plan(now: number) {
+    const snap = this.snapshot;
+    if (!snap || !this.director) return;
+    this.lastPlan = now;
+    const directions = this.director.plan(snap.crew, now);
+    const seen = new Set<string>();
+    for (const d of directions) {
+      const view = snap.crew.find((c) => c._id === d.crewId)!;
+      seen.add(d.crewId);
+      this.direct(view, d, snap.questions.find((q) => q.crewId === d.crewId)?.prompt ?? null);
+    }
+    for (const [id, b] of this.bodies) if (!seen.has(id)) this.removeBody(b);
+    this.directComputer(snap.crew.find((c) => c.role === "computer"), now);
+  }
+
+  private makeBody(view: Snapshot["crew"][number], d: Direction): Body {
+    const fig = new CrewFigure({ spec: spec(view.avatar), look: look(view.look), name: view.name, seed: hash(view._id) % 1000 });
+    fig.water = this.waterY;
+    const walker = new Walker(fig.object, { floor: (x, y, z) => this.collision.floorBelow(x, y + 0.6, z, 1.6) });
+    const start = (d.spawnSlot && this.slots.get(d.spawnSlot)) || (d.target.kind === "slot" ? this.slots.get(d.target.slotId) : null)
+      || this.world.layout.slots.find((s) => s.kind === "crew-spawn");
+    if (start) fig.object.position.set(...start.pos);
+    if (d.spawnSlot) fig.setBackpack(true);
+    this.scene.add(fig.object);
+    const body: Body = { id: view._id, name: view.name, fig, walker, key: "", dir: null, arrived: false, asking: null };
+    this.bodies.set(view._id, body);
+    // Someone already aboard when the page loads is simply where they belong.
+    if (!d.spawnSlot && d.target.kind === "slot") {
+      const slot = this.slots.get(d.target.slotId);
+      if (slot) { walker.place(slot); body.arrived = true; body.key = `slot:${slot.id}`; fig.setAct(ACT[d.act], this.propOpt(d)); }
+    }
+    return body;
+  }
+
+  private removeBody(b: Body) {
+    this.scene.remove(b.fig.object);
+    b.fig.dispose();
+    this.bodies.delete(b.id);
+  }
+
+  private propOpt(d: Direction): { prop?: PropKind | null } {
+    // The act brings its own prop (a laptop on the lap, a rod); only leisure props are added here.
+    const extra = d.props.find((p) => p === "drink" || p === "box");
+    return extra ? { prop: PROP[extra]! } : {};
+  }
+
+  private direct(view: Snapshot["crew"][number], d: Direction, question: string | null) {
+    let body = this.bodies.get(d.crewId);
+    if (!d.visible) {
+      if (body) body.fig.object.visible = false;
+      return;
+    }
+    body ??= this.makeBody(view, d);
+    const { fig, walker } = body;
+    fig.object.visible = true;
+    const tone: Tone = d.activity === "asking" ? "warn" : d.activity === "failed" ? "danger" : d.activity === "landed" ? "ok" : d.activity === "idle" ? "dim" : "accent";
+    fig.setLabel(view.name, d.label, tone);
+    fig.setAsking(d.marker === "asking");
+    body.dir = d;
+
+    const key = d.target.kind === "slot" ? `slot:${d.target.slotId}` : d.target.kind;
+    if (key !== body.key) {
+      body.key = key;
+      body.arrived = false;
+      body.asking = null;
+      fig.lookAt(null);
+      if (d.target.kind === "slot") {
+        const slot = this.slots.get(d.target.slotId)!;
+        fig.setAct(d.walkAct ? ACT[d.walkAct] : null, d.walkAct === "carry" ? { prop: "box" } : {});
+        walker.goTo(this.world.layout.nav, slot, () => {
+          body!.arrived = true;
+          fig.setBackpack(false);
+          const now = body!.dir;
+          if (now) fig.setAct(ACT[now.act], this.propOpt(now));
+        });
+      } else if (d.target.kind === "captain") {
+        fig.setAct(null);
+        walker.follow(this.captain.object, {
+          graph: this.world.layout.nav, distance: 1.6, speed: 2.4,
+          onReach: () => {
+            body!.arrived = true;
+            fig.setAct("talk");
+            if (question && body!.asking !== question) {
+              body!.asking = question;
+              fig.say(question.length > 90 ? `${question.slice(0, 88)}…` : question, 9000);
+            }
+          },
+        });
+      } else {
+        walker.stop();
+        fig.setAct(null);
+      }
+    } else if (body.arrived && d.target.kind === "slot") {
+      const act = ACT[d.act];
+      if (fig.act !== act) fig.setAct(act, this.propOpt(d));
+    }
+
+    // Their screen: the desk's monitor when they sit at one, otherwise the laptop.
+    if (d.screen) {
+      const at = d.target.kind === "slot" ? this.slots.get(d.target.slotId) : undefined;
+      const monitor = at?.kind === "desk" ? this.monitors.get(at.id) : undefined;
+      if (monitor) monitor.write(d.screen.slice(1), d.screen[0]);
+      fig.write(d.screen.slice(1), d.screen[0]);
+    }
+  }
+
+  private directComputer(view: CrewView | undefined, now: number) {
+    if (!view) return;
+    const d = this.director.computer(view, now);
+    if (!d) return;
+    if (!this.bot) {
+      const holder = new THREE.Group();
+      const slot = d.slotId ? this.slots.get(d.slotId) : undefined;
+      if (slot) { holder.position.set(slot.pos[0], slot.pos[1] + 1.25, slot.pos[2]); holder.rotation.y = slot.facing; }
+      this.scene.add(holder);
+      this.bot = { id: view._id, holder, bot: new ComputerBot(holder, { scale: 0.55 }) };
+    }
+    this.bot.bot.setMood(d.mood as BotMood);
+    this.monitors.get("helm")?.write(d.screen.slice(1), d.screen[0]);
+  }
+
+  // ---- pings: "Find" on the phone ----
+
+  private setPing(p: UiState["ping"]) {
+    if (this.ping) {
+      this.ping.beacon.removeFromParent();
+      this.ping.line.removeFromParent();
+      this.ping.line.geometry.dispose();
+      this.ping = null;
+    }
+    const body = p ? this.bodies.get(p.crewId) : undefined;
+    if (!p || !body) return;
+    const beacon = new THREE.Group();
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.18, 30, 16, 1, true),
+      new THREE.MeshBasicMaterial({ color: "#4fe3ff", transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }),
+    );
+    beam.position.y = 15;
+    beacon.add(beam);
+    body.fig.object.add(beacon);
+    const line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: "#4fe3ff", transparent: true, opacity: 0.85, toneMapped: false }));
+    this.scene.add(line);
+    this.ping = { crewId: p.crewId, at: p.at, beacon, line, routedAt: 0 };
+  }
+
+  private updatePing(t: number) {
+    const ping = this.ping;
+    if (!ping) return;
+    const body = this.bodies.get(ping.crewId);
+    const me = this.captain.position;
+    if (!body || me.distanceTo(body.fig.object.position) < 3 || Date.now() - ping.at > 120_000) {
+      ui.set({ ping: null });
+      return;
+    }
+    if (t - ping.routedAt > 0.5) {
+      ping.routedAt = t;
+      const to = body.fig.object.position;
+      const pts = routeToPoint(this.world.layout.nav, [me.x, me.y, me.z], [to.x, to.y, to.z]);
+      ping.line.geometry.dispose();
+      ping.line.geometry = new THREE.BufferGeometry().setFromPoints([me.clone(), ...pts].map((v) => v.clone().setY(v.y + 0.08)));
+    }
+  }
+
+  // ---- the bridge's per-frame answers ----
+
+  private v = new THREE.Vector3();
+  private locate(id: string) {
+    const body = this.bodies.get(id);
+    if (!body || !body.fig.object.visible) return null;
+    const head = body.fig.rig.headTop(this.v).add(new THREE.Vector3(0, 0.6, 0));
+    const distance = head.distanceTo(this.camera.position);
+    const p = head.project(this.camera);
+    const onScreen = p.z < 1 && Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1;
+    return { x: ((p.x + 1) / 2) * innerWidth, y: ((1 - p.y) / 2) * innerHeight, onScreen, distance };
+  }
+
+  // ---- the loop ----
+
+  private loop = (now?: number) => {
+    if (this.disposed) return;
+    this.raf = requestAnimationFrame(this.loop);
+    this.timer.update(now);
+    const dt = Math.min(0.05, this.timer.getDelta());
+    const t = this.timer.getElapsed();
+    const wall = Date.now();
+    // Time moves people too (afterglow ends, the helicopter lands, idle crew wander).
+    if (wall - this.lastPlan > 1000) this.plan(wall);
+    this.world.update(dt, wall);
+    this.captain.update(dt, t);
+    for (const b of this.bodies.values()) {
+      if (!b.fig.object.visible) continue;
+      b.walker.update(dt);
+      if (b.dir?.target.kind === "captain" && b.arrived) b.fig.lookAt(this.captain.position.clone().setY(this.captain.position.y + 1.5));
+      b.fig.update(dt, t, { speed: b.walker.speed, seat: b.walker.seat, camera: this.camera });
+    }
+    this.bot?.bot.update(dt, this.camera.position);
+    for (const m of this.monitors.values()) m.update(dt);
+    this.updatePing(t);
+    this.pipeline.render(dt);
+  };
+
+  dispose() {
+    this.disposed = true;
+    cancelAnimationFrame(this.raf);
+    removeEventListener("resize", this.resize);
+    this.unsub?.();
+    sceneBridge.locate = () => null;
+    sceneBridge.captain = () => null;
+    for (const b of [...this.bodies.values()]) this.removeBody(b);
+    this.captain?.dispose();
+    this.world?.dispose();
+    this.pipeline?.dispose();
+    this.renderer.dispose();
+  }
+}

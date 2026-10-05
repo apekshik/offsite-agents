@@ -151,7 +151,8 @@ export class Director {
       lastEnded: c.lastEnded && { state: c.lastEnded.state as RunState, endedAt: c.lastEnded.endedAt },
     });
     const title = c.live?.taskTitle ?? c.live?.threadTitle ?? null;
-    const label = title && isWorking(activity) ? `${ACTIVITY_LABEL[activity]} · ${title}` : ACTIVITY_LABEL[activity];
+    const short = title && title.length > 26 ? `${title.slice(0, 25).replace(/\s+\S*$/, "")}…` : title;
+    const label = short && isWorking(activity) ? `${ACTIVITY_LABEL[activity]} · ${short}` : ACTIVITY_LABEL[activity];
     const recentArrival = now - c.arrivesAt < 90_000;
     const spawn = recentArrival ? this.slots.find((s) => s.kind === "crew-spawn")?.id ?? null : null;
     const visible = now >= c.arrivesAt + ARRIVAL.stepOutMs;
