@@ -9,8 +9,8 @@ What `offsite` (packages/runner) calls on Convex. Every function takes the machi
 
 ## The loop
 
-- `runner.hello` (mutation) `{ token, probe }` → `{ machineId, owner }`. On start and every 30 s. `probe` is what the harnesses reported: `[{ harness, installed, version, auth, email, plan, models, message }]`.
-- `runner.work` (query, subscribe to it) `{ token }` → `{ machineId, queued: [{ runId, kind, crewId }], live: [{ runId, interruptRequested, inbox: [{ id, text }], answers: [{ questionId, requestId, answer }] }] }`. Queued runs are this machine's to claim (offices whose repo is on this machine). Live are runs this machine claimed.
+- `runner.hello` (mutation) `{ token, probe, fresh? }` → `{ machineId, owner }`. On start (with `fresh: true`, which fails whatever this machine still had live: a restarted runner holds no sessions) and every 30 s. `probe` is what the harnesses reported: `[{ harness, profile, installed, version, auth, email, plan, models: [{ id, name, efforts }], message }]`; `profile` null is the CLI's default login.
+- `runner.work` (query, subscribe to it) `{ token }` → `{ machineId, queued: [{ runId, kind, crewId, createdAt }], live: [{ runId, state, interruptRequested, inbox: [{ id, text }], answers: [{ questionId, requestId, answer }] }] }`. Queued runs are this machine's to claim (offices whose repo is on this machine). Live are runs this machine claimed.
 - `runner.claim` (mutation) `{ token, runId }` → `RunContext | null` (null when someone else got it). RunContext:
   - `run: { id, kind, prompt }`
   - `office: { id, name, repoPath, defaultBranch, setupCommand }`
@@ -20,7 +20,7 @@ What `offsite` (packages/runner) calls on Convex. Every function takes the machi
   - `resumeCursor` (opaque; from the last run of this crew member in this thread/task)
   - `context`: text the agent should know: for the computer, the thread so far and the crew roster; for a crew member, the thread's title and what teammates landed.
 - `runner.started` (mutation) `{ token, runId, worktree, threadBranch?, taskBranch? }`. The run is working; the branches are recorded.
-- `runner.events` (mutation) `{ token, runId, events: RunEvent[] }`. Up to 200 per call. Content deltas coalesced to 100 ms. The backend keeps the reply message, the current step, questions (request.opened) and the resume cursor (session.started) up to date from these.
+- `runner.events` (mutation) `{ token, runId, events: RunEvent[] }`. Up to 200 per call. Content deltas coalesced to 100 ms. The backend keeps the reply message, the current step, questions (request.opened) and the resume cursor (session.started) up to date from these. A tool step closes the current reply paragraph, so `content.final` carries only the closing paragraph (the text since the last step), not the whole turn.
 - `runner.delivered` (mutation) `{ token, inboxIds?, questionIds? }`. Messages and answers handed to the agent.
 - `runner.landing` (mutation) `{ token, runId }`. A task's agent finished; its work is landing on the thread branch (task → review).
 - `runner.finish` (mutation) `{ token, runId, outcome: "landed" | "failed" | "interrupted", error?, report? }`. For a task, `landed` means committed and landed on the thread branch. A run always ends with a commit of whatever it changed, even when it fails or is stopped.
@@ -29,15 +29,15 @@ What `offsite` (packages/runner) calls on Convex. Every function takes the machi
 
 All mutations unless noted. `task` is a task id or a key from plan_tasks; `crew` is a handle.
 
-- `tools.crewStatus` (query) `{ token, runId }` → `{ crew: [{ handle, name, harness, activity, task }], tasks: [{ id, key, title, state, assignee }] }`
+- `tools.crewStatus` (query) `{ token, runId }` → `{ thread: { title, state, branch, prUrl }, crew: [{ handle, name, harness, specialty, activity, task }], tasks: [{ id, key, title, state, assignee, dependsOn }] }`
 - `tools.planTasks` `{ token, runId, tasks }` → `[{ key, taskId, assignee }]`
 - `tools.assignTask` `{ token, runId, task, crew? }` → `{ taskId, crew: { handle, name, hired } }`
 - `tools.hireCrew` `{ token, runId, name?, harness?, specialty? }` → `{ handle, name, arrivesAt }`
 - `tools.messageCrew` `{ token, runId, crew, text }`
 - `tools.askCaptain` `{ token, runId, question, options? }` → `{ questionId, requestId }`. The answer arrives in `runner.work` live answers.
-- `tools.reviewTask` (query) `{ token, runId, task }` → `{ id, key, title, state, branch, report, crew }`. The runner adds the diff from git.
+- `tools.reviewTask` (query) `{ token, runId, task }` → `{ id, key, title, brief, state, branch, report, crew, threadBranch }`. The runner adds the diff from git (each landed task is one squashed commit with an `Offsite-Task:` trailer).
 - `tools.sendBack` `{ token, runId, task, notes }`
-- `tools.finishThread` `{ token, runId, title, summary, prUrl }`. After the runner pushed the thread branch and opened the PR (prUrl null when there is no GitHub remote).
+- `tools.finishThread` `{ token, runId, title, summary, prUrl }`. After the runner pushed the thread branch and opened the PR (prUrl null when there is no GitHub remote). Refused when a task is unfinished or the thread is already done.
 
 ## Looks
 

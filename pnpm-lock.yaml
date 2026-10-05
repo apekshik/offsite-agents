@@ -142,6 +142,16 @@ importers:
 
   packages/runner:
     dependencies:
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: ^0.3.289
+        version: 0.3.289(@anthropic-ai/sdk@0.131.0(zod@4.6.5))(@modelcontextprotocol/sdk@1.32.0(zod@4.6.5))(zod@4.6.5)
+      convex:
+        specifier: ^1.46.0
+        version: 1.46.0(react@19.3.0)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
       '@offsite/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -151,16 +161,12 @@ importers:
       '@offsite/harness':
         specifier: workspace:*
         version: link:../harness
-      convex:
-        specifier: ^1.46.0
-        version: 1.46.0(react@19.3.0)
-      zod:
-        specifier: ^4.6.5
-        version: 4.6.5
-    devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.5
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
 
   worlds/yacht:
     dependencies:

@@ -50,6 +50,7 @@ export const crewStatus = query({
     const now = Date.now();
     const tasks = (await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).collect()).sort((a, b) => a.createdAt - b.createdAt);
     return {
+      thread: { title: thread.title, state: thread.state, branch: thread.branch, prUrl: thread.prUrl },
       crew: await Promise.all(crew.map(async (c) => {
         const live = await liveRunOf(ctx, c._id);
         const task = live?.taskId ? await ctx.db.get(live.taskId) : null;
@@ -211,6 +212,7 @@ export const finishThread = mutation({
   args: { token: v.string(), runId: v.id("runs"), title: v.string(), summary: v.string(), prUrl: v.union(v.string(), v.null()) },
   handler: async (ctx, { token, runId, title, summary, prUrl }) => {
     const { run, thread } = await computerRun(ctx, token, runId);
+    if (thread.state === "done") fail(`This thread is already finished${thread.prUrl ? ` (${thread.prUrl})` : ""}. Tell the captain instead.`);
     const tasks = await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).collect();
     const unfinished = tasks.filter((t) => t.state === "todo" || t.state === "doing" || t.state === "review");
     if (unfinished.length) fail(`Not every task has landed: ${unfinished.map((t) => `${t.key} (${t.state})`).join(", ")}`);

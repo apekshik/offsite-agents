@@ -4,18 +4,41 @@
   "description": "Run your Offsite crew on this machine, on your own Claude Code and Codex subscriptions.",
   "type": "module",
   "license": "MIT",
-  "bin": { "offsite": "./src/cli.ts" },
-  "exports": { ".": "./src/index.ts" },
+  "bin": {
+    "offsite": "./src/cli.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "bin": {
+      "offsite": "./dist/offsite.mjs"
+    },
+    "exports": {
+      ".": "./dist/index.mjs"
+    }
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
+    "build": "node build.mjs",
     "typecheck": "tsc -p .",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@offsite/contracts": "workspace:*",
-    "@offsite/git": "workspace:*",
-    "@offsite/harness": "workspace:*",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.289",
     "convex": "^1.46.0",
     "zod": "^4.6.5"
   },
-  "devDependencies": { "@types/node": "^22.10.0" }
+  "devDependencies": {
+    "@offsite/contracts": "workspace:*",
+    "@offsite/git": "workspace:*",
+    "@offsite/harness": "workspace:*",
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.28.2"
+  }
 }
