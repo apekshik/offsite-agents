@@ -101,7 +101,7 @@ export function buildSunDeck(s: Ship) {
       props.put(lounger, x, D3, z, yawL);
       const [hx, hz] = local(x, z, yawL, 0, LOUNGER.hips);
       plan.slot("lounger", `lounger-${++n}`, [hx, D3, hz], yawL, { seat: LOUNGER.seat, tags: ["sun", "shade"] });
-      col.obox(x, D3 + 0.25, z, 2.0, 0.5, 0.74, yawL);
+      col.obox(x, D3 + 0.25, z, 0.74, 0.5, 2.0, yawL);
     }
     props.put(umbrella, 9.75, D3, z0 + 0.475);
   }

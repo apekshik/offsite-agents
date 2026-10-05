@@ -170,7 +170,7 @@ function buildSideDecks(s: Ship) {
     for (const z0 of [-6.6, 6.2]) for (const dz of [0, 0.95]) {
       const z = z0 + dz;
       props.put(lounger, x(1.25), D2, z, side * Math.PI / 2);
-      col.obox(x(1.25), D2 + 0.25, z, 2.0, 0.5, 0.74, side * Math.PI / 2);
+      col.obox(x(1.25), D2 + 0.25, z, 0.74, 0.5, 2.0, side * Math.PI / 2);
       plan.slot("lounger", `lounger-side-${sn}${z.toFixed(2)}`, [x(1.25 + LOUNGER.hips), D2, z], out, { seat: LOUNGER.seat, nav: near(z), tags: ["side-deck", "shade"] });
     }
     // Deck chairs either side of a little table.
