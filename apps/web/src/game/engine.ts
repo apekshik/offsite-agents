@@ -1,21 +1,26 @@
 import * as THREE from "three";
 import {
-  Captain, Collision, CodeScreen, ComputerBot, CrewFigure, Input, SELF_LAYER, Walker,
+  Captain, Collision, ComputerBot, CrewFigure, Input, Laptop, SELF_LAYER, Walker,
   buildAvatar, createPipeline, createRenderer, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
   type ActId, type BotMood, type BuiltWorld, type Pipeline, type PropKind, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
 import type { AvatarSpec, Look, Slot } from "@offsite/contracts";
 import { scene as sceneBridge, ui, type UiState } from "../bridge.ts";
 import { Director, type Act, type CrewView, type Direction } from "./director.ts";
+import { CrewScreen, describeSlot, faceOf, takeOverLaptop, type HelmContent, type ScreenContent } from "./screens.ts";
 
 // The game: one world, the captain, and the crew as the backend sees them. The Game component feeds
 // it world.snapshot; everything else (where people go, what they do there, the helicopter, pings)
 // happens here, every frame. It meets the interface only through ../bridge.ts.
 
 export interface Snapshot {
+  office?: { name: string };
   crew: (CrewView & { avatar: unknown; look: unknown })[];
-  questions: { crewId: string; prompt: string }[];
+  questions: { crewId: string; prompt: string; crewName?: string }[];
 }
+
+/** The threads, for the helm's screen (threads.list). */
+export interface ThreadSummary { title: string; state: string; tasks: { total: number; landed: number }; openQuestions: number }
 
 export interface GameOptions {
   canvas: HTMLCanvasElement;
@@ -49,6 +54,12 @@ function hash(s: string): number {
   return h >>> 0;
 }
 
+/** "Desk 21" from desk-21. */
+function deskLabel(id: string): string {
+  const n = /(\d+)$/.exec(id)?.[1];
+  return n ? `Desk ${n}` : "Desk";
+}
+
 function spec(avatar: unknown): AvatarSpec {
   return sanitizeAvatar(avatar) as AvatarSpec;
 }
@@ -69,7 +80,19 @@ export class Game {
   private slots = new Map<string, Slot>();
   private bodies = new Map<string, Body>();
   private bot: { id: string; holder: THREE.Group; bot: ComputerBot } | null = null;
-  private monitors = new Map<string, CodeScreen>();
+  /** Screens with their own canvas: the boards, and desks someone has sat at. */
+  private monitors = new Map<string, CrewScreen>();
+  private deskMats = new Map<string, THREE.MeshBasicMaterial>();
+  private idleScreen = (() => { const s = new CrewScreen("desk"); s.show({ kind: "idle", desk: "" }); return s; })();
+  /** Whose desk each desk is: the last crew member to sit there, until someone else does. */
+  private deskOwner = new Map<string, string>();
+  /** Laptops on laps, painted like the desks (screens.ts). */
+  private laptops = new Map<string, { laptop: Laptop; screen: CrewScreen }>();
+  private screenFor = new Map<string, ScreenContent | null>();
+  private threads: ThreadSummary[] = [];
+  private activity = new Map<string, Direction["activity"]>();
+  /** Screens that show the ship rather than one person: the helm's, the office wall. */
+  private boards = new Set<string>();
   /** Monitors someone is working at (and the helm's). Only these animate: each redraw is a texture upload. */
   private liveMonitors = new Set<string>(["helm"]);
   private snapshot: Snapshot | null = null;
@@ -111,11 +134,20 @@ export class Game {
     // Desk monitors are meshes named screen:<slotId>; the helm's is screen:helm.
     this.world.root.traverse((x) => {
       if (!(x instanceof THREE.Mesh) || !x.name.startsWith("screen:")) return;
-      const screen = new CodeScreen({ seed: hash(x.name) });
-      screen.write(["Offsite"], "");
-      screen.update(1); // draw it once; only monitors in use keep animating
+      const id = x.name.slice("screen:".length);
+      // Desks show their crew; the helm (and any other big screen, like the office wall) the ship.
+      // Free desks share one calm texture; a desk gets its own canvas once someone sits there.
+      const desk = this.slots.get(id)?.kind === "desk";
+      if (desk) {
+        const mat = new THREE.MeshBasicMaterial({ map: this.idleScreen.texture, toneMapped: false });
+        x.material = mat;
+        this.deskMats.set(id, mat);
+        return;
+      }
+      const screen = new CrewScreen("helm", hash(x.name));
+      this.boards.add(id);
       x.material = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false });
-      this.monitors.set(x.name.slice("screen:".length), screen);
+      this.monitors.set(id, screen);
     });
 
     this.input = new Input({ element: o.canvas, suspended: () => ui.typing() });
@@ -146,6 +178,12 @@ export class Game {
     sceneBridge.captain = () => {
       const p = this.captain.position;
       return { x: p.x, y: p.y, z: p.z };
+    };
+    sceneBridge.where = (id) => {
+      const t = this.bodies.get(id)?.dir?.target;
+      if (t?.kind === "captain") return { slotId: "captain", kind: "captain", tags: [] };
+      const s = t?.kind === "slot" ? this.slots.get(t.slotId) : undefined;
+      return s ? { slotId: s.id, kind: s.kind, tags: s.tags ?? [] } : null;
     };
 
     addEventListener("resize", this.resize);
@@ -186,6 +224,12 @@ export class Game {
     this.plan(now);
   }
 
+  /** The threads, for the helm's screen. */
+  setThreads(threads: ThreadSummary[]) {
+    this.threads = threads;
+    this.paintHelm();
+  }
+
   private plan(now: number) {
     const snap = this.snapshot;
     if (!snap || !this.director) return;
@@ -198,10 +242,7 @@ export class Game {
       this.direct(view, d, snap.questions.find((q) => q.crewId === d.crewId)?.prompt ?? null);
     }
     for (const [id, b] of this.bodies) if (!seen.has(id)) this.removeBody(b);
-    this.liveMonitors = new Set(["helm"]);
-    for (const d of directions) {
-      if (d.screen && d.target.kind === "slot" && this.slots.get(d.target.slotId)?.kind === "desk") this.liveMonitors.add(d.target.slotId);
-    }
+    this.paintScreens(snap, directions);
     this.directComputer(snap.crew.find((c) => c.role === "computer"), now);
   }
 
@@ -289,13 +330,104 @@ export class Game {
       if (fig.act !== act) fig.setAct(act, this.propOpt(d));
     }
 
-    // Their screen: the desk's monitor when they sit at one, otherwise the laptop.
-    if (d.screen) {
-      const at = d.target.kind === "slot" ? this.slots.get(d.target.slotId) : undefined;
-      const monitor = at?.kind === "desk" ? this.monitors.get(at.id) : undefined;
-      if (monitor) monitor.write(d.screen.slice(1), d.screen[0]);
-      fig.write(d.screen.slice(1), d.screen[0]);
+    // Their screen (the desk's monitor, or the laptop on their lap) is painted in paintScreens.
+  }
+
+  // ---- crew screens (screens.ts) ----
+
+  private contentFor(view: Snapshot["crew"][number], d: Direction, question: string | null): ScreenContent | null {
+    const face = faceOf(view.avatar, view.look);
+    const task = view.live?.taskTitle ?? view.live?.threadTitle ?? "";
+    const step = view.live?.step?.summary ?? view.lastStep ?? "";
+    const since = (view.live as { startedAt?: number | null } | null)?.startedAt ?? null;
+    switch (d.activity) {
+      case "asking": return { kind: "asking", name: view.name, face, task, prompt: question ?? "", step };
+      case "landed": return { kind: "landed", name: view.name, face, task: view.lastEnded?.taskTitle ?? task };
+      case "failed": return { kind: "failed", name: view.name, face, task: view.lastEnded?.taskTitle ?? task, step };
+      case "idle": case "arriving": return null;
+      default: return { kind: "working", activity: d.activity, name: view.name, face, task, step, since };
     }
+  }
+
+  /** Desks show their owner's work (or where they've gone); laptops show their holder's. Only changes repaint. */
+  private paintScreens(snap: Snapshot, directions: Direction[]) {
+    const dirs = new Map(directions.map((d) => [d.crewId, d]));
+    this.activity = new Map(directions.map((d) => [d.crewId, d.activity]));
+    const views = new Map(snap.crew.map((c) => [c._id, c]));
+    this.liveMonitors = new Set();
+    for (const d of directions) {
+      const slot = d.target.kind === "slot" ? this.slots.get(d.target.slotId) : undefined;
+      if (slot?.kind !== "desk" || !d.screen) continue;
+      for (const [desk, owner] of this.deskOwner) if (owner === d.crewId && desk !== slot.id) this.deskOwner.delete(desk);
+      this.deskOwner.set(slot.id, d.crewId);
+    }
+    for (const [desk, owner] of this.deskOwner) if (!views.has(owner)) this.deskOwner.delete(desk);
+    for (const d of directions) {
+      const view = views.get(d.crewId);
+      if (view) this.screenFor.set(d.crewId, this.contentFor(view, d, snap.questions.find((q) => q.crewId === d.crewId)?.prompt ?? null));
+    }
+    for (const [id, mat] of this.deskMats) {
+      const owner = this.deskOwner.get(id);
+      const d = owner ? dirs.get(owner) : undefined;
+      const view = owner ? views.get(owner) : undefined;
+      let screen = this.monitors.get(id);
+      if (!owner || !d || !view) {
+        if (screen) { mat.map = this.idleScreen.texture; screen.dispose(); this.monitors.delete(id); }
+        continue;
+      }
+      if (!screen) {
+        screen = new CrewScreen("desk", hash(id));
+        this.monitors.set(id, screen);
+        mat.map = screen.texture;
+      }
+      const content = this.screenFor.get(owner) ?? null;
+      if (content) screen.show(content);
+      else {
+        const t = d.target.kind === "slot" ? this.slots.get(d.target.slotId) : undefined;
+        screen.show({ kind: "off", name: view.name, where: t ? describeSlot(t.kind, t.id, t.tags) : "somewhere on deck", desk: deskLabel(id) });
+      }
+      if (screen.animating) this.liveMonitors.add(id);
+    }
+    for (const [crewId, l] of this.laptops) {
+      const c = this.screenFor.get(crewId);
+      if (!views.has(crewId)) { l.screen.dispose(); this.laptops.delete(crewId); continue; }
+      if (c) l.screen.show(c);
+    }
+    this.paintHelm();
+  }
+
+  /** A laptop appears when they sit down with it: paint it like their desk would be. */
+  private watchLaptop(b: Body) {
+    const p = b.fig.rig.prop;
+    if (!(p instanceof Laptop)) return;
+    const have = this.laptops.get(b.id);
+    if (have?.laptop === p) return;
+    const screen = have?.screen ?? new CrewScreen("laptop", hash(b.id));
+    p.screen.typing = false;
+    takeOverLaptop(p.lid, p.screen.texture, screen.texture);
+    this.laptops.set(b.id, { laptop: p, screen });
+    const c = this.screenFor.get(b.id);
+    if (c) screen.show(c);
+  }
+
+  private paintHelm() {
+    const snap = this.snapshot;
+    if (!this.boards.size || !snap) return;
+    const computer = snap.crew.find((c) => c.role === "computer");
+    const crew = snap.crew.filter((c) => c.role === "crew");
+    const order = (t: ThreadSummary) => (t.openQuestions ? 0 : t.state === "working" ? 1 : t.state === "open" ? 2 : 3);
+    const content: HelmContent = {
+      ship: snap.office?.name ?? "Your ship",
+      computer: { busy: !!computer?.live, title: computer?.live?.threadTitle ?? "Thinking", step: computer?.live?.step?.summary ?? "" },
+      threads: [...this.threads].sort((a, b) => order(a) - order(b)).slice(0, 4)
+        .map((t) => ({ title: t.title, state: t.state, landed: t.tasks.landed, total: t.tasks.total, asking: t.openQuestions })),
+      waiting: snap.questions.map((q) => {
+        const c = snap.crew.find((x) => x._id === q.crewId);
+        return { name: q.crewName ?? c?.name ?? "Someone", face: c && c.role === "crew" ? faceOf(c.avatar, c.look) : null, prompt: q.prompt };
+      }),
+      aboard: crew.map((c) => ({ name: c.name, face: faceOf(c.avatar, c.look), activity: this.activity.get(c._id) ?? "idle" })),
+    };
+    for (const id of this.boards) this.monitors.get(id)?.show(content);
   }
 
   private directComputer(view: CrewView | undefined, now: number) {
@@ -310,7 +442,6 @@ export class Game {
       this.bot = { id: view._id, holder, bot: new ComputerBot(holder, { scale: 0.55 }) };
     }
     this.bot.bot.setMood(d.mood as BotMood);
-    this.monitors.get("helm")?.write(d.screen.slice(1), d.screen[0]);
   }
 
   // ---- pings: "Find" on the phone ----
@@ -393,6 +524,8 @@ export class Game {
     const distance = head.distanceTo(this.camera.position);
     const p = head.project(this.camera);
     const onScreen = p.z < 1 && Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1;
+    // Behind the camera the projection flips: mirror it, so an edge arrow points the way to turn.
+    if (p.z > 1) { p.x = -p.x; p.y = -p.y; }
     return { x: ((p.x + 1) / 2) * innerWidth, y: ((1 - p.y) / 2) * innerHeight, onScreen, distance };
   }
 
@@ -417,6 +550,8 @@ export class Game {
     }
     this.bot?.bot.update(dt, this.camera.position);
     for (const id of this.liveMonitors) this.monitors.get(id)?.update(dt);
+    for (const b of this.bodies.values()) if (b.dir?.screen && b.fig.object.visible) this.watchLaptop(b);
+    for (const l of this.laptops.values()) l.screen.update(dt);
     this.updatePing(t);
     this.updateLabels(t);
     this.pipeline.render(dt);
@@ -429,7 +564,11 @@ export class Game {
     this.unsub?.();
     sceneBridge.locate = () => null;
     sceneBridge.captain = () => null;
+    sceneBridge.where = () => null;
     for (const b of [...this.bodies.values()]) this.removeBody(b);
+    for (const m of this.monitors.values()) m.dispose();
+    this.idleScreen.dispose();
+    for (const l of this.laptops.values()) l.screen.dispose();
     this.captain?.dispose();
     this.world?.dispose();
     this.pipeline?.dispose();

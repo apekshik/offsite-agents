@@ -17,6 +17,10 @@ export function Game({ officeId }: { officeId: string }) {
   const snapshot = useQuery(api.world.snapshot, { officeId: officeId as Id<"offices"> });
   const latest = useRef(snapshot);
   latest.current = snapshot;
+  // The helm's screen lists the threads.
+  const threads = useQuery(api.threads.list, { officeId: officeId as Id<"offices"> });
+  const latestThreads = useRef(threads);
+  latestThreads.current = threads;
   const me = useQuery(api.users.me);
   const world = snapshot?.office.world;
   const ready = me !== undefined && !!world;
@@ -32,6 +36,7 @@ export function Game({ officeId }: { officeId: string }) {
       engine.current = g;
       // The world takes a moment to build; catch up on whatever arrived meanwhile.
       if (latest.current) g.setSnapshot(latest.current);
+      if (latestThreads.current) g.setThreads(latestThreads.current);
     });
     return () => { live = false; started?.dispose(); engine.current = null; };
     // The world is built once per ship and captain; everything else streams in through setSnapshot.
@@ -41,6 +46,9 @@ export function Game({ officeId }: { officeId: string }) {
   useEffect(() => {
     if (snapshot && engine.current) engine.current.setSnapshot(snapshot);
   });
+  useEffect(() => {
+    if (threads && engine.current) engine.current.setThreads(threads);
+  }, [threads]);
 
   return <canvas ref={canvas} id="game" style={{ position: "fixed", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} tabIndex={0} />;
 }

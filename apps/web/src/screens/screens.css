@@ -1,0 +1,51 @@
+/* The way aboard: one calm card over the sea at dusk. */
+
+.screen { position: fixed; inset: 0; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: 8vh 24px 40px; background: linear-gradient(#060b14, #081422 55%, #0b2238 55.2%, #071626); }
+.screen-sky { position: fixed; inset: 0; pointer-events: none; }
+.screen-sky .sun { position: absolute; right: 14vw; top: calc(55% - 15vh); width: 18vh; height: 18vh; border-radius: 50%; background: radial-gradient(circle, #ffb86b 0 58%, rgba(255, 184, 107, 0.25) 60%, transparent 72%); opacity: 0.85; }
+.screen-sky .sea { position: absolute; left: 0; right: 0; top: 55%; bottom: 0; background: linear-gradient(rgba(255, 184, 107, 0.06), transparent 40%); }
+.screen-sky .glint { position: absolute; height: 3px; background: #ffb86b; border-radius: 2px; }
+.screen-sky .g1 { right: calc(14vw - 4vh); top: calc(55% + 2.5vh); width: 26vh; opacity: 0.6; }
+.screen-sky .g2 { right: calc(14vw); top: calc(55% + 5vh); width: 18vh; opacity: 0.4; }
+.screen-sky .g3 { right: calc(14vw + 4vh); top: calc(55% + 7.5vh); width: 10vh; opacity: 0.22; }
+.screen-card {
+  position: relative; width: 560px; max-width: 100%; padding: 26px 28px 28px; display: flex; flex-direction: column; gap: 20px;
+  background: rgba(5, 7, 11, 0.86); border: 1px solid rgba(238, 243, 247, 0.12); border-radius: 14px; backdrop-filter: blur(14px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45); animation: ui-fade-up 0.3s ease-out both;
+}
+.screen-card.wide { width: 680px; }
+.sc-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.wordmark { font-size: 18px; color: var(--accent); }
+.sc-steps { display: flex; gap: 14px; font-size: 12px; color: var(--faint); }
+.sc-steps .on { color: var(--accent); }
+.sc-steps .done { color: var(--dim); }
+.sc-hero { display: flex; flex-direction: column; gap: 8px; }
+.sc-hero h1 { margin: 0; font-size: 30px; line-height: 1.15; }
+.sc-hero p { margin: 0; font-size: 15px; line-height: 1.5; }
+.sc-splash { display: flex; align-items: center; gap: 12px; min-height: 60px; }
+.sc-fine { margin: 0; font-size: 12.5px; line-height: 1.45; }
+.sc-machines { display: flex; flex-direction: column; gap: 8px; }
+.screen .actions { gap: 10px; }
+
+.worlds { display: grid; grid-template-columns: 1.5fr 1fr; gap: 10px; }
+.world { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.world.off { opacity: 0.6; }
+.world-text { display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.4; }
+.world-name { font-weight: 650; font-size: 15px; }
+.world-art { position: relative; height: 92px; border-radius: 6px; overflow: hidden; background: linear-gradient(#ffcf9a, #f3a76b 45%, #1f5b86 45.5%, #0f3354); }
+.world-art .sun { position: absolute; right: 22%; top: 18%; width: 30px; height: 30px; border-radius: 50%; background: #fff1d6; box-shadow: 0 0 24px #ffd9a0; }
+.world-art .hull { position: absolute; left: 16%; right: 22%; bottom: 30%; height: 16px; background: #f4f6f8; clip-path: polygon(0 0, 100% 0, 92% 100%, 4% 100%); }
+.world-art .deck { position: absolute; left: 30%; right: 36%; bottom: calc(30% + 16px); height: 13px; background: #e6eaee; clip-path: polygon(6% 0, 100% 0, 100% 100%, 0 100%); box-shadow: inset 0 -4px 0 #26313d; }
+.world-art.soon { background: repeating-linear-gradient(135deg, rgba(238, 243, 247, 0.04) 0 8px, transparent 8px 16px); border: 1px dashed rgba(238, 243, 247, 0.15); }
+
+.meet { display: flex; flex-direction: column; gap: 12px; }
+.meet-row { display: flex; align-items: center; gap: 14px; }
+.meet-row:nth-child(2) { animation-delay: 0.06s; }
+.meet-row:nth-child(3) { animation-delay: 0.12s; }
+.meet-row:nth-child(4) { animation-delay: 0.18s; }
+.meet-who { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; }
+.meet-name { font-weight: 650; font-size: 16px; }
+
+.boarding { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; gap: 14px; background: #05070b; transition: opacity 0.8s ease 0.2s, visibility 0s linear 1s; }
+.boarding .disp { font-size: 22px; color: var(--ink-2); }
+.boarding.gone { opacity: 0; visibility: hidden; pointer-events: none; }

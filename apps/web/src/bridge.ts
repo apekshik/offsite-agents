@@ -59,7 +59,10 @@ export const ui = {
   typing: () => state.phone === "open" || state.helm,
 };
 
-/** Where something is on screen this frame: CSS pixels, whether it's in front of the camera, metres away. */
+/**
+ * Where something is on screen this frame: CSS pixels, whether it's in front of the camera, metres away.
+ * For a point behind the camera, x and y are mirrored so that an edge arrow still points the way to turn.
+ */
 export interface ScreenSpot {
   x: number;
   y: number;
@@ -77,6 +80,11 @@ export const scene = {
   locate: (_crewId: string): ScreenSpot | null => null,
   /** The captain's position on deck, in metres. */
   captain: (): { x: number; y: number; z: number } | null => null,
+  /**
+   * Where a crew member is headed or sitting: the world slot (kind "captain" while they walk to
+   * you). Written by the game; read by the interface for "in a hammock, promenade".
+   */
+  where: (_crewId: string): { slotId: string; kind: string; tags: string[] } | null => null,
 };
 
 /** React: re-renders when the selected slice changes. */

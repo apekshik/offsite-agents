@@ -1,0 +1,55 @@
+/* The helm console: the bridge's main screen, the computer's interface at full size. */
+
+.helm-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(2, 4, 7, 0.55); display: flex; align-items: center; justify-content: center; animation: ui-fade-in 0.25s ease-out both; }
+.helm {
+  width: 1600px; height: 900px; flex: none; transform: scale(var(--s, 1));
+  background: #04060a; border: 1px solid #1c232e; border-radius: 14px;
+  box-shadow: 0 0 0 6px #0b0f15, 0 0 0 7px #1d2430, 0 40px 120px rgba(0, 0, 0, 0.6), inset 0 0 120px rgba(79, 227, 255, 0.025);
+  padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; font-size: 15px;
+  animation: helm-on 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes helm-on { from { opacity: 0; filter: brightness(2.2) saturate(0.4); clip-path: inset(48% 0 48% 0); } 60% { opacity: 1; clip-path: inset(0 0 0 0); } }
+.hm-top { display: flex; align-items: center; gap: 24px; }
+.hm-ship { font-size: 20px; }
+.hm-acct { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--dim); white-space: nowrap; }
+.hm-acct .ink { color: var(--ink); }
+.hm-clock { font-size: 22px; }
+.hm-close { background: none; border: 0; color: var(--dim); display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+.hm-close:hover { color: var(--ink); }
+.hm-cols { flex: 1; min-height: 0; display: flex; gap: 20px; }
+.hm-threads { width: 340px; flex: none; display: flex; flex-direction: column; gap: 9px; min-height: 0; }
+.hm-col-head { display: flex; justify-content: space-between; align-items: center; }
+.hm-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding-right: 4px; margin-right: -4px; }
+.hm-threads .thread-card { padding: 10px 12px; }
+.hm-threads .tc-title { font-size: 15px; }
+.hm-threads .tc-meta { font-size: 13px; }
+.hm-center { flex: 1; min-width: 0; padding: 16px 20px; display: flex; flex-direction: column; min-height: 0; }
+.hm-ship-col { width: 360px; flex: none; display: flex; flex-direction: column; min-height: 0; }
+.hm-sec { margin-top: 8px; }
+.hm-aboard { display: flex; flex-direction: column; gap: 2px; }
+.hm-person { display: flex; align-items: center; gap: 11px; padding: 7px 4px; border: 0; border-bottom: 1px solid rgba(238, 243, 247, 0.07); background: none; cursor: pointer; font-size: 15px; text-align: left; border-radius: 4px; }
+.hm-person:hover, .hm-person.on { background: rgba(255, 255, 255, 0.04); }
+.hm-person > .clip { flex: 1; }
+.hm-pr { padding: 9px 11px; display: flex; align-items: center; gap: 10px; color: var(--ink) !important; font-size: 14px; }
+.hm-pr > .clip { flex: 1; }
+.hm-none { font-size: 13px; }
+.hm-new { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 0 80px; }
+.hm-new .disp { font-size: 26px; }
+.hm-new .composer { width: 100%; max-width: 720px; text-align: left; align-items: flex-end; padding: 12px; }
+.hm-new .composer textarea { font-size: 16px; }
+.hm-center-crew { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.hm-center-crew > .crew-detail { width: 100%; }
+
+/* the conversation, big */
+.thread.big { gap: 10px; }
+.thread.big .thread-head { flex-direction: row; align-items: baseline; gap: 12px; padding-bottom: 12px; }
+.thread.big .th-title { font-size: 19px; }
+.thread.big .th-branch { font-size: 12px; }
+.thread.big .msg { font-size: 15px; padding: 9px 12px; }
+.thread.big .msg.me { max-width: 70%; }
+.thread.big .msg-row { max-width: 80%; gap: 11px; }
+.thread.big .msg-plan { margin-left: 37px; }
+.thread.big .composer { padding: 12px 12px 12px 18px; }
+.thread.big .composer input { font-size: 16px; }
+.thread.big .question { max-width: 640px; }
+.helm .question .q-prompt { font-size: 14px; }

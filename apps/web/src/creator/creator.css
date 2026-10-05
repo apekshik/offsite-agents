@@ -1,0 +1,38 @@
+/* The customizer: a preview on a turntable beside the controls. */
+
+.creator-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(2, 4, 7, 0.55); }
+.creator {
+  width: min(980px, calc(100vw - 48px)); height: min(640px, calc(100vh - 48px)); display: flex; overflow: hidden;
+  background: #05070b; border: 1px solid #1c232e; border-radius: 16px; box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
+}
+.cr-stage { position: relative; width: 42%; flex: none; background: radial-gradient(ellipse at 50% 70%, rgba(79, 227, 255, 0.1), transparent 65%), #070b11; border-right: 1px solid var(--line); }
+.cr-canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.cr-canvas:active { cursor: grabbing; }
+.cr-drag { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 12px; pointer-events: none; }
+.cr-side { flex: 1; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.cr-head { display: flex; align-items: center; gap: 10px; }
+.cr-title { flex: 1; font-size: 20px; }
+.cr-body { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.cr-presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.cr-preset { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 1px; align-items: center; text-align: left; padding: 9px 10px; border-radius: var(--radius); border: 1px solid rgba(238, 243, 247, 0.12); background: var(--fill); cursor: pointer; }
+.cr-preset:hover { background: rgba(255, 255, 255, 0.06); }
+.cr-preset.on { border-color: rgba(79, 227, 255, 0.6); background: rgba(79, 227, 255, 0.08); }
+.cr-preset > .face { grid-row: span 2; }
+.cr-pname { font-weight: 600; font-size: 14px; }
+.cr-blurb { font-size: 12px; line-height: 1.3; }
+.cr-groups { display: flex; flex-direction: column; gap: 14px; }
+.cr-group { display: flex; flex-direction: column; gap: 6px; }
+.cr-opts { display: flex; flex-wrap: wrap; gap: 4px; }
+.cr-opts .tab { border: 1px solid rgba(238, 243, 247, 0.1); }
+.cr-opts .tab.on { border-color: transparent; }
+.cr-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.cr-sw { width: 28px; height: 28px; border-radius: 6px; border: 1px solid rgba(238, 243, 247, 0.2); cursor: pointer; padding: 0; position: relative; }
+.cr-sw.on { box-shadow: 0 0 0 2px #05070b, 0 0 0 3.5px var(--accent); }
+.cr-pick { display: inline-block; background-image: conic-gradient(from 0deg, #ff5d6c, #ffc861, #6dffa8, #4fe3ff, #9b8cff, #ff5d6c) !important; }
+.cr-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.cr-slider { display: grid; grid-template-columns: 90px 1fr 44px; align-items: center; gap: 12px; }
+.cr-slider input { accent-color: var(--accent); width: 100%; }
+.cr-val { font-size: 12px; color: var(--dim); text-align: right; }
+.cr-describe { display: flex; flex-direction: column; gap: 12px; font-size: 13.5px; line-height: 1.45; }
+.cr-foot { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cr-esc { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
