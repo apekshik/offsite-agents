@@ -6,6 +6,7 @@ import { Button, Card, errorText, Face, Field, Input } from "../ui/index.tsx";
 import { useShip } from "../overlay/ship.tsx";
 import { CodeEntry, HarnessField, LoginSteps, MachineCard, Repos } from "../screens/setup.tsx";
 import { phone } from "./state.ts";
+import { HelmIcon, walkToHelm } from "../overlay/walk.tsx";
 
 // The Ship tab: your ship's name, your own look, your machines and the repos the crew works on.
 
@@ -35,6 +36,7 @@ export function ShipSummary() {
         </div>
         <Button size="sm" onClick={() => phone.editLook("captain")}>Your look</Button>
       </Card>
+      <Button kind="soft" size="sm" className="walk-helm" onClick={walkToHelm} title="The phone stays open while you walk (H)"><HelmIcon />Walk to the helm</Button>
       <div className="ship-facts">
         <div><span className="dim">The world</span><span>The Yacht</span></div>
         <div><span className="dim">Machines</span><span>{machines?.length ? machines.map((m) => m.name).join(", ") : "None yet"}</span></div>

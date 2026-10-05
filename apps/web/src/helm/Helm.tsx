@@ -5,7 +5,7 @@ import { ActivityLabel, Button, Card, clock, Dot, Face, Key, OrchestratorBadge, 
 import { activityOf, ComputerLabel, useShip } from "../overlay/ship.tsx";
 import { NewThread, QuestionCard, ThreadList, ThreadView } from "../phone/Conversation.tsx";
 import { CrewDetail } from "../phone/Crew.tsx";
-import { useFit } from "../phone/Phone.tsx";
+import { fillScale, shrinkToFit, useViewport } from "../phone/fit.ts";
 import { planName } from "../screens/setup.tsx";
 import { Review } from "../review/Review.tsx";
 import { closeReview } from "../review/open.ts";
@@ -53,7 +53,9 @@ export function Helm() {
   const review = useUi((s) => s.review);
   const { office, machine, questions, threads } = useShip();
   const now = useNow(5000);
-  const scale = useFit(1600, 900, 24);
+  // As big as the open phone gets on a big screen (FILL of the window), and fit with a margin on a small one.
+  const vp = useViewport();
+  const scale = Math.max(shrinkToFit(1600, 900, vp.w, vp.h, 24), fillScale(1600, 900, vp.w, vp.h));
   const [person, setPerson] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
 

@@ -9,25 +9,15 @@ import { ShipDetail, ShipSummary } from "./Ship.tsx";
 import { phone, usePhone, type Fold, type PhoneTab } from "./state.ts";
 import { Review, Stats } from "../review/Review.tsx";
 import { closeReview, openReview } from "../review/open.ts";
+import { HelmIcon, walkToHelm } from "../overlay/walk.tsx";
+import { phoneScale, useViewport } from "./fit.ts";
 import "./phone.css";
 import "./spread.css";
 
 // The foldable phone. F takes it out (the cover screen: who needs you, the latest delivery, the
 // crew); a double F unfolds it on a hinge into Computah's interface (threads, the crew, the ship);
-// F once more puts it away. Esc puts it away from anywhere.
-
-/** How much to shrink a w×h design so it fits the window with a margin. */
-export function useFit(w: number, h: number, margin = 40): number {
-  const calc = () => Math.min(1, (innerWidth - margin * 2) / w, (innerHeight - margin * 2) / h);
-  const [s, setS] = useState(calc);
-  useEffect(() => {
-    const on = () => setS(calc());
-    addEventListener("resize", on);
-    return () => removeEventListener("resize", on);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [w, h, margin]);
-  return s;
-}
+// F once more puts it away. Esc puts it away from anywhere. While it's out, H walks you to the
+// helm and 1–9 to the crew, and the phone stays in your hands on the way (overlay/walk.tsx).
 
 function MachineStatus({ withTime }: { withTime?: boolean }) {
   const { machine } = useShip();
@@ -109,7 +99,10 @@ function LeftPane({ tab, ghost }: { tab: PhoneTab; ghost?: boolean }) {
       </div>
       <div className="pn-title">
         <span className="disp">{title}</span>
-        {tab === "crew" ? <Button kind="soft" size="sm" onClick={() => phone.set({ hiring: true })}>+ Hire</Button> : null}
+        <span className="pn-title-acts">
+          <Button kind="ghost" size="sm" className="pn-helm" onClick={walkToHelm} title="Walk to the helm (H). The phone stays open."><HelmIcon />Walk to the helm</Button>
+          {tab === "crew" ? <Button kind="soft" size="sm" onClick={() => phone.set({ hiring: true })}>+ Hire</Button> : null}
+        </span>
       </div>
       {tab === "threads" ? (ghost
         // The static copy on the swinging leaf: it looks like the composer, without a second input.
@@ -188,13 +181,12 @@ function Book() {
   );
 }
 
-const OPEN = { w: 1036, h: 740 };
-
 export function Phone() {
   const fold = usePhone((s) => s.fold);
   const creator = usePhone((s) => s.creator);
   const { threads } = useShip();
-  const scale = useFit(OPEN.w, OPEN.h + 30, 28);
+  const vp = useViewport();
+  const fit = phoneScale(vp.w, vp.h);
   // Stay mounted for a moment after going away, so it can slide down out of view.
   const [shown, setShown] = useState<Exclude<Fold, "away"> | null>(fold === "away" ? null : fold);
   const [leaving, setLeaving] = useState(false);
@@ -218,11 +210,11 @@ export function Phone() {
   return (
     <>
       {shown === "open" && !leaving ? <div className={`phone-backdrop ${creator ? "deep" : ""}`} onClick={() => phone.putAway()} /> : null}
-      <div className={`phone-wrap ${shown} ${leaving ? "leaving" : ""}`} style={{ "--s": scale } as CSSProperties}>
+      <div className={`phone-wrap ${shown} ${leaving ? "leaving" : ""}`} style={{ "--s": shown === "open" ? fit.open : fit.cover } as CSSProperties}>
         <Book />
         <div className="device-hint">
           {shown === "open"
-            ? <><Key>F</Key> half view <Key>Esc</Key> put away</>
+            ? <><Key>F</Key> half view <Key>Esc</Key> put away <span className="dh-walk" title="Walk there; the phone stays open"><Key>H</Key> helm · <Key>1–9</Key> crew</span></>
             : <><Key>F</Key> twice to unfold <Key>F</Key> put away</>}
         </div>
       </div>

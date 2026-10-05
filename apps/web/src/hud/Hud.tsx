@@ -5,10 +5,12 @@ import { phone, usePhone } from "../phone/state.ts";
 import { audio, useAudio } from "../audio/index.ts";
 import { PingMarker } from "./Ping.tsx";
 import { Toasts } from "./Toasts.tsx";
+import { WalkChip } from "../overlay/walk.tsx";
 import "./hud.css";
 
 // The HUD: as little as possible. Where you are and whether a machine is working for you, what
-// you could use right now (E), a small view and phone hint, toasts, and the ping marker.
+// you could use right now (E), a small view and phone hint, toasts, the ping marker, and a walk
+// under way (shown over the phone too: you walk with it open).
 
 function Status() {
   const { office, machine, machines } = useShip();
@@ -84,6 +86,7 @@ export function Hud() {
       {!busy ? <Status /> : null}
       {!busy ? <PingMarker /> : null}
       <Toasts />
+      <WalkChip />
       {!busy && prompt ? (
         <div className="hud-prompt fade-up" key={prompt.id}><Key>E</Key><span>{prompt.label}</span></div>
       ) : null}

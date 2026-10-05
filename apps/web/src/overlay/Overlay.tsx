@@ -8,12 +8,14 @@ import { Helm } from "../helm/Helm.tsx";
 import { Creator } from "../creator/Creator.tsx";
 import { CrewCard } from "./CrewCard.tsx";
 import { ShipProvider } from "./ship.tsx";
+import { stopWalking, WalkKeys } from "./walk.tsx";
 
 // Everything drawn over the world: the HUD, the foldable phone, the helm console, crew cards,
 // questions, the customizer. Talks to the game only through src/bridge.ts.
 //
 // Keys: F takes the phone out, unfolds it, puts it away (not while typing). Esc closes the
-// customizer, then the helm, then the phone, then a crew card.
+// customizer, then stops a walk, then closes the helm, then the phone, then a crew card. With the
+// phone out and not typing, H walks to the helm and 1–9 to the crew (walk.tsx).
 
 const editable = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
 
@@ -25,6 +27,7 @@ function useKeys() {
       if (e.code === "Escape") {
         const p = phone.get();
         if (p.creator) phone.closeCreator();
+        else if (ui.get().walkTo) { stopWalking(); e.preventDefault(); return; }
         else if (ui.get().helm) ui.set({ helm: false });
         else if (p.fold !== "away") phone.putAway();
         else if (ui.get().crewCard && !ui.get().pointerLocked) ui.set({ crewCard: null });
@@ -76,6 +79,7 @@ export function Overlay({ officeId }: { officeId: string }) {
   return (
     <ShipProvider officeId={officeId}>
       <div className="overlay">
+        <WalkKeys />
         <Hud />
         <CrewCard />
         <Phone />

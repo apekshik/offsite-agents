@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import {
   Captain, Collision, ComputerBot, CrewFigure, Input, LIGHT, Laptop, SELF_LAYER, Walker,
-  buildAvatar, createPipeline, createRenderer, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
-  type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
+  buildAvatar, createPipeline, createRenderer, findRoute, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
+  type AutopilotGoal, type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
 import { COMPUTER_NAME, isWorking, type AvatarSpec, type Look, type Slot, type Vec3 } from "@offsite/contracts";
-import { scene as sceneBridge, ui, type UiState } from "../bridge.ts";
+import { scene as sceneBridge, ui, type UiState, type WalkTarget } from "../bridge.ts";
 import { Director, type CrewView, type Direction, type Hangout } from "./director.ts";
 import { CrewBody, SPEED, type Stage } from "./crew.ts";
 import { Splash, type Effect } from "./fx.ts";
@@ -74,6 +74,8 @@ const MAX_TYPISTS = 3;
 const TYPING_ACTS = new Set(["type", "laptop", "lounge-laptop"]);
 /** How close two people get on foot before they ease apart, metres. */
 const PERSONAL_SPACE = 0.62;
+/** Walking over to someone (the phone's "Walk over"): stop this far short, metres. */
+const WALK_UP_TO = 1.2;
 
 /** A world that can show how busy the ship is (lights in the office, music…): BuiltWorld's optional hook. */
 type BusyWorld = BuiltWorld & { setBusy?: (level: number) => void };
@@ -408,6 +410,7 @@ export class Game {
 
   private phoneWas = "";
   private pingWas: UiState["ping"] = null;
+  private walkWas: UiState["walkTo"] = null;
   private onUi(s: UiState) {
     // The 3D phone in your hands follows the one on screen: out or away, folded (cover) or open.
     const phoneNow = `${s.phone}:${s.phoneUnfolded}`;
@@ -421,6 +424,51 @@ export class Game {
       this.pingWas = s.ping;
       this.setPing(s.ping);
     }
+    if (s.walkTo !== this.walkWas) {
+      this.walkWas = s.walkTo;
+      this.setWalk(s.walkTo);
+    }
+  }
+
+  // ---- walking over: "Walk over", "Walk to the helm", H and 1–9 on the phone ----
+
+  /** Start (or stop: null) the captain walking by themselves. The phone can stay open meanwhile. */
+  private setWalk(to: WalkTarget | null) {
+    if (!to) { this.captain.stopWalking(true); return; }
+    const goal = this.walkGoal(to);
+    if (!goal) { this.endWalk(to, "failed"); return; }
+    this.captain.walkTo(goal, (outcome) => this.endWalk(to, outcome));
+  }
+
+  /** The walk is over: clear walkTo (unless a newer walk has replaced it) and say how it went. Never from inside onUi. */
+  private endWalk(to: WalkTarget, outcome: "arrived" | "failed" | "stopped") {
+    queueMicrotask(() => {
+      if (ui.get().walkTo !== to) return;
+      this.walkWas = null;
+      ui.set({ walkTo: null, walkEnd: { to, outcome, at: Date.now() } });
+    });
+  }
+
+  /** Where a walk goes and how to get there, or null when this world has no way there. */
+  private walkGoal(to: WalkTarget): AutopilotGoal | null {
+    const nav = this.world.layout.nav;
+    if (!nav.nodes.length) return null;
+    if (to.kind === "helm") {
+      const helm = this.world.layout.slots.find((s) => s.kind === "helm");
+      if (!helm) return null;
+      const spot = new THREE.Vector3(...helm.pos);
+      return { target: () => spot, route: (from) => findRoute(nav, from, helm), stopShort: 0, face: helm.facing };
+    }
+    const body = this.bodies.get(to.crewId);
+    if (!body) return null;
+    return {
+      // Gone if they leave the ship (or the world hides them: on the helicopter).
+      target: () => (this.bodies.get(to.crewId) === body && body.fig.object.visible ? body.fig.object.position : null),
+      route: (from, at) => findRoute(nav, from, at),
+      stopShort: WALK_UP_TO,
+      face: "target",
+      replanEvery: 0.5,
+    };
   }
 
   private resize = () => this.pipeline.setSize(innerWidth, innerHeight);

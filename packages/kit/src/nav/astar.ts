@@ -121,3 +121,16 @@ export function routeLength(from: P3, pts: THREE.Vector3[]) {
   for (const p of pts) { d += prev.distanceTo(p); prev = p; }
   return d;
 }
+
+/**
+ * A route to a slot (routeTo) or a point (routeToPoint), or null when there's no way there: the
+ * world has no graph, or the graph doesn't join where you are to where it's going.
+ */
+export function findRoute(g: NavGraph, from: P3, to: Slot | P3): THREE.Vector3[] | null {
+  if (!g.nodes.length) return null;
+  const start = nearestNode(g, from);
+  const slot = !Array.isArray(to) && "nav" in to ? (to as Slot) : null;
+  const goal = slot ? index(g).byId.get(slot.nav) ?? null : nearestNode(g, to as P3);
+  if (!start || !goal || !findPath(g, start.id, goal.id)) return null;
+  return slot ? routeTo(g, from, slot) : routeToPoint(g, from, to as P3);
+}

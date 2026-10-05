@@ -10,6 +10,7 @@ import { activityOf, useShip, type CrewRow, type MessageRow, type QuestionRow, t
 import { phone } from "./state.ts";
 import { Stats } from "../review/Review.tsx";
 import { openReview } from "../review/open.ts";
+import { WalkFace } from "../overlay/walk.tsx";
 
 // The conversation with Computah, shared by the phone and the helm console: the threads, one thread
 // (your messages, Computah's replies, its plan, crew reports), and questions.
@@ -228,7 +229,7 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
         <div key={t._id} className="plan-row" title={t.brief}>
           <span className={`pr-icon t-${st.tone}`}>{st.icon}</span>
           <span className="pr-title">{t.title}<RepoChip name={t.repo} />{t.state === "landed" ? <ViewChanges threadId={t.threadId} taskId={t._id} stats={t.diff} inline /> : null}</span>
-          {who ? <Face avatar={who.avatar} look={who.look} title={who.name} /> : null}
+          {who ? <WalkFace crewId={who._id} name={who.name}><Face avatar={who.avatar} look={who.look} /></WalkFace> : null}
           <span className={`lab pr-state t-${st.tone}`}>{st.label}</span>
         </div>
       ))}
@@ -256,7 +257,9 @@ function Message({ m, tasks, isLatestPlan, big, thread }: { m: MessageRow; tasks
   }
   const who = byId.get(m.author.crewId);
   const computer = who?.role === "computer";
-  const face = <Face avatar={who?.avatar} look={who?.look} computer={computer} size={big ? 26 : 22} />;
+  const faceOnly = <Face avatar={who?.avatar} look={who?.look} computer={computer} size={big ? 26 : 22} />;
+  // A crew member's face walks you over to them.
+  const face = who && who.role === "crew" ? <WalkFace crewId={who._id} name={who.name}>{faceOnly}</WalkFace> : faceOnly;
   if (m.kind === "plan") {
     if (!isLatestPlan || !tasks.length) return <div className="msg-row">{face}<div className="msg them"><RichText text={m.text} /></div></div>;
     return <div className="msg-plan"><PlanCard tasks={tasks} grid={big ?? false} /></div>;

@@ -93,3 +93,24 @@
 }
 .hud-reticle-tag span { color: #9aa8b6; font-size: 12px; }
 .hud-reticle-tag em { font-style: normal; color: var(--acc, #4fe3ff); font-size: 11.5px; margin-top: 2px; }
+
+/* ---- walking over by yourself: over everything, the phone included ---- */
+.walk-chip {
+  position: fixed; left: 50%; top: 12px; translate: -50% 0; z-index: 45;
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 11px; white-space: nowrap;
+  font-size: 13px; color: var(--ink-2);
+  background: rgba(5, 7, 11, 0.72); border: 1px solid rgba(238, 243, 247, 0.12); border-radius: 99px; backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  animation: walk-in 0.22s ease-out both;
+}
+.walk-chip b { color: var(--ink); font-weight: 600; }
+.walk-chip .walk-icon { color: var(--accent); flex: none; }
+.walk-chip .walk-sep { color: var(--dim); }
+.walk-chip.there, .walk-chip.failed { padding-right: 12px; }
+.walk-chip.there { border-color: rgba(79, 227, 255, 0.35); }
+.walk-chip.failed { border-color: rgba(255, 200, 97, 0.4); color: var(--amber); }
+.walk-stop { display: inline-flex; align-items: center; gap: 6px; padding: 1px 6px 1px 2px; border: 0; border-radius: 99px; background: none; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; }
+.walk-stop:hover { color: var(--ink); background: var(--fill-2); }
+.walk-stop .key { height: 18px; min-width: 0; font-size: 11px; padding: 0 5px; }
+@keyframes walk-in { from { opacity: 0; translate: -50% -6px; } }
+@media (prefers-reduced-motion: reduce) { .walk-chip { animation-duration: 0.01s; } }

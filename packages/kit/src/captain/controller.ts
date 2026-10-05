@@ -21,7 +21,11 @@ export interface ControllerOptions {
   respawnBelow?: number;
 }
 
-export interface MoveIntent { x: number; z: number; sprint: boolean; jump: boolean }
+export interface MoveIntent {
+  x: number; z: number; sprint: boolean; jump: boolean;
+  /** 0..1 of the pace (walking or sprinting): easing into a stop. Default 1. */
+  pace?: number;
+}
 
 export class CaptainController {
   readonly position = new THREE.Vector3();
@@ -69,7 +73,7 @@ export class CaptainController {
     let wx = fx * m.z - fz * m.x, wz = fz * m.z + fx * m.x;
     const wl = Math.hypot(wx, wz);
     if (wl > 0) { wx /= wl; wz /= wl; }
-    const speed = m.sprint ? this.sprint : this.walk;
+    const speed = (m.sprint ? this.sprint : this.walk) * Math.max(0, Math.min(1, m.pace ?? 1));
     const blend = Math.min(1, (this.onGround ? 14 : 3) * dt);
     this.velocity.x += (wx * speed - this.velocity.x) * blend;
     this.velocity.z += (wz * speed - this.velocity.z) * blend;

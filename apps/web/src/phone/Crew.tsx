@@ -10,9 +10,10 @@ import { activityTone, ago, Button, Card, Chip, ConfirmButton, errorText, Face, 
 import { activityOf, harnessName, placeOf, useShip, workTitle, type CrewRow } from "../overlay/ship.tsx";
 import { find, QuestionCard, RepoChip, ViewChanges } from "./Conversation.tsx";
 import { phone } from "./state.ts";
+import { walkToCrew } from "../overlay/walk.tsx";
 
 // The crew tab: Computah, then everyone aboard, and one of them up close (what they are doing, their live work,
-// Find, Message, Stop, their look and specialty). Hiring lives here too.
+// Walk over, Find, Message, Stop, their look and specialty). Hiring lives here too.
 
 /** "Editing · Settings page" / "Off duty · in a hammock, promenade" / "Needs you · walking to you". */
 export function crewLine(c: CrewRow, now: number): { text: string; sub: string | null; mono: boolean } {
@@ -54,7 +55,7 @@ export function CrewRowCard({ c, selected, onClick }: { c: CrewRow; selected: bo
       </div>
       {computer ? null : a === "asking"
         ? <Button kind="soft-amber" size="sm" onClick={(e) => { e.stopPropagation(); onClick(); }}>Answer</Button>
-        : a !== "arriving" ? <Button kind={tone === "accent" ? "soft" : "plain"} size="sm" onClick={(e) => { e.stopPropagation(); find(c._id); }}>Find</Button> : null}
+        : a !== "arriving" ? <Button kind={tone === "accent" ? "soft" : "plain"} size="sm" title={`Walk over to ${c.name}; the phone stays open`} onClick={(e) => { e.stopPropagation(); walkToCrew(c._id); }}>Walk over</Button> : null}
     </div>
   );
 }
@@ -288,7 +289,8 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
       {mode !== "edit" ? (
         <div className="actions">
           {computer && !atHelm ? <Button kind="primary" onClick={() => phone.openThread(c.live?.threadId ?? ui.get().threadId)}>Message {c.name}</Button> : null}
-          {!computer && a !== "arriving" ? <Button kind="primary" onClick={() => find(c._id)}>Find {c.name}</Button> : null}
+          {!computer && a !== "arriving" ? <Button kind="primary" onClick={() => walkToCrew(c._id)} title="The phone stays open while you walk">Walk over</Button> : null}
+          {!computer && a !== "arriving" ? <Button onClick={() => find(c._id)}>Find</Button> : null}
           {!computer ? <Button kind={mode === "message" ? "soft" : "plain"} onClick={() => setMode(mode === "message" ? "watch" : "message")}>Message</Button> : null}
           {!computer ? <Button onClick={() => phone.editLook(c._id)}>Look</Button> : null}
           <Button kind="ghost" onClick={() => setMode("edit")}>Edit</Button>

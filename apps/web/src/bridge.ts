@@ -6,11 +6,12 @@ import { useSyncExternalStore } from "react";
 //
 // Who writes what:
 // - The interface opens and closes the phone and the helm console, pings a crew member, picks
-//   the thread on screen.
+//   the thread on screen, and sends the captain walking (walkTo).
 // - The game says what the captain is near (prompt), which view they are in, whether the pointer
-//   is locked, and which crew member they clicked in the world.
+//   is locked, which crew member they clicked in the world, and how a walk ended (walkEnd; it
+//   clears walkTo then).
 // While the phone or the helm console is open the game releases the pointer and ignores WASD, so
-// typing goes to the interface.
+// typing goes to the interface. Only a walk (walkTo) moves the captain meanwhile.
 
 export interface UiState {
   /** The foldable phone: closed in your pocket, or open in your hands. */
@@ -36,9 +37,18 @@ export interface UiState {
   aim: { crewId: string; name: string; line: string; hint?: string } | null;
   /** The crew's work open for review: a task's changes, or (taskId null) the thread's. The phone or the helm shows it. */
   review: ReviewTarget | null;
+  /**
+   * Walk the captain there by themselves (the phone can stay open). Set by the interface; the game
+   * clears it when the walk ends (there, no way there, or WASD took it back). The interface clears
+   * it to stop.
+   */
+  walkTo: WalkTarget | null;
+  /** How the last walk ended, written by the game as it clears walkTo. */
+  walkEnd: { to: WalkTarget; outcome: "arrived" | "failed" | "stopped"; at: number } | null;
 }
 
 export interface ReviewTarget { threadId: string; taskId: string | null }
+export type WalkTarget = { kind: "crew"; crewId: string } | { kind: "helm" };
 
 const initial: UiState = {
   phone: "closed",
@@ -52,6 +62,8 @@ const initial: UiState = {
   crewCard: null,
   aim: null,
   review: null,
+  walkTo: null,
+  walkEnd: null,
 };
 
 let state = initial;

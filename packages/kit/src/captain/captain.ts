@@ -8,13 +8,16 @@
 //   captain.onPrompt = (it) => ui.set({ prompt: it && { id: it.id, label: it.label } });
 //   captain.onUse = (it) => { if (it.id === "helm") ui.set({ helm: true }); };
 //   every frame: captain.update(dt, time);
+//   captain.walkTo(goal, (outcome) => …);   // walk there by yourself (autopilot.ts), phone and all
 //
 // Keys: WASD or arrows, Shift to jog, Space to jump, E to use, V to switch view, the wheel to
-// zoom (all the way in is first person). F and Escape are the interface's.
+// zoom (all the way in is first person). F and Escape are the interface's. Moving (or grabbing the
+// mouse) takes back a walk the autopilot is doing; nothing else does.
 
 import * as THREE from "three";
 import type { Interactable } from "../world.ts";
 import type { AvatarRig } from "../avatar/avatar.ts";
+import { Autopilot, type AutopilotGoal, type PilotFailure } from "./autopilot.ts";
 import { CAPTAIN_PRESET } from "../avatar/presets.ts";
 import { CameraRig, type CameraRigOptions, type View } from "./camera.ts";
 import { CaptainController, type ControllerOptions } from "./controller.ts";
@@ -26,6 +29,11 @@ import { nearestInteractable } from "./interact.ts";
 /** The layer the captain's own body moves to in first person: the camera doesn't see it. Enable
  * it on the sun's shadow camera (light.shadow.camera.layers.enable(SELF_LAYER)) to keep its shadow. */
 export const SELF_LAYER = 1;
+
+/** How a walk the autopilot was doing ended: there, no way there (or gave up), or taken back. */
+export type WalkOutcome = "arrived" | "failed" | "stopped";
+
+const angleDelta = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
 export interface CaptainOptions {
   camera: THREE.PerspectiveCamera;
@@ -69,6 +77,9 @@ export class Captain {
   private speed = 0;
   private selfHidden = false;
   private off: (() => void)[] = [];
+  private pilot: { auto: Autopilot; done: ((o: WalkOutcome, why?: PilotFailure) => void) | null } | null = null;
+  /** Seconds the autopilot leaves the camera alone (someone looked around by hand). */
+  private steerPause = 0;
   private _chest = new THREE.Vector3();
   private _fwd = new THREE.Vector3();
 
@@ -95,7 +106,11 @@ export class Captain {
         else if (code === "KeyE" && this.prompt) this.onUse?.(this.prompt);
       }),
       this.input.onClick((ndc, button) => this.onClick?.(ndc, button)),
-      this.input.onLockChange((locked) => this.onPointerLock?.(locked)),
+      this.input.onLockChange((locked) => {
+        // Grabbing the mouse takes the walk back.
+        if (locked) this.stopWalking();
+        this.onPointerLock?.(locked);
+      }),
     );
     this.view = o.view ?? "third";
   }
@@ -132,20 +147,79 @@ export class Captain {
 
   setInteractables(list: Interactable[]) { this.interactables = list; }
 
+  /**
+   * Walk there by yourself: the body walks the route at walking pace, the camera turns to follow
+   * (from behind in third person, looking ahead in first), and the keyboard can stay with the
+   * interface. Ends there (done("arrived")), when there's no way there (done("failed", why)), or
+   * when WASD or grabbing the mouse takes it back (done("stopped")). A new walk replaces this one
+   * without calling its done.
+   */
+  walkTo(goal: AutopilotGoal, done?: (outcome: WalkOutcome, why?: PilotFailure) => void) {
+    this.pilot = { auto: new Autopilot(goal), done: done ?? null };
+    this.steerPause = 0;
+  }
+
+  /** Stop a walk the autopilot is doing (done("stopped")); quietly, without calling done, if silent. */
+  stopWalking(silent = false) {
+    const p = this.pilot;
+    if (!p) return;
+    this.pilot = null;
+    if (!silent) p.done?.("stopped");
+  }
+
+  /** True while the autopilot is walking (or turning at the end). */
+  get walking() { return !!this.pilot; }
+
+  private endWalk(outcome: WalkOutcome, why?: PilotFailure) {
+    const p = this.pilot;
+    this.pilot = null;
+    p?.done?.(outcome, why);
+  }
+
+  /** Turn the view toward yaw, gently (and the first-person pitch toward looking ahead). */
+  private steer(dt: number, yaw: number) {
+    if (this.steerPause > 0) return;
+    const rig = this.cameraRig;
+    const k = 1 - Math.exp(-dt * 2.6);
+    rig.yaw += angleDelta(rig.yaw, yaw) * k;
+    if (this.view === "first") rig.pitch += (0.08 - rig.pitch) * k;
+  }
+
   update(dt: number, time: number) {
     const input = this.input;
     input.update();
     const look = input.takeLook();
-    if (look.dx || look.dy) this.cameraRig.look(look.dx, look.dy);
+    if (look.dx || look.dy) { this.cameraRig.look(look.dx, look.dy); this.steerPause = 1.2; }
+    this.steerPause = Math.max(0, this.steerPause - dt);
     const switched = this.cameraRig.zoom(look.wheel);
     if (switched) this.viewChanged(switched, true);
 
     const m = input.move();
+    const jump = input.jump && !input.isSuspended;
     const first = this.view === "first";
-    this.speed = this.controller.update(dt, { x: m.x, z: m.z, sprint: input.sprint, jump: input.jump && !input.isSuspended }, this.cameraRig.yaw, first);
+    const c = this.controller;
+    // Moving by hand takes the walk back, at once.
+    if (this.pilot && (m.x || m.z || jump)) this.stopWalking();
+    if (this.pilot) {
+      // The autopilot walks (even while the interface has the keyboard): which way, how fast.
+      const s = this.pilot.auto.step(dt, c.position, c.facing);
+      if (s.heading !== null) {
+        this.speed = c.update(dt, { x: 0, z: 1, sprint: false, jump: false, pace: s.pace }, s.heading, false);
+        this.steer(dt, s.heading);
+      } else {
+        this.speed = c.update(dt, { x: 0, z: 0, sprint: false, jump: false }, this.cameraRig.yaw, false);
+        if (s.face !== null) {
+          c.facing += angleDelta(c.facing, s.face) * Math.min(1, dt * 9);
+          this.steer(dt, s.face);
+        }
+      }
+      if (s.status === "arrived") this.endWalk("arrived");
+      else if (s.status === "failed") this.endWalk("failed", s.reason);
+    } else {
+      this.speed = c.update(dt, { x: m.x, z: m.z, sprint: input.sprint, jump }, this.cameraRig.yaw, first);
+    }
 
     // The body: where the controller is, doing what it does.
-    const c = this.controller;
     this.object.position.copy(c.position);
     this.avatar.root.rotation.y = c.facing;
     this.avatar.animate(dt, { speed: this.speed, air: !c.onGround, act: this.phoneOut ? "phone" : null }, time);
