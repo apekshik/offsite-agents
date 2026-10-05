@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { COMPUTER_HANDLE, COMPUTER_NAME } from "@offsite/contracts";
 import { fail, requireOffice, requireUser } from "./lib";
-import { hire } from "./crewlib";
+import { crewOf, hire } from "./crewlib";
 
 /** How many crew a new ship starts with. */
 export const STARTING_CREW = 7;
@@ -121,5 +121,21 @@ export const update = mutation({
     }
     if (defaultHarness !== undefined) patch["defaultHarness"] = defaultHarness;
     await ctx.db.patch(officeId, patch);
+  },
+});
+
+/**
+ * Bring a ship that started smaller up to `to` crew (STARTING_CREW by default). The newcomers fly in by helicopter like
+ * any hire. Run from the CLI: npx convex run offices:topUpCrew '{"officeId":"…"}'.
+ */
+export const topUpCrew = internalMutation({
+  args: { officeId: v.id("offices"), to: v.optional(v.number()) },
+  handler: async (ctx, { officeId, to }) => {
+    const office = await ctx.db.get(officeId);
+    if (!office) fail("No such ship.");
+    const have = (await crewOf(ctx, officeId)).filter((c) => c.role === "crew").length;
+    const added: string[] = [];
+    for (let i = have; i < (to ?? STARTING_CREW); i++) added.push((await hire(ctx, office!, {})).name);
+    return { had: have, added };
   },
 });
