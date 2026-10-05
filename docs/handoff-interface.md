@@ -51,6 +51,8 @@ To add a field to the bridge, add it in your branch with a comment saying who wr
 
 ## Design direction
 
+Concept art for the whole ship is in `docs/art/yacht/`. For you, `ship-deck-details-captain-pov.jpg` is the phone: unfolded in the captain's hands, two panes (threads on the left, the conversation on the right), dark glass, cyan bubbles for the captain's messages. The bridge's helm screen is the same interface, big.
+
 Reuse Ready Player One's design system, "Bracket": dark glass, corner brackets instead of boxes, one cyan accent, Saira (expanded caps for places and titles, condensed tracked caps for labels, normal case for sentences), tabular numbers. The interface never borrows its look from the world behind it.
 
 Ready Player One is cloned at `~/Developer/ready-player-one` (read-only reference):
