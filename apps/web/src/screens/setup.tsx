@@ -5,6 +5,7 @@ import { COMPUTER_NAME, RUNNER_COMMAND, runnerCommand } from "@offsite/contracts
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ago, Button, Card, Chip, ConfirmButton, Dot, errorText, Field, Input, useNow } from "../ui/index.tsx";
+import { RepoPicker } from "./RepoPicker.tsx";
 import "./setup.css";
 
 // Connecting a machine and the ship's repos: used by the first-run screens and the phone's Ship tab.
@@ -186,11 +187,11 @@ export function CodeEntry({ initial = "", onApproved }: { initial?: string; onAp
 type RepoRow = FunctionReturnType<typeof api.repos.list>[number];
 
 /** One repo: add it, or change it. A folder on one of your machines, its name on the ship, its default branch and setup command. */
-export function RepoForm({ officeId, repo, onDone, onCancel, submitLabel }: { officeId: string; repo?: RepoRow; onDone?: () => void; onCancel?: () => void; submitLabel?: string }) {
+export function RepoForm({ officeId, repo, initialMachineId, onDone, onCancel, submitLabel }: { officeId: string; repo?: RepoRow; initialMachineId?: string; onDone?: (() => void) | undefined; onCancel?: () => void; submitLabel?: string }) {
   const machines = useQuery(api.machines.mine);
   const add = useMutation(api.repos.add);
   const update = useMutation(api.repos.update);
-  const [machineId, setMachineId] = useState<string>(repo?.machineId ?? "");
+  const [machineId, setMachineId] = useState<string>(repo?.machineId ?? initialMachineId ?? "");
   const [path, setPath] = useState(repo?.path ?? "");
   const [name, setName] = useState(repo?.name ?? "");
   const [branch, setBranch] = useState(repo?.defaultBranch ?? "main");
@@ -285,7 +286,10 @@ export function HarnessField({ officeId }: { officeId: string }) {
   );
 }
 
-/** The ship's repos: each one listed, edit and remove, and a form to add another (open at once when there are none). */
+/**
+ * The ship's repos: each one listed, edit and remove, and the picker to add more (open at once when there are none):
+ * repos the machine's runner found, Browse, or a typed path.
+ */
 export function Repos({ officeId, removeLast = false }: { officeId: string; removeLast?: boolean }) {
   const repos = useQuery(api.repos.list, { officeId: officeId as Id<"offices"> });
   const [adding, setAdding] = useState(false);
@@ -295,10 +299,10 @@ export function Repos({ officeId, removeLast = false }: { officeId: string; remo
     <div className="repos">
       {repos.map((r, i) => <RepoItem key={r._id ?? r.path} officeId={officeId} repo={r} first={i === 0} many={repos.length > 1} removeLast={removeLast} />)}
       {none || adding ? (
-        <Card quiet={!none} className="repo editing">
-          <RepoForm officeId={officeId} onDone={() => setAdding(false)} {...(none ? {} : { onCancel: () => setAdding(false) })} />
+        <Card quiet={!none} className="repo editing picker-card">
+          <RepoPicker officeId={officeId} onDone={() => setAdding(false)} {...(none ? {} : { onCancel: () => setAdding(false) })} />
         </Card>
-      ) : <div><Button kind="soft" size="sm" onClick={() => setAdding(true)}>+ Add another repo</Button></div>}
+      ) : <div><Button kind="soft" size="sm" onClick={() => setAdding(true)}>+ Add repos</Button></div>}
     </div>
   );
 }

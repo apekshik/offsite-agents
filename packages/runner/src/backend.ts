@@ -3,6 +3,7 @@ import type { ChangeStats, CrewRole, Effort, Harness, Look, RunEvent, RunKind } 
 import { api } from "../../../convex/_generated/api.js";
 import type { Id } from "../../../convex/_generated/dataModel.js";
 import type { ReviewBackend, ReviewWork } from "./reviews.ts";
+import type { FolderBackend, FolderWork } from "./folders.ts";
 
 // What the runner needs from the ship's backend (docs/runner-api.md), as plain shapes. The Convex implementation is
 // below; tests use an in-memory one. Ids are plain strings here.
@@ -76,6 +77,8 @@ export interface Backend {
   };
   /** Diffs and "Open in editor" the captain asked for on this machine (convex/diffs.ts). Absent in tests that don't need it. */
   reviews?: ReviewBackend;
+  /** Repo scans and folder listings the captain asked for on this machine (convex/folders.ts). Absent in tests that don't need it. */
+  folders?: FolderBackend;
   close(): Promise<void>;
 }
 
@@ -129,6 +132,10 @@ export function convexBackend(convexUrl: string, token: string): Backend {
       watch: (onWork, onError) => client.onUpdate(api.diffs.work, t, (w) => onWork(w as ReviewWork), onError),
       put: async (diffId, answer) => { await client.mutation(api.diffs.put, { ...t, diffId: diffId as Id<"diffs">, ...answer }); },
       editorDone: async (requestId, ok, result) => { await client.mutation(api.diffs.editorDone, { ...t, requestId: requestId as Id<"editorRequests">, ok, result }); },
+    },
+    folders: {
+      watch: (onWork, onError) => client.onUpdate(api.folders.work, t, (w) => onWork(w as FolderWork), onError),
+      put: async (requestId, answer) => { await client.mutation(api.folders.put, { ...t, requestId: requestId as Id<"folderRequests">, ...answer }); },
     },
     close: () => client.close(),
   };

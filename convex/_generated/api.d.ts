@@ -13,6 +13,7 @@ import type * as crewlib from "../crewlib.js";
 import type * as crons from "../crons.js";
 import type * as diffs from "../diffs.js";
 import type * as flow from "../flow.js";
+import type * as folders from "../folders.js";
 import type * as http from "../http.js";
 import type * as lib from "../lib.js";
 import type * as machines from "../machines.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   diffs: typeof diffs;
   flow: typeof flow;
+  folders: typeof folders;
   http: typeof http;
   lib: typeof lib;
   machines: typeof machines;

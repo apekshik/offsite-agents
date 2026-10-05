@@ -1,6 +1,9 @@
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { MAX_REPOS } from "@offsite/contracts";
 import { fail } from "./lib";
+
+export { MAX_REPOS };
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -19,7 +22,6 @@ export interface RepoView {
   createdAt: number;
 }
 
-export const MAX_REPOS = 12;
 const NAME = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
 /** "web", from "~/code/My Web App/" → "my-web-app". */

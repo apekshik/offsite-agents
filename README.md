@@ -265,6 +265,10 @@ Offsite is built to point at code you care about.
   `~/.offsite/runner.json`.
 - **Your ship, your machines.** A crew only ever runs on its owner's paired machines, never on
   Offsite's servers.
+- **Finding your repos only when you ask.** When you add a repo, the runner looks for git repos in
+  the usual places (`~/Developer`, `~/code`, `~/Projects`…) or lists one folder you browse to. It
+  sends back folder names, branches and remotes as `owner/repo` (never a URL with a token in it,
+  never file names), only you can read them, and they are deleted after 10 minutes.
 - **Pairing you approve.** A machine joins with a short device code you approve in the app. Codes
   expire after 15 minutes, wrong guesses are rate limited per captain, and new pairings are rate
   limited overall.

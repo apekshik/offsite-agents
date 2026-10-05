@@ -65,6 +65,34 @@ export const add = mutation({
   },
 });
 
+/**
+ * Add several repos at once (picked from a scan or Browse), all or none. Each is named after its folder, with -2, -3…
+ * when that name is taken. Returns their names, in order.
+ */
+export const addMany = mutation({
+  args: {
+    officeId: v.id("offices"),
+    repos: v.array(v.object({
+      machineId: v.id("machines"),
+      path: v.string(),
+      defaultBranch: v.string(),
+      setupCommand: v.optional(v.union(v.string(), v.null())),
+    })),
+  },
+  handler: async (ctx, { officeId, repos }) => {
+    const { user, office } = await requireOffice(ctx, officeId);
+    if (!repos.length) fail("Pick a repo to add");
+    const have = (await ensureRepos(ctx, office)).length;
+    if (have + repos.length > MAX_REPOS) fail(`A ship holds at most ${MAX_REPOS} repos; there's room for ${Math.max(0, MAX_REPOS - have)} more`);
+    const names: string[] = [];
+    for (const r of repos) {
+      const id = await addRepo(ctx, user, office, r);
+      names.push((await ctx.db.get(id))!.name);
+    }
+    return names;
+  },
+});
+
 /** Tasks in this repo that are planned or under way. */
 async function activeTasks(ctx: MutationCtx, office: Doc<"offices">, repo: Doc<"repos">): Promise<Doc<"tasks">[]> {
   const repos = await ensureRepos(ctx, office);

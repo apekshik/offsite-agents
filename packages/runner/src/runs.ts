@@ -16,6 +16,7 @@ import { computerPrompt, conflictSteer, crewPrompt, markersLeftSteer, taskMessag
 import { Accounts, stripAttribution } from "./report.ts";
 import { computerTools, crewTools, type AwaitAnswer } from "./tools.ts";
 import { Reviews } from "./reviews.ts";
+import { Folders } from "./folders.ts";
 
 export interface RunnerOptions {
   backend: Backend;
@@ -49,6 +50,7 @@ export class Runner {
   private readonly opts: RunnerOptions;
   private unsubscribe: (() => void) | null = null;
   private reviews: Reviews | null = null;
+  private folders: Folders | null = null;
   private work: Work | null = null;
   private closing = false;
 
@@ -64,6 +66,11 @@ export class Runner {
     if (this.opts.backend.reviews) {
       this.reviews = new Reviews({ backend: this.opts.backend.reviews, log: (l) => this.log(l) });
       this.reviews.start();
+    }
+    // Repo scans and folder listings, for adding repos from the app.
+    if (this.opts.backend.folders) {
+      this.folders = new Folders({ backend: this.opts.backend.folders, log: (l) => this.log(l) });
+      this.folders.start();
     }
   }
 
@@ -105,6 +112,7 @@ export class Runner {
     this.closing = true;
     this.unsubscribe?.();
     void this.reviews?.stop();
+    void this.folders?.stop();
     for (const run of this.hosted.values()) run.shutdown();
     let timer: NodeJS.Timeout | undefined;
     await Promise.race([this.idle(), new Promise<void>((r) => { timer = setTimeout(r, ms); })]);

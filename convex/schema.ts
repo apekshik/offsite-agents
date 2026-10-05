@@ -272,6 +272,28 @@ export default defineSchema({
     error: v.union(v.string(), v.null()),
   }).index("by_thread", ["threadId", "taskId"]).index("by_machine", ["machineId", "state"]),
 
+  /**
+   * Finding repos to add: a scan of the usual places for git repos, or one level of folders under a path (Browse). The
+   * captain asks, the runner on that machine answers (folders.work → put). Only the owner reads it, and every row is
+   * deleted at `expiresAt` (contracts FOLDER_LIMITS.ttlMs after it was asked for).
+   */
+  folderRequests: defineTable({
+    ownerId: v.id("users"),
+    machineId: v.id("machines"),
+    kind: v.union(v.literal("scan"), v.literal("browse")),
+    /** Browse: the folder to list, as the app gave it ("~", "~/Developer", or a typed absolute path). */
+    path: v.union(v.string(), v.null()),
+    /** Browse: the captain typed the path, so it may be outside the home folder. */
+    typed: v.boolean(),
+    state: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
+    requestedAt: v.number(),
+    answeredAt: v.union(v.number(), v.null()),
+    expiresAt: v.number(),
+    /** contracts FolderResult, checked by the runner's mutation. */
+    result: v.union(v.any(), v.null()),
+    error: v.union(v.string(), v.null()),
+  }).index("by_machine", ["machineId", "state"]).index("by_owner", ["ownerId", "machineId", "kind"]).index("by_expires", ["expiresAt"]),
+
   /** "Open in editor": the captain asked, the runner on the repo's machine opens the folder. */
   editorRequests: defineTable({
     officeId: v.id("offices"),

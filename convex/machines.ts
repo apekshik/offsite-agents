@@ -3,6 +3,7 @@ import { RUNNER_COMMAND } from "@offsite/contracts";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { fail, limit, ONLINE_MS, randomCode, randomToken, requireUser, sha256 } from "./lib";
+import { forgetMachine } from "./folders";
 
 // Pairing a machine by device code: the runner shows a code, the signed-in captain approves it in
 // the app, and the runner's next poll gets its token (once). Adapted from Beam (MIT).
@@ -91,6 +92,7 @@ export const revoke = mutation({
     const m = await ctx.db.get(machineId);
     if (!m || m.ownerId !== user._id) fail("That machine is not yours");
     await ctx.db.patch(machineId, { revokedAt: Date.now() });
+    await forgetMachine(ctx, machineId);
   },
 });
 
