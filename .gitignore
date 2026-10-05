@@ -12,3 +12,5 @@ dist
 .offsite
 coverage
 docs/offsite-agents-yacht-angles-art/
+scripts/audio/.cache
+.env*

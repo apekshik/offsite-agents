@@ -17,3 +17,8 @@ AgentCraft
   https://github.com/blendi-remade/agentcraft
   MIT License. Ideas only: a lead that plans and workers in their own worktrees, and a scripted
   team for demos without API usage.
+
+Audio
+  The game's sounds (apps/web/public/audio) and the launch video's soundtrack and effects
+  (assets/audio) were generated for Offsite on fal.ai with ElevenLabs Sound Effects v2 and
+  ElevenLabs Eleven Music. Each file's model, prompt and terms are listed in assets/audio/CREDITS.md.
