@@ -1,0 +1,21 @@
+{
+  "name": "offsite-agents",
+  "version": "0.0.1",
+  "description": "Run your Offsite crew on this machine, on your own Claude Code and Codex subscriptions.",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "offsite": "./src/cli.ts" },
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@offsite/contracts": "workspace:*",
+    "@offsite/git": "workspace:*",
+    "@offsite/harness": "workspace:*",
+    "convex": "^1.46.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": { "@types/node": "^22.10.0" }
+}

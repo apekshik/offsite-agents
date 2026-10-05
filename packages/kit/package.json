@@ -1,0 +1,14 @@
+{
+  "name": "@offsite/kit",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": { "@offsite/contracts": "workspace:*", "three": "^0.186.1", "three-mesh-bvh": "^0.9.15", "three.quarks": "^0.17.1", "n8ao": "^2.0.1" },
+  "devDependencies": { "@types/three": "^0.186.0" }
+}

@@ -1,0 +1,13 @@
+node_modules
+dist
+.DS_Store
+*.log
+.env
+.env.local
+.env.*
+!.env.example
+.convex
+.vercel
+.shots
+.offsite
+coverage

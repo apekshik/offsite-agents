@@ -1,0 +1,19 @@
+Offsite includes code and ideas from these projects.
+
+Ready Player One
+  https://github.com/apekshik/ready-player-one
+  Copyright (c) 2026 Apekshik Panigrahi. Contributed to Offsite under the MIT License.
+  The 3D kit (rendering, sky, materials, avatars, poses, collision), the "Bracket" design system,
+  and dev sign-in.
+
+Beam
+  https://github.com/SupraluminalIntelligence/beam
+  MIT License, Copyright (c) 2026 Supraluminal Intelligence and Beam contributors.
+  The harness adapters (Claude Code, Codex), normalized run events, and the runner's shape.
+  Beam's runner vendors part of T3 Code (MIT, Copyright (c) 2026 T3 Tools Inc.); any piece
+  carried over keeps its license file alongside it.
+
+AgentCraft
+  https://github.com/blendi-remade/agentcraft
+  MIT License. Ideas only: a lead that plans and workers in their own worktrees, and a scripted
+  team for demos without API usage.

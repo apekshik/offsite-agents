@@ -1,0 +1,14 @@
+{
+  "name": "@offsite/contracts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": { "zod": "^4.6.5" },
+  "devDependencies": {}
+}
