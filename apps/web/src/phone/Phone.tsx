@@ -7,7 +7,10 @@ import { NewThread, QuestionCard, ThreadList, ThreadView } from "./Conversation.
 import { CrewDetail, CrewList, HireForm } from "./Crew.tsx";
 import { ShipDetail, ShipSummary } from "./Ship.tsx";
 import { phone, usePhone, type Fold, type PhoneTab } from "./state.ts";
+import { Review, Stats } from "../review/Review.tsx";
+import { closeReview, openReview } from "../review/open.ts";
 import "./phone.css";
+import "./spread.css";
 
 // The foldable phone. F takes it out (the cover screen: who needs you, the latest delivery, the
 // crew); a double F unfolds it on a hinge into the computer's interface (threads, the crew, the ship);
@@ -69,6 +72,12 @@ function Cover() {
             <span className="q-age">{ago(now - delivered.lastEnded.endedAt)}</span>
           </div>
           <span className="cv-task">{delivered.lastEnded.taskTitle}</span>
+          {delivered.lastEnded.state === "landed" && delivered.lastEnded.taskId && delivered.lastEnded.threadId ? (
+            <div className="cv-changes">
+              <Stats s={delivered.lastEnded.diff} />
+              <button className="rv-link" onClick={() => openReview({ threadId: delivered.lastEnded!.threadId!, taskId: delivered.lastEnded!.taskId })}>View changes</button>
+            </div>
+          ) : null}
         </Card>
       ) : null}
       <div className="cv-crew">
@@ -87,7 +96,7 @@ function Cover() {
 
 // ---- open ----
 
-function LeftPane({ tab }: { tab: PhoneTab }) {
+function LeftPane({ tab, ghost }: { tab: PhoneTab; ghost?: boolean }) {
   const { office, crew } = useShip();
   const threadId = useUi((s) => s.threadId);
   const crewId = usePhone((s) => s.crewId);
@@ -102,14 +111,17 @@ function LeftPane({ tab }: { tab: PhoneTab }) {
         <span className="disp">{title}</span>
         {tab === "crew" ? <Button kind="soft" size="sm" onClick={() => phone.set({ hiring: true })}>+ Hire</Button> : null}
       </div>
-      {tab === "threads" ? <NewThread /> : null}
+      {tab === "threads" ? (ghost
+        // The static copy on the swinging leaf: it looks like the composer, without a second input.
+        ? <div className="card composer ghost-composer"><span className="dim">Ask the computer for something…</span></div>
+        : <NewThread />) : null}
       <div className="tabs">
         <button className={`tab ${tab === "threads" ? "on" : ""}`} onClick={() => phone.set({ tab: "threads", hiring: false })}>Threads</button>
         <button className={`tab ${tab === "crew" ? "on" : ""}`} onClick={() => phone.set({ tab: "crew" })}>Crew · {crew.length}</button>
         <button className={`tab ${tab === "ship" ? "on" : ""}`} onClick={() => phone.set({ tab: "ship", hiring: false })}>Ship</button>
       </div>
       <div className="pn-list">
-        {tab === "threads" ? <ThreadList selected={threadId} onSelect={(id) => ui.set({ threadId: id })} /> : null}
+        {tab === "threads" ? <ThreadList selected={threadId} onSelect={(id) => ui.set({ threadId: id, review: null })} /> : null}
         {tab === "crew" ? <CrewList selected={crewId} onSelect={(id) => phone.set({ crewId: id, hiring: false })} /> : null}
         {tab === "ship" ? <ShipSummary /> : null}
       </div>
@@ -120,10 +132,13 @@ function LeftPane({ tab }: { tab: PhoneTab }) {
 function RightPane({ tab }: { tab: PhoneTab }) {
   const { crew, computer } = useShip();
   const threadId = useUi((s) => s.threadId);
+  const review = useUi((s) => s.review);
   const crewId = usePhone((s) => s.crewId);
   const hiring = usePhone((s) => s.hiring);
   let body;
-  if (tab === "threads") {
+  if (tab === "threads" && review && review.threadId === threadId) {
+    body = <Review key={`${review.threadId}:${review.taskId}`} target={review} onClose={closeReview} />;
+  } else if (tab === "threads") {
     body = threadId ? <ThreadView key={threadId} threadId={threadId} /> : (
       <div className="empty-thread">
         <Face computer size={44} />
@@ -140,21 +155,35 @@ function RightPane({ tab }: { tab: PhoneTab }) {
 }
 
 /**
- * One device, hinged like a book. The left leaf has two faces: the threads (or crew, or ship) pane on
- * its front, the cover screen on its back. Folded, the leaf lies flipped over the right half, so you
- * see the cover; unfolding swings it open on the hinge while the phone slides to centre. It is one
- * continuous movement, never one phone swapped for another.
+ * One device, hinged like a book. The left leaf has two faces: its inner screen on the front, the
+ * cover screen on its back. Folded, the leaf lies flipped over the right half, so you see the cover;
+ * unfolding swings it open on the hinge while the phone slides to centre. It is one continuous
+ * movement, never one phone swapped for another.
+ *
+ * Open, the two inner screens are one: the spread lies across both leaves and the hinge (a faint
+ * crease over it), the list in its left third and the conversation in the rest. While the leaf
+ * swings, its face shows a still, dimmed copy of the list; the spread fades in once it has landed
+ * and out as it starts to close.
  */
 function Book() {
   const tab = usePhone((s) => s.tab);
+  const fold = usePhone((s) => s.fold);
+  const open = fold === "open";
   return (
     <div className="book">
       <div className="flip">
-        <div className="leaf leaf-left leaf-face"><LeftPane tab={tab} /></div>
+        <div className="leaf leaf-left leaf-face">
+          <div className="still" inert aria-hidden="true"><LeftPane tab={tab} ghost /></div>
+        </div>
         <div className="leaf leaf-cover leaf-face back"><Cover /></div>
       </div>
       <div className="hinge" />
-      <div className="leaf leaf-right"><RightPane tab={tab} /></div>
+      <div className="leaf leaf-right" />
+      <div className="spread" inert={!open} aria-hidden={!open}>
+        <div className="sp-list"><LeftPane tab={tab} /></div>
+        <div className="sp-main"><RightPane tab={tab} /></div>
+        <div className="crease" aria-hidden="true" />
+      </div>
     </div>
   );
 }

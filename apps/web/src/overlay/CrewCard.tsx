@@ -7,6 +7,7 @@ import { activityTone, Button, Chip, CloseIcon, ConfirmButton, Face, Key, useNow
 import { crewLine } from "../phone/Crew.tsx";
 import { phone, usePhone } from "../phone/state.ts";
 import { activityOf, harnessName, useShip } from "./ship.tsx";
+import { openReview } from "../review/open.ts";
 
 // A crew member the captain clicked in the world: a small card beside them, following them around
 // (and docked to the side when they walk out of view).
@@ -70,6 +71,8 @@ export function CrewCard() {
         <div className="actions">
           {q ? <Button kind="amber" size="sm" onClick={() => (q.threadId ? phone.openThread(q.threadId) : phone.openCrew(c._id))}>Answer</Button> : null}
           <Button kind={q ? "plain" : "soft"} size="sm" onClick={() => phone.openCrew(c._id)}>{c.live ? "Watch" : "More"}</Button>
+          {!c.live && c.lastEnded?.state === "landed" && c.lastEnded.taskId && c.lastEnded.threadId
+            ? <Button size="sm" onClick={() => openReview({ threadId: c.lastEnded!.threadId!, taskId: c.lastEnded!.taskId })}>Changes{c.lastEnded.diff ? ` · +${c.lastEnded.diff.added} −${c.lastEnded.diff.removed}` : ""}</Button> : null}
           {c.role === "crew" ? <Button size="sm" onClick={() => phone.editLook(c._id)}>Look</Button> : null}
           {c.live ? <span style={{ marginLeft: "auto" }}><ConfirmButton size="sm" confirm="Stop?" onConfirm={() => void interrupt({ runId: c.live!.runId as Id<"runs"> })}>Stop</ConfirmButton></span> : null}
         </div>

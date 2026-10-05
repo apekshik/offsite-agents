@@ -5,7 +5,7 @@ import type { Harness, RunEvent } from "@offsite/contracts";
 import { resolveProfile, type HarnessAdapter, type OffsiteTool, type Session } from "@offsite/harness";
 import {
   allocatePort, commitAll, conflictMarkers, ensureComputerDir, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, expandHome, landTask,
-  openRepo, prepareConflict, releasePort, runSetup, serialized, taskBranchName, taskWorktreePath, threadBranchName, threadRepoWorktreePath,
+  openRepo, prepareConflict, releasePort, runSetup, serialized, taskBranchName, taskStats, taskWorktreePath, threadBranchName, threadRepoWorktreePath,
   threadViewRef, threadWorktreePath,
 } from "@offsite/git";
 import { readable, type Backend, type LiveRun, type Outcome, type RepoInfo, type RunContext, type Work } from "./backend.ts";
@@ -14,6 +14,7 @@ import { EventSink } from "./events.ts";
 import { LOOK_SYSTEM_PROMPT, parseLook } from "./lookPrompt.ts";
 import { computerPrompt, conflictSteer, crewPrompt, markersLeftSteer, taskMessage } from "./prompts.ts";
 import { computerTools, crewTools, type AwaitAnswer } from "./tools.ts";
+import { Reviews } from "./reviews.ts";
 
 export interface RunnerOptions {
   backend: Backend;
@@ -46,6 +47,7 @@ export class Runner {
   private readonly skipped = new Map<string, number>();
   private readonly opts: RunnerOptions;
   private unsubscribe: (() => void) | null = null;
+  private reviews: Reviews | null = null;
   private work: Work | null = null;
   private closing = false;
 
@@ -57,6 +59,11 @@ export class Runner {
 
   start(): void {
     this.unsubscribe = this.opts.backend.watchWork((w) => this.onWork(w), (e) => this.log(`work subscription: ${readable(e)}`));
+    // Diffs and "Open in editor" the captain asks for, alongside the runs.
+    if (this.opts.backend.reviews) {
+      this.reviews = new Reviews({ backend: this.opts.backend.reviews, log: (l) => this.log(l) });
+      this.reviews.start();
+    }
   }
 
   private onWork(w: Work) {
@@ -96,6 +103,7 @@ export class Runner {
   async stop(ms = SHUTDOWN_MS): Promise<string[]> {
     this.closing = true;
     this.unsubscribe?.();
+    void this.reviews?.stop();
     for (const run of this.hosted.values()) run.shutdown();
     let timer: NodeJS.Timeout | undefined;
     await Promise.race([this.idle(), new Promise<void>((r) => { timer = setTimeout(r, ms); })]);
@@ -529,8 +537,12 @@ class HostedRun {
     const outcome: Outcome = this.outcome ?? (ctx.run.kind === "task" && !landed ? "failed" : "landed");
     const report = ctx.run.kind === "computer" ? undefined : this.report() || undefined;
     const error = this.error ?? (outcome === "failed" ? "The run ended without landing" : undefined);
+    // A landed task's size, for the captain's reports and the delivered desk: what its landed commits changed.
+    const diff = landed && place?.repo && place.threadBranch && place.taskBranch
+      ? await taskStats({ repo: place.repo, threadBranch: place.threadBranch, taskBranch: place.taskBranch }).catch(() => null)
+      : null;
     for (let i = 0; ; i++) {
-      try { await this.opts.backend.finish(this.id, outcome, { ...(error && outcome !== "landed" ? { error } : {}), ...(report ? { report } : {}) }); break; }
+      try { await this.opts.backend.finish(this.id, outcome, { ...(error && outcome !== "landed" ? { error } : {}), ...(report ? { report } : {}), ...(diff ? { diff } : {}) }); break; }
       catch (e) {
         if (i >= 3) { this.log(`could not report the finish: ${readable(e)}`); break; }
         await new Promise((r) => setTimeout(r, 1000 * (i + 1)));

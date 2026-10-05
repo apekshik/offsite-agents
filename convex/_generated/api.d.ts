@@ -10,6 +10,7 @@
 
 import type * as crew from "../crew.js";
 import type * as crewlib from "../crewlib.js";
+import type * as diffs from "../diffs.js";
 import type * as flow from "../flow.js";
 import type * as http from "../http.js";
 import type * as lib from "../lib.js";
@@ -36,6 +37,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   crew: typeof crew;
   crewlib: typeof crewlib;
+  diffs: typeof diffs;
   flow: typeof flow;
   http: typeof http;
   lib: typeof lib;

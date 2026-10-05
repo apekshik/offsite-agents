@@ -74,6 +74,8 @@ describe("a thread from request to pull request, on the sim crew", () => {
     expect(ship.tasks.every((t) => t.branch?.startsWith(`${thread.branch}-`))).toBe(true);
     expect(ship.runs.every((r) => r.state === "landed")).toBe(true);
     expect(ship.tasks.every((t) => t.report && /Done/.test(t.report))).toBe(true);
+    // Each landed task's size was recorded: its notes file, added.
+    expect(ship.tasks.every((t) => t.diff && t.diff.files >= 1 && t.diff.added >= 1)).toBe(true);
     // Events reached the ship normalized, deltas coalesced, never more than 200 a call.
     const all = [...ship.eventLog.values()].flat();
     expect(all.some((e) => e.type === "item.started" && e.kind === "edit" || e.type === "item.started" && e.kind === "write")).toBe(true);

@@ -3,3 +3,4 @@ export * from "./worktrees.ts";
 export * from "./land.ts";
 export * from "./finish.ts";
 export * from "./setup.ts";
+export * from "./review.ts";

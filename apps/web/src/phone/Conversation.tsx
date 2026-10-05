@@ -7,6 +7,8 @@ import { ui } from "../bridge.ts";
 import { activityTone, ago, Button, Card, errorText, Face, Pill, RichText, SendIcon, useNow, useStickToBottom, type Tone } from "../ui/index.tsx";
 import { activityOf, useShip, type CrewRow, type MessageRow, type QuestionRow, type TaskRow, type ThreadRow } from "../overlay/ship.tsx";
 import { phone } from "./state.ts";
+import { Stats } from "../review/Review.tsx";
+import { openReview } from "../review/open.ts";
 
 // The conversation with the ship's computer, shared by the phone and the helm console: the threads,
 // one thread (your messages, the computer's replies, its plan, crew reports), and questions.
@@ -107,6 +109,7 @@ export function ThreadCard({ t, selected, onClick, progress }: { t: ThreadRow; s
           : thinking ? <Face computer /> : null}
         <span className={`lab t-${st.tone}`}>{st.label}</span>
         <span className="clip">· {st.detail}</span>
+        {t.diff ? <Stats s={t.diff} files={false} className="tc-stats" /> : null}
       </div>
       {progress && t.state === "working" && t.tasks.total ? <div className="bar"><i style={{ width: `${(100 * t.tasks.landed) / t.tasks.total}%` }} /></div> : null}
     </Card>
@@ -179,6 +182,16 @@ export function RepoChip({ name }: { name: string | null | undefined }) {
   return <span className="chip repo-chip">{name}</span>;
 }
 
+/** "+38 −2 · View changes": opens the task's (or, without a task, the thread's) changes. */
+export function ViewChanges({ threadId, taskId, stats, inline, label = "View changes" }: { threadId: string; taskId: string | null; stats?: { added: number; removed: number; files: number } | null | undefined; inline?: boolean; label?: string }) {
+  return (
+    <span className={`view-changes ${inline ? "inline" : ""}`}>
+      {stats ? <Stats s={stats} files={!inline} /> : null}
+      <button className="rv-link" onClick={(e) => { e.stopPropagation(); openReview({ threadId, taskId }); }}>{label}</button>
+    </span>
+  );
+}
+
 function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
   const { byId } = useShip();
   const now = useNow(2000);
@@ -200,6 +213,7 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
             <span className={`lab t-${st.tone}`}>{st.label}<RepoChip name={t.repo} /></span>
             <span className="pt-title">{t.title}</span>
             <span className="pt-who">{who ? <><Face avatar={who.avatar} look={who.look} size={22} />{who.name}</> : <span className="dim">Whoever is free</span>}</span>
+            {t.state === "landed" ? <ViewChanges threadId={t.threadId} taskId={t._id} stats={t.diff} /> : null}
           </Card>
         ))}
       </div>
@@ -211,7 +225,7 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
       {rows.map(({ t, who, st }) => (
         <div key={t._id} className="plan-row" title={t.brief}>
           <span className={`pr-icon t-${st.tone}`}>{st.icon}</span>
-          <span className="pr-title">{t.title}<RepoChip name={t.repo} /></span>
+          <span className="pr-title">{t.title}<RepoChip name={t.repo} />{t.state === "landed" ? <ViewChanges threadId={t.threadId} taskId={t._id} stats={t.diff} inline /> : null}</span>
           {who ? <Face avatar={who.avatar} look={who.look} title={who.name} /> : null}
           <span className={`lab pr-state t-${st.tone}`}>{st.label}</span>
         </div>
@@ -222,7 +236,7 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
 
 function lower(s: string) { return s.charAt(0).toLowerCase() + s.slice(1); }
 
-function Message({ m, tasks, isLatestPlan, big }: { m: MessageRow; tasks: TaskRow[]; isLatestPlan: boolean; big?: boolean }) {
+function Message({ m, tasks, isLatestPlan, big, thread }: { m: MessageRow; tasks: TaskRow[]; isLatestPlan: boolean; big?: boolean; thread?: ThreadRow | undefined }) {
   const { byId } = useShip();
   if (m.author.kind === "captain") {
     return <div className="msg me"><RichText text={m.text} /></div>;
@@ -234,6 +248,7 @@ function Message({ m, tasks, isLatestPlan, big }: { m: MessageRow; tasks: TaskRo
       <Card tone="green" className="msg-finished">
         <span className="lab t-green">Finished · {lines[0]}</span>
         <div className="mf-body"><RichText text={lines.slice(1).join("\n").trim()} /></div>
+        {thread ? <ViewChanges threadId={thread._id} taskId={null} stats={thread.diff} label="View all changes" /> : null}
       </Card>
     );
   }
@@ -253,6 +268,7 @@ function Message({ m, tasks, isLatestPlan, big }: { m: MessageRow; tasks: TaskRo
         <div className={`msg them report ${failed ? "red" : "green"}`}>
           <span className={`lab ${failed ? "t-red" : "t-green"}`}>{who?.name ?? "Someone"} · {failed ? "stuck on" : "landed"} {task ? lower(task.title) : "their task"}</span>
           <span><RichText text={m.text} /></span>
+          {!failed && task?.state === "landed" ? <ViewChanges threadId={task.threadId} taskId={task._id} stats={task.diff} /> : null}
         </div>
       </div>
     );
@@ -299,6 +315,7 @@ export function ThreadView({ threadId, big }: { threadId: string; big?: boolean 
         <span className="th-meta">
           {t?.branch ? <span className="mono th-branch">{t.branch}</span> : null}
           {tasks.length ? <span>· {tasks.length} task{tasks.length === 1 ? "" : "s"} · {landed} landed</span> : null}
+          {landed ? <ViewChanges threadId={threadId} taskId={null} stats={t?.diff} inline label="· View changes" /> : null}
           {t && t.prs.filter((p) => p.url).length > 1
             ? t.prs.filter((p) => p.url).map((p) => <a key={p.repo ?? p.url} href={p.url!} target="_blank" rel="noreferrer">· {p.repo ?? "pull request"} #{/\/pull\/(\d+)/.exec(p.url!)?.[1] ?? ""}</a>)
             : t?.prUrl ? <a href={t.prUrl} target="_blank" rel="noreferrer">· pull request</a> : null}
@@ -306,7 +323,7 @@ export function ThreadView({ threadId, big }: { threadId: string; big?: boolean 
       </div>
       <div className="thread-body" ref={list}>
         {messages === undefined ? <div className="empty dim">…</div> : null}
-        {messages?.map((m) => <Message key={m._id} m={m} tasks={tasks} isLatestPlan={m._id === latestPlan} big={big ?? false} />)}
+        {messages?.map((m) => <Message key={m._id} m={m} tasks={tasks} isLatestPlan={m._id === latestPlan} big={big ?? false} thread={t} />)}
         {thinking ? (
           <div className="msg-row">
             <Face computer size={big ? 26 : 22} />

@@ -16,7 +16,7 @@ export type ScreenContent =
   | { kind: "idle"; desk: string }
   | { kind: "working"; activity: CrewActivity; name: string; face: FaceColors; task: string; step: string; since: number | null }
   | { kind: "asking"; name: string; face: FaceColors; task: string; prompt: string; step: string }
-  | { kind: "landed"; name: string; face: FaceColors; task: string }
+  | { kind: "landed"; name: string; face: FaceColors; task: string; diff?: { added: number; removed: number; files: number } | null }
   | { kind: "failed"; name: string; face: FaceColors; task: string; step: string }
   | { kind: "off"; name: string; where: string; desk: string };
 
@@ -408,6 +408,7 @@ export class CrewScreen {
         lines.push([[`${(hash(c.task) % 0xfffffff).toString(16).padStart(7, "0").slice(0, 7)} ${c.task}`, C.ink2]]);
         lines.push([]);
         lines.push([["Landed on the thread's branch", C.green]]);
+        if (c.diff) lines.push([[`+${c.diff.added}`, C.green], [" ", C.dim], [`−${c.diff.removed}`, C.red], [` · ${c.diff.files} file${c.diff.files === 1 ? "" : "s"}`, C.dim]]);
       } else {
         lines.push(cmd(c.step || "…"));
         lines.push([["✕ couldn't finish", C.red]]);
@@ -471,7 +472,9 @@ export class CrewScreen {
     ctx.font = `500 ${Math.round(27 * s)}px ${SANS}`;
     ctx.fillStyle = C.ink2;
     ctx.fillText(clip(ctx, c.task, maxW - lw), tx + lw, by + 54 * s);
-    const sub = c.kind === "asking" ? "Went to find the captain" : c.kind === "landed" ? "Carrying it to the bridge" : c.step;
+    const sub = c.kind === "asking" ? "Went to find the captain"
+      : c.kind === "landed" ? (c.diff ? `+${c.diff.added} −${c.diff.removed} · ${c.diff.files} file${c.diff.files === 1 ? "" : "s"} · carried to the bridge` : "Carrying it to the bridge")
+      : c.step;
     ctx.font = c.kind === "working" || c.kind === "failed" ? `400 ${Math.round(21 * s)}px ${MONO}` : `500 ${Math.round(22 * s)}px ${SANS}`;
     ctx.fillStyle = C.dim;
     ctx.fillText(clip(ctx, sub, maxW), tx, by + 94 * s);

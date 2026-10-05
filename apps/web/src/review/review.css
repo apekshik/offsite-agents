@@ -1,0 +1,77 @@
+/* The review: a task's or a thread's changes. Hairline, calm, colour only where it means something:
+   green added, red removed, cyan the accent. Code in JetBrains Mono. */
+
+.review { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.rv-head { display: flex; flex-direction: column; gap: 7px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.rv-top { display: flex; align-items: center; justify-content: space-between; min-height: 22px; }
+.rv-back { margin-left: -9px; }
+.rv-title { font-weight: 650; font-size: 16px; line-height: 1.25; }
+.rv-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--dim); min-width: 0; }
+.rv-who { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.rv-repo { margin-left: 0; }
+.rv-branch { font-size: 11px; max-width: 320px; }
+.rv-stats { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.rv-repos { flex-wrap: wrap; }
+.rv-repos .tab { font-family: var(--mono); }
+.rv-actions { gap: 8px; }
+.rv-actions a.btn { color: var(--ink); }
+.rv-opened, .rv-refresh { font-size: 12px; max-width: 320px; }
+.rv-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px; margin-right: -4px; }
+.rv-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 30px 40px; font-size: 13px; line-height: 1.45; }
+.rv-empty-title { font-size: 16px; font-weight: 600; }
+.rv-warn { font-size: 12px; color: var(--amber); padding: 7px 10px; border: 1px solid rgba(255, 200, 97, 0.25); border-radius: var(--radius); background: rgba(255, 200, 97, 0.06); }
+.rv-note { padding: 10px 12px; font-size: 12px; }
+
+/* the files */
+.rv-files { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill); padding: 4px 0; flex: none; }
+.rv-frow { display: flex; align-items: center; gap: 9px; padding: 4px 10px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 12px; min-width: 0; }
+.rv-frow:hover { background: rgba(255, 255, 255, 0.04); }
+.rv-st { width: 12px; flex: none; font-family: var(--mono); font-weight: 600; font-size: 11px; }
+.rv-fname { flex: 1; font-size: 12px; }
+.rv-fcount { font-family: var(--mono); font-size: 11px; flex: none; white-space: nowrap; }
+.rv-bar { display: inline-flex; width: 72px; flex: none; justify-content: flex-start; gap: 1px; }
+.rv-bar > i { display: block; height: 6px; border-radius: 1px; min-width: 0; }
+.rv-bar > i.g { background: rgba(109, 255, 168, 0.7); }
+.rv-bar > i.r { background: rgba(255, 93, 108, 0.7); }
+
+/* one file's diff */
+.rv-file { border: 1px solid var(--line); border-radius: var(--radius); flex: none; }
+.rv-file-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 10px; background: #0b0f15; border-bottom: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; }
+.rv-file-path { font-size: 12px; }
+.rv-unfold { width: 100%; padding: 10px; border: 0; background: none; color: var(--accent); cursor: pointer; font-size: 12px; }
+.rv-code { font-size: 11.5px; line-height: 1.55; overflow-x: auto; padding-bottom: 2px; }
+.rv-hunk { padding: 3px 10px; color: var(--faint); background: rgba(79, 227, 255, 0.04); display: flex; min-width: 0; }
+.rv-section { color: var(--dim); }
+.rv-line { display: grid; grid-template-columns: 38px 38px 16px max-content; min-width: 100%; width: max-content; }
+.rv-no { text-align: right; padding-right: 8px; color: var(--faint); user-select: none; }
+.rv-sign { text-align: center; user-select: none; color: var(--faint); }
+.rv-text { white-space: pre; padding-right: 14px; color: var(--ink-2); }
+.rv-line.add { background: rgba(109, 255, 168, 0.075); }
+.rv-line.add .rv-sign, .rv-line.add .rv-no { color: rgba(109, 255, 168, 0.75); }
+.rv-line.del { background: rgba(255, 93, 108, 0.085); }
+.rv-line.del .rv-sign, .rv-line.del .rv-no { color: rgba(255, 93, 108, 0.75); }
+.rv-line.note .rv-text { color: var(--faint); font-style: italic; }
+
+/* colouring: muted, so the add/remove tint still leads */
+.hl-kw { color: #c7a6ff; }
+.hl-str { color: #a8e6a1; }
+.hl-com { color: #6c7a8c; font-style: italic; }
+.hl-num, .hl-lit { color: #ffb38a; }
+.hl-fn { color: #8fd8ff; }
+.hl-tag { color: #ff9cac; }
+.hl-attr, .hl-prop { color: #9fd4ff; }
+.hl-head { color: var(--ink); font-weight: 600; }
+
+/* big: the helm's third column */
+.review.big .rv-title { font-size: 18px; }
+.review.big .rv-code { font-size: 12px; }
+.rv-x { margin-right: -4px; }
+
+/* small bits elsewhere: a "View changes" link, stats in rows */
+.rv-link { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; white-space: nowrap; }
+.rv-link:hover { color: var(--accent-hi); }
+.view-changes { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.view-changes.inline { display: inline-flex; margin-left: 8px; gap: 7px; vertical-align: 1px; }
+.view-changes.inline .rv-stats { font-size: 11px; }
+.th-meta .view-changes.inline { margin-left: 0; }
+.tc-stats { margin-left: auto; flex: none; font-size: 11px; }

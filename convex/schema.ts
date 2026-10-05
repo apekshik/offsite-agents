@@ -21,6 +21,9 @@ export const author = v.union(
   v.object({ kind: v.literal("system") }),
 );
 
+/** "+38 −2 · 2 files" (contracts ChangeStats). */
+export const changeStats = v.object({ added: v.number(), removed: v.number(), files: v.number() });
+
 export default defineSchema({
   /** A signed-in person (WorkOS, or dev sign-in on a dev deployment). */
   users: defineTable({
@@ -157,6 +160,10 @@ export default defineSchema({
     notes: v.union(v.string(), v.null()),
     createdAt: v.number(),
     landedAt: v.union(v.number(), v.null()),
+    /** What it changed, recorded by the runner when it lands. Missing on tasks from before. */
+    diff: v.optional(v.union(changeStats, v.null())),
+    /** When the captain first opened its changes (its package leaves the drop-off). */
+    seenAt: v.optional(v.union(v.number(), v.null())),
   }).index("by_thread", ["threadId"]).index("by_office_state", ["officeId", "state"]).index("by_assignee", ["assignee", "state"]),
 
   /** One agent working: a computer turn in a thread, a crew member on a task, or a look being designed. */
@@ -231,4 +238,42 @@ export default defineSchema({
     deliveredAt: v.union(v.number(), v.null()),
     createdAt: v.number(),
   }).index("by_office_open", ["officeId", "answeredAt"]).index("by_run", ["runId"]),
+
+  /**
+   * A diff the captain asked to see: one task's changes, or a thread's in one repo (taskId null). Computed by the
+   * runner on the machine holding the repo (diffs.work), cached by the sha it was computed at. Only the owner reads it.
+   */
+  diffs: defineTable({
+    officeId: v.id("offices"),
+    threadId: v.id("threads"),
+    taskId: v.union(v.id("tasks"), v.null()),
+    repoId: v.id("repos"),
+    machineId: v.id("machines"),
+    state: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
+    requestedAt: v.number(),
+    computedAt: v.union(v.number(), v.null()),
+    sha: v.union(v.string(), v.null()),
+    base: v.union(v.string(), v.null()),
+    stats: v.union(changeStats, v.null()),
+    /** contracts ChangedFile[], checked by the runner's mutation. */
+    files: v.array(v.any()),
+    /** The unified diff, cut at contracts DIFF_LIMITS.patchChars. */
+    patch: v.string(),
+    truncated: v.boolean(),
+    error: v.union(v.string(), v.null()),
+  }).index("by_thread", ["threadId", "taskId"]).index("by_machine", ["machineId", "state"]),
+
+  /** "Open in editor": the captain asked, the runner on the repo's machine opens the folder. */
+  editorRequests: defineTable({
+    officeId: v.id("offices"),
+    threadId: v.id("threads"),
+    taskId: v.union(v.id("tasks"), v.null()),
+    repoId: v.id("repos"),
+    machineId: v.id("machines"),
+    createdAt: v.number(),
+    doneAt: v.union(v.number(), v.null()),
+    /** What the runner opened, or why it couldn't. */
+    result: v.union(v.string(), v.null()),
+    ok: v.union(v.boolean(), v.null()),
+  }).index("by_machine", ["machineId", "doneAt"]).index("by_thread", ["threadId", "createdAt"]),
 });

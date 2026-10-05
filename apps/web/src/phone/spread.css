@@ -1,0 +1,46 @@
+/* The open phone as one screen: the spread lies over both leaves and the hinge, inside the bezel
+   (the leaves' 7px frame), with the list in its left third and the conversation in the rest.
+   1036 × 740 book, 7px frame: the screen is 1022 × 726, and the hinge's centre line is 511px in. */
+
+.spread {
+  position: absolute; left: 7px; top: 7px; width: 1022px; height: 726px; z-index: 3;
+  display: flex; overflow: hidden; border-radius: 27px; background: #05070b;
+  /* Above the leaves in the book's 3D space, which sorts by depth before DOM order. */
+  transform: translateZ(2px);
+  opacity: 0; visibility: hidden;
+  /* Closing: gone before the leaf starts to swing. */
+  transition: opacity 0.12s ease, visibility 0s linear 0.12s;
+}
+/* Opening: once the leaf has landed. */
+.phone-wrap.open .spread { opacity: 1; visibility: visible; transition: opacity 0.26s ease 0.46s, visibility 0s linear 0.46s; }
+/* Folding waits for the spread to fade, so the screen never swings with live content on it. */
+.phone-wrap.cover .book, .phone-wrap.cover .flip { transition-delay: 0.1s; }
+.phone-wrap.cover .hinge { transition-delay: 0.55s; }
+
+.sp-list { width: 340px; flex: none; min-height: 0; display: flex; flex-direction: column; }
+.sp-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line); }
+.sp-list > .pane.left, .still > .pane.left { padding: 14px 12px 12px 16px; gap: 11px; }
+.sp-main > .pane.right { padding: 14px 18px 12px 18px; }
+
+/* The hinge, as a crease across the screen: barely there, and never in the way. */
+.crease {
+  position: absolute; top: 0; bottom: 0; left: 504px; width: 14px; pointer-events: none; z-index: 4;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.16) 35%, rgba(238, 243, 247, 0.035) 50%, rgba(0, 0, 0, 0.16) 65%, transparent);
+}
+.crease::before, .crease::after { content: ""; position: absolute; left: 6px; width: 2px; height: 10px; border-radius: 1px; background: rgba(0, 0, 0, 0.45); }
+.crease::before { top: 0; }
+.crease::after { bottom: 0; }
+
+/* The leaf's still face while it swings: the list where the spread will put it, dimmed. */
+.still { position: absolute; left: 0; top: 0; bottom: 0; width: 340px; display: flex; flex-direction: column; opacity: 0.55; pointer-events: none; }
+.ghost-composer { height: 44px; font-size: 14px; }
+.leaf-left > .still { transition: opacity 0.35s ease; }
+.phone-wrap.cover .leaf-left > .still { opacity: 0.3; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spread, .phone-wrap.open .spread { transition-duration: 0.01s; transition-delay: 0s; }
+  .phone-wrap.cover .book, .phone-wrap.cover .flip, .phone-wrap.cover .hinge { transition-delay: 0s; }
+}
+
+/* The cover's latest delivery: its size, and the way to its changes. */
+.cv-changes { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

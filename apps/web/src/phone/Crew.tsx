@@ -6,7 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { activityTone, ago, Button, Card, Chip, ConfirmButton, errorText, Face, Field, Input, RichText, useNow, useStickToBottom } from "../ui/index.tsx";
 import { activityOf, harnessName, placeOf, useShip, workTitle, type CrewRow } from "../overlay/ship.tsx";
-import { find, QuestionCard, RepoChip } from "./Conversation.tsx";
+import { find, QuestionCard, RepoChip, ViewChanges } from "./Conversation.tsx";
 import { phone } from "./state.ts";
 
 // The crew tab: everyone aboard, and one of them up close (what they are doing, their live work,
@@ -267,6 +267,8 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
               {c.lastStep ? <><br /><span className="mono">{c.lastStep}</span></> : null}
             </span>
           )}
+        {!c.live && c.lastEnded?.state === "landed" && c.lastEnded.taskId && c.lastEnded.threadId
+          ? <ViewChanges threadId={c.lastEnded.threadId} taskId={c.lastEnded.taskId} stats={c.lastEnded.diff} /> : null}
       </div>
       {q ? <QuestionCard q={q} findLink={false} /> : null}
       {mode === "edit" ? <EditCrew c={c} onDone={() => setMode("watch")} />

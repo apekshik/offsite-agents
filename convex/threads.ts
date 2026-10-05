@@ -4,6 +4,13 @@ import { LIMITS } from "@offsite/contracts";
 import { autoTitle, fail, requireOffice, requireThread } from "./lib";
 import { post, queueComputer } from "./flow";
 import { repoOfTask, reposOf } from "./repolib";
+import type { Doc } from "./_generated/dataModel";
+
+function sumDiffs(tasks: Doc<"tasks">[]): { added: number; removed: number; files: number } | null {
+  const sized = tasks.filter((t) => t.state === "landed" && t.diff);
+  if (!sized.length) return null;
+  return sized.reduce((s, t) => ({ added: s.added + t.diff!.added, removed: s.removed + t.diff!.removed, files: s.files + t.diff!.files }), { added: 0, removed: 0, files: 0 });
+}
 
 /** Threads on this ship, most recent first, with who is on them and what waits on you. */
 export const list = query({
@@ -35,6 +42,8 @@ export const list = query({
         lastMessageAt: t.lastMessageAt,
         crewIds,
         tasks: { total: tasks.length, landed: tasks.filter((x) => x.state === "landed").length },
+        /** The landed tasks' sizes added up ("+38 −2 · 2 files"); null until one has a recorded size. Files touched by two tasks count twice. */
+        diff: sumDiffs(tasks),
         openQuestions: open.filter((q) => q.threadId === t._id).length,
       };
     }));

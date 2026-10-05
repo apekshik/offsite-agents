@@ -29,9 +29,16 @@ export interface UiState {
   threadId: string | null;
   /** A crew member the captain clicked in the world: the interface shows their card. */
   crewCard: string | null;
-  /** Who the crosshair is on while the mouse is grabbed (written by the game, ~10 times a second). */
-  aim: { crewId: string; name: string; line: string } | null;
+  /**
+   * What the crosshair is on while the mouse is grabbed (written by the game, ~10 times a second): a crew member, or
+   * something to use (a delivered package: crewId is "", hint says what a click does).
+   */
+  aim: { crewId: string; name: string; line: string; hint?: string } | null;
+  /** The crew's work open for review: a task's changes, or (taskId null) the thread's. The phone or the helm shows it. */
+  review: ReviewTarget | null;
 }
+
+export interface ReviewTarget { threadId: string; taskId: string | null }
 
 const initial: UiState = {
   phone: "closed",
@@ -44,6 +51,7 @@ const initial: UiState = {
   threadId: null,
   crewCard: null,
   aim: null,
+  review: null,
 };
 
 let state = initial;

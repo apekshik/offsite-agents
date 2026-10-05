@@ -47,7 +47,12 @@ export const snapshot = query({
           step: live.step,
           startedAt: live.startedAt,
         },
-        lastEnded: ended && { state: ended.state, endedAt: ended.endedAt!, kind: ended.kind, taskTitle: await title(ended.taskId, "tasks") },
+        lastEnded: ended && {
+          state: ended.state, endedAt: ended.endedAt!, kind: ended.kind, taskTitle: await title(ended.taskId, "tasks"),
+          taskId: ended.taskId, threadId: ended.threadId,
+          /** A landed task's size, for the delivered desk screen and "View changes". */
+          diff: ended.taskId && ended.state === "landed" ? (await ctx.db.get(ended.taskId))?.diff ?? null : null,
+        },
         lastStep: live?.lastStep ?? ended?.lastStep ?? null,
         asking: open.some((q) => q.crewId === c._id),
       };

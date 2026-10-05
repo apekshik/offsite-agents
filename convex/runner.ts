@@ -6,6 +6,7 @@ import { fail, requireMachine, requireOwnRun } from "./lib";
 import { crewOf, liveRunOf } from "./crewlib";
 import { closeStream, post, queueComputer, tick } from "./flow";
 import { computerMachine, ensureRepos, repoOfTask, reposOf } from "./repolib";
+import { changeStats } from "./schema";
 
 // What `offsite` (packages/runner) calls. Every function takes the machine's token. See
 // docs/runner-api.md. Errors are ConvexErrors with a reason an agent can act on.
@@ -318,7 +319,7 @@ export const landing = mutation({
   },
 });
 
-async function endRun(ctx: MutationCtx, run: Doc<"runs">, outcome: "landed" | "failed" | "interrupted", error: string | null, report: string | null) {
+async function endRun(ctx: MutationCtx, run: Doc<"runs">, outcome: "landed" | "failed" | "interrupted", error: string | null, report: string | null, diff: Doc<"tasks">["diff"] = null) {
   const now = Date.now();
   await ctx.db.patch(run._id, { state: outcome, endedAt: now, step: null, error: error ?? run.error });
   await closeStream(ctx, run._id);
@@ -335,7 +336,8 @@ async function endRun(ctx: MutationCtx, run: Doc<"runs">, outcome: "landed" | "f
     const repos = await reposOf(ctx, office);
     const where = repos.length > 1 ? ` in ${repoOfTask(task, repos)?.name ?? "its repo"}` : "";
     if (outcome === "landed") {
-      await ctx.db.patch(task._id, { state: "landed", landedAt: now, report: report ?? task.report });
+      // A fresh delivery: its package goes back on the counter until the captain opens it.
+      await ctx.db.patch(task._id, { state: "landed", landedAt: now, report: report ?? task.report, diff: diff ?? task.diff ?? null, seenAt: null });
       await post(ctx, thread._id, { author: { kind: "crew", crewId: crew._id }, kind: "report", text: report?.trim() || "Done.", runId: run._id, taskId: task._id });
       const done = tasks.filter((t) => t.state === "landed" || t._id === task._id).length;
       await queueComputer(ctx, thread, `@${crew.handle} landed "${task.title}" (${task.key}) on the thread's branch${where}. ${done} of ${tasks.length} tasks have landed.\nTheir report: ${report?.trim() || "(none)"}`);
@@ -367,12 +369,14 @@ export const finish = mutation({
     outcome: v.union(v.literal("landed"), v.literal("failed"), v.literal("interrupted")),
     error: v.optional(v.string()),
     report: v.optional(v.string()),
+    /** A landed task's size: what its landed commits changed. */
+    diff: v.optional(changeStats),
   },
-  handler: async (ctx, { token, runId, outcome, error, report }) => {
+  handler: async (ctx, { token, runId, outcome, error, report, diff }) => {
     const machine = await requireMachine(ctx, token);
     const run = await requireOwnRun(ctx, machine, runId);
     if (!isLive(run.state as RunState)) return;
-    await endRun(ctx, run, outcome, error?.slice(0, 1000) ?? null, report?.slice(0, 8000) ?? null);
+    await endRun(ctx, run, outcome, error?.slice(0, 1000) ?? null, report?.slice(0, 8000) ?? null, diff ?? null);
   },
 });
 

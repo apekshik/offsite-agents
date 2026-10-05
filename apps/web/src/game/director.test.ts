@@ -58,9 +58,13 @@ describe("the director", () => {
     // A minute later, still walking: still delivering.
     const late = d.plan([done], T0 + 60_000)[0]!;
     expect(late.activity).toBe("landed");
-    expect(late.label).toBe("Delivered · Theme types");
+    expect(late.label).toBe("Delivering · Theme types");
+    expect(late.carrying).toBe(true);
     d.delivered("otis", T0 + 61_000);
-    expect(d.plan([done], T0 + 62_000)[0]!.activity).toBe("landed");
+    const there = d.plan([done], T0 + 62_000)[0]!;
+    expect(there.activity).toBe("landed");
+    expect(there.label).toBe("Delivered · Theme types");
+    expect(there.carrying).toBe(false);
     expect(d.plan([done], T0 + 61_000 + Director.CELEBRATE_MS + 1)[0]!.activity).toBe("idle");
   });
 

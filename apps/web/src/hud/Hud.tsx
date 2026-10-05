@@ -30,7 +30,7 @@ function Status() {
   );
 }
 
-/** The crosshair while the mouse is grabbed. On a crew member it opens into a ring with their name. */
+/** The crosshair while the mouse is grabbed. On a crew member (or a delivered package) it opens into a ring with a name. */
 function Reticle() {
   const aim = useUi((s) => s.aim);
   return (
@@ -40,7 +40,7 @@ function Reticle() {
         <div className="hud-reticle-tag">
           <b>{aim.name}</b>
           {aim.line ? <span>{aim.line}</span> : null}
-          <em>Click for their card</em>
+          <em>{aim.hint ?? "Click for their card"}</em>
         </div>
       ) : null}
     </div>

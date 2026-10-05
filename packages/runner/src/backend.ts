@@ -1,7 +1,8 @@
 import { ConvexClient } from "convex/browser";
-import type { CrewRole, Effort, Harness, Look, RunEvent, RunKind } from "@offsite/contracts";
+import type { ChangeStats, CrewRole, Effort, Harness, Look, RunEvent, RunKind } from "@offsite/contracts";
 import { api } from "../../../convex/_generated/api.js";
 import type { Id } from "../../../convex/_generated/dataModel.js";
+import type { ReviewBackend, ReviewWork } from "./reviews.ts";
 
 // What the runner needs from the ship's backend (docs/runner-api.md), as plain shapes. The Convex implementation is
 // below; tests use an in-memory one. Ids are plain strings here.
@@ -60,7 +61,7 @@ export interface Backend {
   events(runId: string, events: RunEvent[]): Promise<void>;
   delivered(ids: { inboxIds?: string[]; questionIds?: string[] }): Promise<void>;
   landing(runId: string): Promise<void>;
-  finish(runId: string, outcome: Outcome, opts?: { error?: string; report?: string }): Promise<void>;
+  finish(runId: string, outcome: Outcome, opts?: { error?: string; report?: string; diff?: ChangeStats }): Promise<void>;
   lookResult(runId: string, look: Look): Promise<void>;
   tools: {
     crewStatus(runId: string): Promise<ShipStatus>;
@@ -73,6 +74,8 @@ export interface Backend {
     sendBack(runId: string, task: string, notes: string): Promise<unknown>;
     finishThread(runId: string, title: string, summary: string, prs: ThreadPr[]): Promise<void>;
   };
+  /** Diffs and "Open in editor" the captain asked for on this machine (convex/diffs.ts). Absent in tests that don't need it. */
+  reviews?: ReviewBackend;
   close(): Promise<void>;
 }
 
@@ -107,7 +110,7 @@ export function convexBackend(convexUrl: string, token: string): Backend {
     },
     landing: async (id) => { await client.mutation(api.runner.landing, { ...t, runId: runId(id) }); },
     finish: async (id, outcome, opts = {}) => {
-      await client.mutation(api.runner.finish, { ...t, runId: runId(id), outcome, ...(opts.error ? { error: opts.error } : {}), ...(opts.report ? { report: opts.report } : {}) });
+      await client.mutation(api.runner.finish, { ...t, runId: runId(id), outcome, ...(opts.error ? { error: opts.error } : {}), ...(opts.report ? { report: opts.report } : {}), ...(opts.diff ? { diff: opts.diff } : {}) });
     },
     lookResult: async (id, look) => { await client.mutation(api.runner.lookResult, { ...t, runId: runId(id), look }); },
     tools: {
@@ -120,6 +123,11 @@ export function convexBackend(convexUrl: string, token: string): Backend {
       reviewTask: async (id, task) => (await client.query(api.tools.reviewTask, { ...t, runId: runId(id), task })) as ReviewInfo,
       sendBack: (id, task, notes) => client.mutation(api.tools.sendBack, { ...t, runId: runId(id), task, notes }),
       finishThread: async (id, title, summary, prs) => { await client.mutation(api.tools.finishThread, { ...t, runId: runId(id), title, summary, prs }); },
+    },
+    reviews: {
+      watch: (onWork, onError) => client.onUpdate(api.diffs.work, t, (w) => onWork(w as ReviewWork), onError),
+      put: async (diffId, answer) => { await client.mutation(api.diffs.put, { ...t, diffId: diffId as Id<"diffs">, ...answer }); },
+      editorDone: async (requestId, ok, result) => { await client.mutation(api.diffs.editorDone, { ...t, requestId: requestId as Id<"editorRequests">, ok, result }); },
     },
     close: () => client.close(),
   };

@@ -6,6 +6,8 @@ import { NewThread, QuestionCard, ThreadList, ThreadView } from "../phone/Conver
 import { CrewDetail } from "../phone/Crew.tsx";
 import { useFit } from "../phone/Phone.tsx";
 import { planName } from "../screens/setup.tsx";
+import { Review } from "../review/Review.tsx";
+import { closeReview } from "../review/open.ts";
 import "./helm.css";
 
 // The helm console on the bridge: the same computer interface as the phone, big. Threads on the
@@ -41,6 +43,7 @@ function Aboard({ onPick, picked }: { onPick: (id: string) => void; picked: stri
 export function Helm() {
   const open = useUi((s) => s.helm);
   const threadId = useUi((s) => s.threadId);
+  const review = useUi((s) => s.review);
   const { office, machine, questions, threads } = useShip();
   const now = useNow(5000);
   const scale = useFit(1600, 900, 24);
@@ -84,12 +87,15 @@ export function Helm() {
           <span className="disp hm-clock">{clock(now)}</span>
           <button className="hm-close" onClick={() => ui.set({ helm: false })} aria-label="Step away from the helm"><Key>Esc</Key> Step away</button>
         </div>
-        <div className="hm-cols">
+        <div className={`hm-cols ${review ? "reviewing" : ""}`}>
           <div className="hm-threads">
             <div className="hm-col-head"><span className="lab dim">Threads</span><Button kind="soft" size="sm" onClick={() => { setPerson(null); setComposing(true); }}>+ New</Button></div>
-            <div className="hm-scroll"><ThreadList selected={composing || person ? null : threadId} onSelect={(id) => { setPerson(null); setComposing(false); ui.set({ threadId: id }); }} progress /></div>
+            <div className="hm-scroll"><ThreadList selected={composing || person ? null : threadId} onSelect={(id) => { setPerson(null); setComposing(false); ui.set({ threadId: id, ...(ui.get().review?.threadId === id ? {} : { review: null }) }); }} progress /></div>
           </div>
           <Card className="hm-center">{center}</Card>
+          {review ? (
+            <Card className="hm-changes"><Review key={`${review.threadId}:${review.taskId}`} target={review} onClose={closeReview} big /></Card>
+          ) : (
           <div className="hm-ship-col">
             <div className="hm-scroll">
               {questions.length ? <span className="lab t-amber">Waiting on you</span> : null}
@@ -110,6 +116,7 @@ export function Helm() {
               }) : <span className="dim hm-none">None yet. Finished threads open one in each repo they change.</span>}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

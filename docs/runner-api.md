@@ -27,7 +27,7 @@ Where runs work (under `~/.offsite/worktrees/<officeId>/<thread6>/`): the comput
 - `runner.events` (mutation) `{ token, runId, events: RunEvent[] }`. Up to 200 per call. Content deltas coalesced to 100 ms. The backend keeps the reply message, the current step, questions (request.opened) and the resume cursor (session.started) up to date from these. A tool step closes the current reply paragraph, so `content.final` carries only the closing paragraph (the text since the last step), not the whole turn.
 - `runner.delivered` (mutation) `{ token, inboxIds?, questionIds? }`. Messages and answers handed to the agent.
 - `runner.landing` (mutation) `{ token, runId }`. A task's agent finished; its work is landing on the thread branch (task → review).
-- `runner.finish` (mutation) `{ token, runId, outcome: "landed" | "failed" | "interrupted", error?, report? }`. For a task, `landed` means committed and landed on the thread branch. A run always ends with a commit of whatever it changed, even when it fails or is stopped.
+- `runner.finish` (mutation) `{ token, runId, outcome: "landed" | "failed" | "interrupted", error?, report?, diff? }`. For a task, `landed` means committed and landed on the thread branch, and `diff` is its size (`{ added, removed, files }`, contracts `ChangeStats`) from its landed commits. A run always ends with a commit of whatever it changed, even when it fails or is stopped.
 
 ## Tools (the computer's, and ask_captain for crew)
 
@@ -46,3 +46,11 @@ All mutations unless noted. `task` is a task id or a key from plan_tasks; `crew`
 ## Looks
 
 - `runner.lookResult` (mutation) `{ token, runId, look }`. A designed look (contracts `Look`) for the run's crew member.
+
+## Reviews: diffs and "Open in editor"
+
+The captain asks to see a task's changes or a thread's (per repo); the runner on the machine holding the repo answers. Shapes in contracts `review.ts`.
+
+- `diffs.work` (query, subscribe to it) `{ token }` → `{ diffs: [{ diffId, knownSha, officeId, threadId, threadBranch, repo: { name, path, defaultBranch }, task: { key, branch } | null }], editors: [{ requestId, ...the same place fields }] }`. Pending diffs and editor requests for this machine.
+- `diffs.put` (mutation) `{ token, diffId, result? | unchanged: true | error? }`. `result` is a contracts `DiffResult`: `{ sha, base, stats, files: ChangedFile[], patch, truncated }`, the patch cut at `DIFF_LIMITS.patchChars` (300 KB). A task's diff is its landed commits (or, before landing, its branch against where it left the thread branch); a thread's is its branch against where it left the repo's default branch. `unchanged` when the branch still sits at `knownSha`.
+- `diffs.editorDone` (mutation) `{ token, requestId, ok, result }`. The runner opened the task's worktree (else the thread's branch for that repo, else the checkout) with `$OFFSITE_EDITOR`, `code` or `cursor` if on PATH, else the system's opener.

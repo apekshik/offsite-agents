@@ -53,3 +53,7 @@
 .thread.big .composer input { font-size: 16px; }
 .thread.big .question { max-width: 640px; }
 .helm .question .q-prompt { font-size: 14px; }
+
+/* threads | conversation | changes: the ship column gives way to the diff while it's open */
+.hm-cols.reviewing .hm-threads { width: 300px; }
+.hm-changes { width: 620px; flex: none; min-height: 0; padding: 14px 18px; display: flex; flex-direction: column; }

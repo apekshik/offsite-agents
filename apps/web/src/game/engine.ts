@@ -2,12 +2,13 @@ import * as THREE from "three";
 import {
   Captain, Collision, ComputerBot, CrewFigure, Input, Laptop, SELF_LAYER, Walker,
   buildAvatar, createPipeline, createRenderer, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
-  type ActId, type BotMood, type BuiltWorld, type Pipeline, type PropKind, type Quality, type Tone, type WorldModule,
+  type ActId, type BotMood, type BuiltWorld, type Interactable, type Pipeline, type PropKind, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
-import type { AvatarSpec, Look, Slot } from "@offsite/contracts";
+import { isWorking, type AvatarSpec, type Look, type Slot } from "@offsite/contracts";
 import { scene as sceneBridge, ui, type UiState } from "../bridge.ts";
 import { Director, type Act, type CrewView, type Direction } from "./director.ts";
 import { CrewScreen, describeSlot, faceOf, takeOverLaptop, type HelmContent, type ScreenContent } from "./screens.ts";
+import { DEFAULT_SURFACE, disposeObject, makeMore, makePackage, packageSpots, type Surface } from "./dropoff.ts";
 
 // The game: one world, the captain, and the crew as the backend sees them. The Game component feeds
 // it world.snapshot; everything else (where people go, what they do there, the helicopter, pings)
@@ -21,6 +22,23 @@ export interface Snapshot {
 
 /** The threads, for the helm's screen (threads.list). */
 export interface ThreadSummary { title: string; state: string; tasks: { total: number; landed: number }; openQuestions: number }
+
+/** A finished task, for the drop-off's packages and the desks (diffs.deliveries). */
+export interface Delivery {
+  taskId: string;
+  threadId: string;
+  title: string;
+  crewId: string | null;
+  crewName: string;
+  landedAt: number;
+  diff: { added: number; removed: number; files: number } | null;
+  /** The captain has opened its changes: no package for it. */
+  seen: boolean;
+}
+
+const TAGS = ["#4fe3ff", "#ffc861", "#6dffa8", "#c7a6ff", "#ff9cac", "#8fd8ff"];
+const short = (s: string, n = 34) => (s.length > n ? `${s.slice(0, n - 1).replace(/\s+\S*$/, "")}…` : s);
+const sizeOf = (d: Delivery["diff"]) => (d ? ` · +${d.added} −${d.removed}` : "");
 
 export interface GameOptions {
   canvas: HTMLCanvasElement;
@@ -96,6 +114,14 @@ export class Game {
   /** Monitors someone is working at (and the helm's). Only these animate: each redraw is a texture upload. */
   private liveMonitors = new Set<string>(["helm"]);
   private snapshot: Snapshot | null = null;
+  /** Finished tasks, newest first; unseen ones are packages on the drop-off. */
+  private deliveries: Delivery[] = [];
+  private directions: Direction[] = [];
+  private shelf = new THREE.Group();
+  private packages = new Map<string, { obj: THREE.Group; d: Delivery }>();
+  private moreSign: THREE.Sprite | null = null;
+  private shelfKey = "";
+  private usesKey = "";
   private lastPlan = 0;
   private ping: { crewId: string; at: number; beacon: THREE.Group; line: THREE.Line; routedAt: number } | null = null;
   private waterY = 0;
@@ -128,6 +154,8 @@ export class Game {
     this.waterY = typeof this.world.root.userData["waterY"] === "number" ? this.world.root.userData["waterY"] : 0;
 
     this.collision = new Collision().add(...this.world.colliders).build();
+    this.shelf.name = "dropoff-packages";
+    scene.add(this.shelf);
     for (const s of this.world.layout.slots) this.slots.set(s.id, s);
     this.director = new Director(this.world.layout.slots);
 
@@ -165,13 +193,21 @@ export class Game {
     });
     scene.add(this.captain.object);
     this.captain.onPrompt = (it) => ui.set({ prompt: it ? { id: it.id, label: it.label } : null });
-    this.captain.onUse = (it) => { if (it.id === "helm") this.openInterface({ helm: true }); };
+    this.captain.onUse = (it) => {
+      if (it.id === "helm") this.openInterface({ helm: true });
+      // A package on the drop-off, or a desk whose crew member delivered something: its changes.
+      const taskId = it.id.startsWith("box:") ? it.id.slice(4) : it.id.startsWith("desk:") ? it.id.split(":")[2] : null;
+      const d = taskId ? this.deliveries.find((x) => x.taskId === taskId) : undefined;
+      if (d) this.openReview(d);
+    };
     this.captain.onView = (view) => ui.set({ view });
     this.captain.onPointerLock = (pointerLocked) => ui.set({ pointerLocked });
     this.captain.onClick = (ndc) => {
       const hit = pick(ndc, camera, [...this.bodies.values()].map((b) => b.fig.object));
       const body = [...this.bodies.values()].find((b) => b.fig.object === hit);
-      if (body) this.openInterface({ crewCard: body.id }); // let go of the mouse so the card's buttons work
+      if (body) { this.openInterface({ crewCard: body.id }); return; } // let go of the mouse so the card's buttons work
+      const pkg = this.packageAt(ndc);
+      if (pkg) this.openReview(pkg);
     };
     this.unsub = ui.subscribe(() => this.onUi(ui.get()));
     this.onUi(ui.get());
@@ -198,6 +234,11 @@ export class Game {
   private openInterface(patch: Partial<UiState>) {
     if (document.pointerLockElement) document.exitPointerLock();
     ui.set(patch);
+  }
+
+  /** A delivered task's changes: the interface opens them (the phone, or the helm's third column). */
+  private openReview(d: Delivery) {
+    this.openInterface({ review: { threadId: d.threadId, taskId: d.taskId }, threadId: d.threadId, crewCard: null });
   }
 
   private phoneWas = "";
@@ -228,6 +269,14 @@ export class Game {
     this.plan(now);
   }
 
+  /** Finished tasks (diffs.deliveries): packages on the drop-off, and what each desk offers. */
+  setDeliveries(list: Delivery[]) {
+    this.deliveries = list;
+    if (!this.world) return;
+    this.refreshShelf();
+    this.refreshUses();
+  }
+
   /** The threads, for the helm's screen. */
   setThreads(threads: ThreadSummary[]) {
     this.threads = threads;
@@ -248,6 +297,9 @@ export class Game {
     for (const [id, b] of this.bodies) if (!seen.has(id)) this.removeBody(b);
     this.paintScreens(snap, directions);
     this.directComputer(snap.crew.find((c) => c.role === "computer"), now);
+    this.directions = directions;
+    this.refreshShelf();
+    this.refreshUses();
   }
 
   private makeBody(view: Snapshot["crew"][number], d: Direction): Body {
@@ -346,7 +398,7 @@ export class Game {
     const since = (view.live as { startedAt?: number | null } | null)?.startedAt ?? null;
     switch (d.activity) {
       case "asking": return { kind: "asking", name: view.name, face, task, prompt: question ?? "", step };
-      case "landed": return { kind: "landed", name: view.name, face, task: view.lastEnded?.taskTitle ?? task };
+      case "landed": return { kind: "landed", name: view.name, face, task: view.lastEnded?.taskTitle ?? task, diff: view.lastEnded?.diff ?? null };
       case "failed": return { kind: "failed", name: view.name, face, task: view.lastEnded?.taskTitle ?? task, step };
       case "idle": case "arriving": return null;
       default: return { kind: "working", activity: d.activity, name: view.name, face, task, step, since };
@@ -448,6 +500,73 @@ export class Game {
     this.bot.bot.setMood(d.mood as BotMood);
   }
 
+  // ---- the drop-off: a package per delivered task the captain hasn't opened ----
+
+  private get dropoff(): Slot | undefined { return this.world.layout.slots.find((s) => s.kind === "dropoff"); }
+
+  /** Unseen deliveries, minus any still being carried there. Rebuilt only when that list changes. */
+  private refreshShelf() {
+    const slot = this.dropoff;
+    if (!slot || !this.snapshot) return;
+    const carried = new Set<string>();
+    for (const d of this.directions) {
+      if (!d.carrying) continue;
+      const id = this.snapshot.crew.find((c) => c._id === d.crewId)?.lastEnded?.taskId;
+      if (id) carried.add(id);
+    }
+    const waiting = this.deliveries.filter((d) => !d.seen && !carried.has(d.taskId));
+    const key = waiting.map((d) => `${d.taskId}:${d.diff?.added ?? ""}`).join(",");
+    if (key === this.shelfKey) return;
+    this.shelfKey = key;
+    for (const p of this.packages.values()) disposeObject(p.obj);
+    this.packages.clear();
+    if (this.moreSign) { disposeObject(this.moreSign); this.moreSign = null; }
+    const surface = (this.world.root.userData["dropoffSurface"] as Surface | undefined) ?? DEFAULT_SURFACE;
+    const { spots, more } = packageSpots(slot, waiting.map((d) => d.taskId), surface);
+    spots.forEach((at, i) => {
+      const d = waiting[i]!;
+      const obj = makePackage(TAGS[hash(d.crewId ?? d.crewName) % TAGS.length]!, d.taskId);
+      obj.position.set(at.x, at.y, at.z);
+      obj.rotation.y = at.yaw;
+      obj.userData["taskId"] = d.taskId;
+      this.shelf.add(obj);
+      this.packages.set(d.taskId, { obj, d });
+    });
+    if (more) {
+      this.moreSign = makeMore(waiting.length - spots.length);
+      this.moreSign.position.set(more.x, more.y, more.z);
+      this.shelf.add(this.moreSign);
+    }
+  }
+
+  /** What E can use besides the world's own: each package, and each desk whose crew member has delivered something. */
+  private refreshUses() {
+    const uses: Interactable[] = [];
+    for (const { obj, d } of this.packages.values()) {
+      uses.push({ id: `box:${d.taskId}`, label: `Open ${d.crewName}'s changes · ${short(d.title, 30)}${sizeOf(d.diff)}`, at: obj.position.clone(), radius: 1.7 });
+    }
+    const dirs = new Map(this.directions.map((d) => [d.crewId, d]));
+    for (const [desk, owner] of this.deskOwner) {
+      const dir = dirs.get(owner);
+      if (!dir || isWorking(dir.activity) || dir.activity === "asking") continue;
+      const d = this.deliveries.find((x) => x.crewId === owner);
+      const slot = this.slots.get(desk);
+      if (!d || !slot) continue;
+      uses.push({ id: `desk:${desk}:${d.taskId}`, label: `See ${d.crewName}'s last delivery · ${short(d.title, 30)}${sizeOf(d.diff)}`, at: new THREE.Vector3(slot.pos[0], slot.pos[1] + 1.1, slot.pos[2]), radius: 2.0 });
+    }
+    const key = uses.map((u) => `${u.id}|${u.label}`).join(",");
+    if (key === this.usesKey) return;
+    this.usesKey = key;
+    this.captain.setInteractables([...this.world.interactables, ...uses]);
+  }
+
+  /** The package under ndc (the crosshair is 0, 0), within reach. */
+  private packageAt(ndc: THREE.Vector2): Delivery | null {
+    if (!this.packages.size) return null;
+    const hit = pick(ndc, this.camera, [...this.packages.values()].map((p) => p.obj), 12);
+    return hit ? [...this.packages.values()].find((p) => p.obj === hit)?.d ?? null : null;
+  }
+
   // ---- pings: "Find" on the phone ----
 
   private setPing(p: UiState["ping"]) {
@@ -530,9 +649,13 @@ export class Game {
       const hit = pick(new THREE.Vector2(0, 0), this.camera, [...this.bodies.values()].filter((b) => b.fig.object.visible).map((b) => b.fig.object));
       const body = [...this.bodies.values()].find((b) => b.fig.object === hit);
       if (body && body.fig.object.position.distanceTo(this.captain.position) < 25) aim = { crewId: body.id, name: body.name, line: body.dir?.label ?? "" };
+      else {
+        const d = this.packageAt(new THREE.Vector2(0, 0));
+        if (d) aim = { crewId: "", name: d.crewName, line: `${short(d.title)}${sizeOf(d.diff)}`, hint: "Click to see the changes" };
+      }
     }
     const was = ui.get().aim;
-    if (was?.crewId !== aim?.crewId || was?.line !== aim?.line) ui.set({ aim });
+    if (was?.crewId !== aim?.crewId || was?.line !== aim?.line || was?.name !== aim?.name) ui.set({ aim });
   }
 
   private v = new THREE.Vector3();
@@ -586,6 +709,8 @@ export class Game {
     sceneBridge.captain = () => null;
     sceneBridge.where = () => null;
     for (const b of [...this.bodies.values()]) this.removeBody(b);
+    for (const p of this.packages.values()) disposeObject(p.obj);
+    if (this.moreSign) disposeObject(this.moreSign);
     for (const m of this.monitors.values()) m.dispose();
     this.idleScreen.dispose();
     for (const l of this.laptops.values()) l.screen.dispose();

@@ -47,6 +47,15 @@ function useKeys() {
   }, []);
   // The helm takes over the screen: the phone goes back in the pocket.
   useEffect(() => ui.subscribe(() => { if (ui.get().helm && phone.get().fold !== "away") phone.putAway(); }), []);
+  // Changes opened away from the helm (a "View changes", a package on the counter, E at a desk): the phone unfolds onto them.
+  useEffect(() => {
+    let was = ui.get().review;
+    return ui.subscribe(() => {
+      const r = ui.get().review;
+      if (r && r !== was && !ui.get().helm) phone.set({ fold: "open", tab: "threads", hiring: false });
+      was = r;
+    });
+  }, []);
 }
 
 export function Overlay({ officeId }: { officeId: string }) {

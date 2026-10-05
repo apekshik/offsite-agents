@@ -1,4 +1,4 @@
-import type { Look, RunEvent, RunKind } from "@offsite/contracts";
+import type { ChangeStats, Look, RunEvent, RunKind } from "@offsite/contracts";
 import type { Backend, LiveRun, Outcome, RepoInfo, ReviewInfo, RunContext, ShipStatus, ThreadPr, Work } from "./backend.ts";
 
 // An in-memory ship that follows the backend's rules (convex/runner.ts, tools.ts, flow.ts) closely enough to drive
@@ -7,7 +7,7 @@ import type { Backend, LiveRun, Outcome, RepoInfo, ReviewInfo, RunContext, ShipS
 
 interface Crew { id: string; name: string; handle: string; role: "computer" | "crew"; harness: "sim" | "claude" | "codex" }
 interface Thread { id: string; title: string; branch: string | null; state: string; prUrl: string | null; prs: ThreadPr[]; finished: { title: string; summary: string } | null }
-interface Task { id: string; threadId: string; key: string; repo: string; title: string; brief: string; dependsOn: string[]; assignee: string | null; state: string; branch: string | null; report: string | null; notes: string | null }
+interface Task { id: string; threadId: string; key: string; repo: string; title: string; brief: string; dependsOn: string[]; assignee: string | null; state: string; branch: string | null; report: string | null; notes: string | null; diff?: ChangeStats | null }
 interface Run { id: string; kind: RunKind; threadId: string | null; taskId: string | null; crewId: string; state: string; prompt: string; interrupt: boolean; error: string | null; report: string | null; worktree: string | null }
 interface Question { id: string; runId: string; requestId: string; prompt: string; answer: string | null; delivered: boolean }
 
@@ -183,7 +183,7 @@ export class FakeShip implements Backend {
     this.notify();
   }
 
-  async finish(runId: string, outcome: Outcome, opts: { error?: string; report?: string } = {}) {
+  async finish(runId: string, outcome: Outcome, opts: { error?: string; report?: string; diff?: ChangeStats } = {}) {
     const run = this.runs.find((r) => r.id === runId)!;
     if (!["queued", "starting", "working", "landing"].includes(run.state)) return;
     run.state = outcome; run.error = opts.error ?? null; run.report = opts.report ?? null;
@@ -194,7 +194,7 @@ export class FakeShip implements Backend {
     if (run.kind === "task" && task && thread) {
       const all = this.tasks.filter((t) => t.threadId === thread.id);
       if (outcome === "landed") {
-        task.state = "landed"; task.report = opts.report ?? null;
+        task.state = "landed"; task.report = opts.report ?? null; task.diff = opts.diff ?? null;
         const done = all.filter((t) => t.state === "landed").length;
         this.queueComputer(thread, `@${crew.handle} landed "${task.title}" (${task.key}) on the thread's branch. ${done} of ${all.length} tasks have landed.\nTheir report: ${opts.report ?? "(none)"}`);
       } else if (outcome === "failed") {

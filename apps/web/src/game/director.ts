@@ -20,7 +20,7 @@ export interface CrewView {
     taskTitle: string | null;
     step: { kind: string; summary: string; since: number } | null;
   } | null;
-  lastEnded: { state: string; endedAt: number; taskTitle?: string | null } | null;
+  lastEnded: { state: string; endedAt: number; taskTitle?: string | null; taskId?: string | null; threadId?: string | null; diff?: { added: number; removed: number; files: number } | null } | null;
   lastStep: string | null;
   asking: boolean;
 }
@@ -48,6 +48,8 @@ export interface Direction {
   marker: "asking" | null;
   /** The nameplate's second line: "Editing · Settings toggle". */
   label: string;
+  /** Walking a finished task's package to the drop-off (it isn't on the counter yet). */
+  carrying: boolean;
   /** What their screen shows (the laptop, or the desk's monitor), when they have one. */
   screen: string[] | null;
 }
@@ -172,13 +174,17 @@ export class Director {
     const title = c.live?.taskTitle ?? c.live?.threadTitle ?? null;
     const short = title && title.length > 26 ? `${title.slice(0, 25).replace(/\s+\S*$/, "")}…` : title;
     const doneTitle = c.lastEnded?.taskTitle;
+    // On the way to the drop-off with the package: "Delivering"; once it's on the counter, "Delivered".
+    const carrying = activity === "landed" && (this.errands.get(c._id)?.deliveredAt ?? null) === null;
+    const landedWord = carrying ? "Delivering" : ACTIVITY_LABEL.landed;
     const label = short && isWorking(activity) ? `${ACTIVITY_LABEL[activity]} · ${short}`
-      : activity === "landed" && doneTitle ? `${ACTIVITY_LABEL.landed} · ${doneTitle.length > 26 ? `${doneTitle.slice(0, 25).replace(/\s+\S*$/, "")}…` : doneTitle}`
+      : activity === "landed" && doneTitle ? `${landedWord} · ${doneTitle.length > 26 ? `${doneTitle.slice(0, 25).replace(/\s+\S*$/, "")}…` : doneTitle}`
+      : activity === "landed" ? landedWord
       : ACTIVITY_LABEL[activity];
     const recentArrival = now - c.arrivesAt < 90_000;
     const spawn = recentArrival ? this.slots.find((s) => s.kind === "crew-spawn")?.id ?? null : null;
     const visible = now >= c.arrivesAt + ARRIVAL.stepOutMs;
-    const base = { crewId: c._id, activity, visible, spawnSlot: spawn, walkAct: null, marker: null, label } as const;
+    const base = { crewId: c._id, activity, visible, spawnSlot: spawn, walkAct: null, marker: null, label, carrying } as const;
     const seat = this.seats.get(c._id);
     const current = seat ? this.byId.get(seat.slotId) : undefined;
 

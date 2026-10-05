@@ -39,10 +39,10 @@ export const phone = {
   /** Out of the pocket, folded: the cover screen. */
   takeOut: () => set({ fold: "cover" }),
   unfold: () => set({ fold: "open" }),
-  putAway: () => set({ fold: "away", hiring: false }),
+  putAway: () => { ui.set({ review: null }); set({ fold: "away", hiring: false }); },
   /** Straight to a thread, unfolded. */
   openThread(threadId: string | null) {
-    ui.set({ threadId, helm: false });
+    ui.set({ threadId, helm: false, review: null });
     set({ fold: "open", tab: "threads", hiring: false });
   },
   openCrew(crewId: string | null) {
