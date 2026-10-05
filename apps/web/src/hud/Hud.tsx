@@ -69,7 +69,7 @@ export function Hud() {
       {!busy ? (
         <div className="hud-hints">
           <span className={`hud-hint ${questions.length ? "asking" : ""}`}>
-            <Key>F</Key>{fold === "cover" ? "Unfold" : "Phone"}
+            <Key>F</Key>{fold === "cover" ? "Put away · FF unfold" : "Phone · FF unfold"}
             {questions.length ? <span className="pill amber pulse">{questions.length}</span> : null}
           </span>
           <span className="hud-hint"><Key>V</Key>{view === "first" ? "Third person" : "First person"}</span>

@@ -25,7 +25,7 @@ function set(patch: Partial<PhoneState>) {
   state = { ...state, ...patch };
   // The game releases the mouse and ignores WASD while the phone is out, or the customizer is open.
   const out = state.fold !== "away" || (state.creator !== null && !ui.get().helm);
-  ui.set({ phone: out ? "open" : "closed" });
+  ui.set({ phone: out ? "open" : "closed", phoneUnfolded: state.fold === "open" });
   for (const fn of listeners) fn();
 }
 
@@ -53,11 +53,11 @@ export const phone = {
     ui.set({ helm: false });
     set({ fold: "open", tab: "ship", hiring: false });
   },
-  /** F: out → unfold → away. */
-  cycle() {
+  /** F: the half view. Out of the pocket onto its cover; from the cover, back away; unfolded, back to the cover. */
+  tap() {
     if (state.fold === "away") set({ fold: "cover" });
-    else if (state.fold === "cover") set({ fold: "open" });
-    else set({ fold: "away", hiring: false });
+    else if (state.fold === "cover") set({ fold: "away", hiring: false });
+    else set({ fold: "cover" });
   },
   editLook: (who: string) => set({ creator: who }),
   closeCreator: () => set({ creator: null }),

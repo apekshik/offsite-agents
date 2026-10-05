@@ -200,12 +200,14 @@ export class Game {
     ui.set(patch);
   }
 
-  private phoneWas: UiState["phone"] = "closed";
+  private phoneWas = "";
   private pingWas: UiState["ping"] = null;
   private onUi(s: UiState) {
-    if (s.phone !== this.phoneWas) {
-      this.phoneWas = s.phone;
-      this.captain.setPhoneOut(s.phone === "open", true);
+    // The 3D phone in your hands follows the one on screen: out or away, folded (cover) or open.
+    const phoneNow = `${s.phone}:${s.phoneUnfolded}`;
+    if (phoneNow !== this.phoneWas) {
+      this.phoneWas = phoneNow;
+      this.captain.setPhoneOut(s.phone === "open", s.phoneUnfolded);
       if (s.phone === "open" && document.pointerLockElement) document.exitPointerLock();
     }
     if (s.helm && document.pointerLockElement) document.exitPointerLock();

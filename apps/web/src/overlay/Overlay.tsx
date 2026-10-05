@@ -18,6 +18,7 @@ const editable = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCon
 
 function useKeys() {
   useEffect(() => {
+    let lastF = 0;
     const down = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.code === "Escape") {
@@ -34,7 +35,11 @@ function useKeys() {
       if (e.code === "KeyF" && !e.repeat && !editable(e.target)) {
         if (ui.get().helm || phone.get().creator) return;
         e.preventDefault();
-        phone.cycle();
+        // F is the half view; a quick second F unfolds it. The first press acts at once, so a single F
+        // never waits to find out whether a second is coming.
+        const now = performance.now();
+        if (now - lastF < 320) { phone.unfold(); lastF = 0; }
+        else { phone.tap(); lastF = now; }
       }
     };
     addEventListener("keydown", down);

@@ -15,6 +15,8 @@ import { useSyncExternalStore } from "react";
 export interface UiState {
   /** The foldable phone: closed in your pocket, or open in your hands. */
   phone: "closed" | "open";
+  /** While the phone is out: unfolded (true) or showing its cover (false). Written by the interface. */
+  phoneUnfolded: boolean;
   /** The big console on the bridge, opened by walking up to the helm and pressing E. */
   helm: boolean;
   view: "first" | "third";
@@ -33,6 +35,7 @@ export interface UiState {
 
 const initial: UiState = {
   phone: "closed",
+  phoneUnfolded: false,
   helm: false,
   view: "third",
   ping: null,

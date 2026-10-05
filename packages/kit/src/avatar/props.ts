@@ -285,7 +285,8 @@ export class FishingRod implements Prop {
 /** Draws a phone screen: the ship's time, and who needs the captain. Swap it with FoldPhone.draw. */
 export type PhoneDraw = (ctx: CanvasRenderingContext2D, w: number, h: number, which: "cover" | "inner") => void;
 
-export const PHONE = { w: 0.068, h: 0.156, half: 0.0068 } as const;
+/** One half of the foldable (the cover screen's size): about 0.7 wide to 1 tall, so it opens to ~1.4:1, wider than tall. */
+export const PHONE = { w: 0.088, h: 0.126, half: 0.0068 } as const;
 
 function defaultPhoneScreen(ctx: CanvasRenderingContext2D, w: number, h: number, which: "cover" | "inner") {
   ctx.fillStyle = "#05070b";

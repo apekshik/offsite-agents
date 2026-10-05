@@ -10,7 +10,7 @@ import { phone, usePhone, type Fold, type PhoneTab } from "./state.ts";
 import "./phone.css";
 
 // The foldable phone. F takes it out (the cover screen: who needs you, the latest delivery, the
-// crew); F again unfolds it on a hinge into the computer's interface (threads, the crew, the ship);
+// crew); a double F unfolds it on a hinge into the computer's interface (threads, the crew, the ship);
 // F once more puts it away. Esc puts it away from anywhere.
 
 /** How much to shrink a w×h design so it fits the window with a margin. */
@@ -81,7 +81,7 @@ function Cover() {
           </div>
         ))}
       </div>
-      <div className="cv-foot"><Key>F</Key> unfold</div>
+      <div className="cv-foot"><Key>F</Key><Key>F</Key> unfold <Key>F</Key> put away</div>
     </div>
   );
 }
@@ -192,7 +192,7 @@ export function Phone() {
   const open = (cls: string) => (
     <div className={`phone-open-wrap ${cls}`} style={{ "--s": openScale } as CSSProperties}>
       <div className="device open"><OpenPhone /></div>
-      <div className="device-hint"><Key>F</Key> put away <Key>Esc</Key> close</div>
+      <div className="device-hint"><Key>F</Key> half view <Key>Esc</Key> put away</div>
     </div>
   );
 
