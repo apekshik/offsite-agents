@@ -7,7 +7,7 @@
 //   node scripts/captain.mjs thread <officeId> <text>  → prints threadId
 //   node scripts/captain.mjs watch <officeId> <threadId> [answer]   → polls until the thread is done, answering questions
 //   node scripts/captain.mjs look <officeId> <description>
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(/\/$/, "");
 const { ConvexHttpClient } = await import(`${ROOT}/node_modules/convex/dist/esm/browser/index.js`);
@@ -51,7 +51,8 @@ if (cmd === "setup") {
   }
   const messages = await client.query(api.messages.list, { threadId });
   for (const m of messages) console.log(`--- [${m.kind}] ${m.author.kind}${m.streaming ? " (streaming)" : ""}\n${m.text}`);
-  writeFileSync(new URL("./last-thread.json", import.meta.url), JSON.stringify({ thread: await client.query(api.threads.get, { threadId }), tasks: await client.query(api.tasks.list, { threadId }), messages }, null, 1));
+  mkdirSync(new URL("../.shots/", import.meta.url), { recursive: true });
+  writeFileSync(new URL("../.shots/last-thread.json", import.meta.url), JSON.stringify({ thread: await client.query(api.threads.get, { threadId }), tasks: await client.query(api.tasks.list, { threadId }), messages }, null, 1));
 } else if (cmd === "look") {
   const crew = (await client.query(api.crew.list, { officeId: args[0] })).filter((c) => c.role === "crew" && !c.look);
   await client.mutation(api.crew.describeLook, { crewId: crew[0]._id, prompt: args[1] });
