@@ -7,6 +7,7 @@ import { NewThread, QuestionCard, ThreadList, ThreadView } from "./Conversation.
 import { CrewDetail, CrewList, HireForm } from "./Crew.tsx";
 import { ShipDetail, ShipSummary } from "./Ship.tsx";
 import { phone, usePhone, type Fold, type PhoneTab } from "./state.ts";
+import { forMe, useAboard } from "../people/people.ts";
 import { Review, Stats } from "../review/Review.tsx";
 import { closeReview, openReview } from "../review/open.ts";
 import { HelmIcon, walkToHelm } from "../overlay/walk.tsx";
@@ -34,7 +35,10 @@ function MachineStatus({ withTime }: { withTime?: boolean }) {
 // ---- closed: the cover screen ----
 
 function Cover() {
-  const { office, crew, questions } = useShip();
+  const { office, crew, questions: all, officeId } = useShip();
+  const aboard = useAboard(officeId);
+  // Only what's for you (a friend aboard isn't asked for the captain's permissions).
+  const questions = all.filter((q) => aboard.loading || forMe(q, aboard.me, aboard.isOwner));
   const now = useNow(1000);
   const working = crew.filter((c) => isWorking(activityOf(c, now))).length;
   const off = crew.filter((c) => activityOf(c, now) === "idle").length;

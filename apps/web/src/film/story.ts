@@ -54,7 +54,7 @@ export const REQUEST = "Add dark mode and a billing page";
 
 // ---- the crew ----
 
-interface CrewDef {
+export interface CrewDef {
   key: string;
   name: string;
   specialty: string;
@@ -65,7 +65,7 @@ interface CrewDef {
   arrivesAt?: number;
 }
 
-const CREW: CrewDef[] = [
+export const CREW: CrewDef[] = [
   { key: "wren", name: "Wren", specialty: "Design systems, CSS, the details", harness: "claude", preset: "wren" },
   { key: "otis", name: "Otis", specialty: "Front end, never in a hurry", harness: "claude", preset: "otis" },
   { key: "kofi", name: "Kofi", specialty: "First mate: settings, accounts, glue", harness: "codex", preset: "kofi" },
@@ -256,7 +256,7 @@ export interface ShipState {
   me: NonNullable<Users>;
 }
 
-const REPOS = [
+export const REPOS = [
   { _id: id<"repos">("repo_web"), name: "web", machineId: id<"machines">("machine_studio"), path: "~/code/acme-web", defaultBranch: "main", setupCommand: "pnpm install" },
   { _id: id<"repos">("repo_api"), name: "api", machineId: id<"machines">("machine_studio"), path: "~/code/acme-api", defaultBranch: "main", setupCommand: "pnpm install" },
 ];
@@ -270,6 +270,8 @@ function look(def: CrewDef): { avatar: unknown; look: unknown } {
   return { avatar: r.spec, look: r.look };
 }
 const LOOKS = new Map(CREW.map((c) => [c.key, look(c)]));
+/** A story crew member's avatar and look, by key (the demo reuses the cast). */
+export const lookOf = (key: string) => LOOKS.get(key) ?? look({ key, name: key, specialty: "", harness: "claude", preset: null });
 
 const threadOf = (key: string) => THREADS.find((t) => t.key === key)!;
 const taskOf = (key: string) => TASKS.find((t) => t.key === key)!;
@@ -349,12 +351,13 @@ export function shipAt(epoch: number, s: number, seen: ReadonlySet<string> = new
   const questions: QuestionRow[] = open.map((q) => ({
     _id: id<"questions">(`question_${q.key}`), _creationTime: ms(q.from), officeId: OFFICE_ID, threadId: id<"threads">(`thread_${q.thread}`),
     runId: id<"runs">(`run_${q.task}`), crewId: id<"crew">(crewId(q.crew)), requestId: q.key, kind: q.kind, prompt: q.prompt, options: q.options,
-    answer: null, answeredAt: null, deliveredAt: null, createdAt: ms(q.from), crewName: CREW.find((c) => c.key === q.crew)!.name,
+    answer: null, answeredAt: null, deliveredAt: null, askedOf: null, createdAt: ms(q.from), crewName: CREW.find((c) => c.key === q.crew)!.name,
   }));
 
   const office = {
     _id: OFFICE_ID, _creationTime: ms(-86_400 * 30), ownerId: id<"users">("user_captain"), name: "Sea Legs", world: "yacht",
     defaultHarness: "claude" as const, createdAt: ms(-86_400 * 30), repos: REPOS,
+    role: "owner" as const, owner: { _id: id<"users">("user_captain"), name: "Captain" }, membersCanAsk: true,
     machine: { _id: id<"machines">("machine_studio"), name: "Studio", lastSeenAt: ms(s) },
   };
   const snapshot: Snapshot = {
@@ -393,6 +396,7 @@ export function shipAt(epoch: number, s: number, seen: ReadonlySet<string> = new
       tasks: { total: mine.length, landed: landed.length },
       diff: landed.length ? landed.reduce((a, t) => ({ added: a.added + t.diff!.added, removed: a.removed + t.diff!.removed, files: a.files + t.diff!.files }), { added: 0, removed: 0, files: 0 }) : null,
       openQuestions: questions.filter((q) => q.threadId === `thread_${th.key}`).length,
+      startedBy: null,
     });
   }
   threads.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
@@ -425,7 +429,7 @@ export function shipAt(epoch: number, s: number, seen: ReadonlySet<string> = new
       { harness: "codex", installed: true, auth: "authenticated", plan: "pro", profile: null },
     ],
   }];
-  const me = { _id: id<"users">("user_captain"), name: "Captain", email: null, avatar: null, look: null };
+  const me = { _id: id<"users">("user_captain"), name: "Captain", email: null, avatar: null, look: null, aboardId: null };
   return { snapshot, threads, messages, tasks, deliveries, office, machines, me };
 }
 
@@ -487,14 +491,14 @@ export function diffAt(epoch: number, s: number, threadKey: string, taskKey: str
   };
 }
 
-const SWEEP_FILES = [
+export const SWEEP_FILES = [
   { path: "src/components/Card.tsx", oldPath: null, status: "modified" as const, added: 14, removed: 9, binary: false },
   { path: "src/components/Table.tsx", oldPath: null, status: "modified" as const, added: 22, removed: 15, binary: false },
   { path: "src/theme/tokens.css", oldPath: null, status: "modified" as const, added: 31, removed: 2, binary: false },
   { path: "src/components/Modal.tsx", oldPath: null, status: "modified" as const, added: 11, removed: 8, binary: false },
 ];
 
-const SWEEP_PATCH = `diff --git a/src/components/Card.tsx b/src/components/Card.tsx
+export const SWEEP_PATCH = `diff --git a/src/components/Card.tsx b/src/components/Card.tsx
 index 3c41e2a..8d0f7b1 100644
 --- a/src/components/Card.tsx
 +++ b/src/components/Card.tsx
@@ -605,12 +609,12 @@ index 0d9e1b7..5aa21f8 100644
  }
 `;
 
-const API_FILES = [
+export const API_FILES = [
   { path: "src/billing/subscriptions.ts", oldPath: null, status: "added" as const, added: 64, removed: 0, binary: false },
   { path: "src/routes/index.ts", oldPath: null, status: "modified" as const, added: 4, removed: 0, binary: false },
 ];
 
-const API_PATCH = `diff --git a/src/billing/subscriptions.ts b/src/billing/subscriptions.ts
+export const API_PATCH = `diff --git a/src/billing/subscriptions.ts b/src/billing/subscriptions.ts
 new file mode 100644
 index 0000000..4be1c0a
 --- /dev/null

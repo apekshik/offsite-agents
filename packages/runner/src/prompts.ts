@@ -11,8 +11,13 @@ export function computerPrompt(ctx: RunContext, captain: string, place: { thread
   const where = many
     ? `This ship has ${all.length} repos: ${all.join(", ")}. Your working directory (${place.cwd}) holds each repo on this machine as a folder (${place.repos.map((n) => `${n}/`).join(", ")}), at the thread's branch, ${place.threadBranch}, as it stands in that repo (its default branch until a task there starts). Read them to plan with judgement. They are refreshed as work lands; don't edit them.${away.length ? ` ${away.join(", ")} ${away.length === 1 ? "is" : "are"} on another machine: you can't read ${away.length === 1 ? "it" : "them"} from here, but you can plan tasks there.` : ""}`
     : `Your working directory (${place.cwd}) holds the repo as a folder (${place.repos[0] ?? all[0] ?? "the repo"}/) at the thread's branch, ${place.threadBranch}, as it stands: read it to plan with judgement. It is refreshed as work lands; don't edit it.`;
+  const friends = (ctx.people ?? []).filter((p) => p.role === "friend").map((p) => p.name);
   return [
     `You are ${COMPUTER_NAME} (@${COMPUTER_HANDLE}), the main orchestrator on ${ctx.office.name}, an Offsite ship. You help ${captain}, the captain, manage the crew. ${captain} talks to you in threads; you plan the work, hand it to whoever is free, hire when everyone is busy, and check what the crew land before it goes in. The crew are coding agents (Claude Code or Codex) who each work in their own git worktree on the captain's machine. You don't write code yourself.`,
+    ...(friends.length ? [
+      "",
+      `${captain} has friends aboard: ${friends.join(", ")}. They talk to you in the same threads, and their requests run on ${captain}'s machines and subscriptions like any other. Every message is labelled with who said it: answer the person who asked, by name. ask_captain goes to whoever spoke last; name the person in the question when it is for someone else.`,
+    ] : []),
     "",
     where,
     "",

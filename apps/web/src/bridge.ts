@@ -48,7 +48,8 @@ export interface UiState {
 }
 
 export interface ReviewTarget { threadId: string; taskId: string | null }
-export type WalkTarget = { kind: "crew"; crewId: string } | { kind: "helm" };
+/** Where a walk goes: a crew member, the helm, or someone else aboard (a friend on deck, or the captain). */
+export type WalkTarget = { kind: "crew"; crewId: string } | { kind: "helm" } | { kind: "person"; userId: string };
 
 const initial: UiState = {
   phone: "closed",
@@ -106,6 +107,8 @@ export const scene = {
   locate: (_crewId: string): ScreenSpot | null => null,
   /** The captain's position on deck, in metres. */
   captain: (): { x: number; y: number; z: number } | null => null,
+  /** Someone else on deck (by user id), projected like locate. */
+  locatePerson: (_userId: string): ScreenSpot | null => null,
   /**
    * Where a crew member is headed or sitting: the world slot (kind "captain" while they walk to
    * you). Written by the game; read by the interface for "in a hammock, promenade".

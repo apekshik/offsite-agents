@@ -4,7 +4,9 @@ Ready Player One
   https://github.com/apekshik/ready-player-one
   Copyright (c) 2026 Apekshik Panigrahi. Contributed to Offsite under the MIT License.
   The 3D kit (rendering, sky, materials, avatars, poses, collision), the "Bracket" design system,
-  and dev sign-in.
+  and dev sign-in. Friends aboard: presence and WebRTC signaling (convex/presence.ts,
+  convex/signals.ts), the peer-to-peer mesh (apps/web/src/net/peers.ts) and proximity voice
+  (apps/web/src/voice/voice.ts).
 
 Beam
   https://github.com/SupraluminalIntelligence/beam

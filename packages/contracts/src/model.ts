@@ -40,8 +40,11 @@ export type ThreadState = z.infer<typeof ThreadState>;
 export const MessageKind = z.enum(["text", "report", "plan", "system"]);
 export type MessageKind = z.infer<typeof MessageKind>;
 
-/** Who said it: you (the captain), Computah or a crew member, or the ship itself. */
-export type Author = { kind: "captain" } | { kind: "crew"; crewId: string } | { kind: "system" };
+/**
+ * Who said it: a person aboard (the captain, or a friend they invited: `userId`; none on messages from before friends,
+ * which are the captain's), Computah or a crew member, or the ship itself.
+ */
+export type Author = { kind: "captain"; userId?: string } | { kind: "crew"; crewId: string } | { kind: "system" };
 
 /** Limits that keep one office's state small. */
 export const LIMITS = {

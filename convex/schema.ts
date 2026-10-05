@@ -16,7 +16,11 @@ export const taskState = v.union(
 );
 export const threadState = v.union(v.literal("open"), v.literal("working"), v.literal("done"), v.literal("archived"));
 export const author = v.union(
-  v.object({ kind: v.literal("captain") }),
+  /**
+   * A person aboard: the captain (the ship's owner), or a friend they invited (a member). `userId` says who; rows from
+   * before friends came aboard have none, and are the owner's.
+   */
+  v.object({ kind: v.literal("captain"), userId: v.optional(v.id("users")) }),
   v.object({ kind: v.literal("crew"), crewId: v.id("crew") }),
   v.object({ kind: v.literal("system") }),
 );
@@ -34,6 +38,8 @@ export default defineSchema({
     avatar: v.any(),
     look: v.union(v.any(), v.null()),
     createdAt: v.number(),
+    /** The ship they last went aboard (their own, or one they joined). Unset: their newest own ship. */
+    aboardId: v.optional(v.union(v.id("offices"), v.null())),
   }).index("by_token", ["tokenIdentifier"]),
 
   /** An office: your ship. Its world is how it looks (the yacht first). */
@@ -47,8 +53,63 @@ export default defineSchema({
     setupCommand: v.optional(v.union(v.string(), v.null())),
     /** Which harness new hires use unless told otherwise. */
     defaultHarness: harness,
+    /** Friends aboard (members) can start threads and talk to Computah. Unset: they can. */
+    membersCanAsk: v.optional(v.boolean()),
     createdAt: v.number(),
   }).index("by_owner", ["ownerId"]),
+
+  /**
+   * A friend aboard someone else's ship: they read everything and talk to Computah in threads, while the work runs on
+   * the owner's machines and subscriptions. The owner is never a row here. Deleted when they leave or are removed.
+   */
+  members: defineTable({
+    officeId: v.id("offices"),
+    userId: v.id("users"),
+    invitedBy: v.id("users"),
+    inviteId: v.union(v.id("invites"), v.null()),
+    joinedAt: v.number(),
+  }).index("by_office", ["officeId"]).index("by_user", ["userId"]).index("by_office_user", ["officeId", "userId"]),
+
+  /** A link that brings a friend aboard (/join/<token>). One live link per ship; making a new one revokes the last. */
+  invites: defineTable({
+    officeId: v.id("offices"),
+    /** Random and unguessable; only the owner reads it back. */
+    token: v.string(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    revokedAt: v.union(v.number(), v.null()),
+    /** How many people came aboard with it. */
+    used: v.number(),
+  }).index("by_token", ["token"]).index("by_office", ["officeId", "createdAt"]),
+
+  /**
+   * Who is walking the decks right now, one row per person (a second tab takes over from the first). Movement goes
+   * peer to peer (WebRTC); this row is the roster, a heartbeat, and the fallback position when a link can't be made.
+   * Swept when it stops beating (presence.sweep).
+   */
+  presence: defineTable({
+    officeId: v.id("offices"),
+    userId: v.id("users"),
+    /** This tab's id for WebRTC signaling. */
+    peerId: v.string(),
+    pos: v.array(v.number()),
+    facing: v.number(),
+    /** What they are doing: walking about, at the helm, the phone out (contracts PersonAct). */
+    act: v.string(),
+    joinedAt: v.number(),
+    at: v.number(),
+  }).index("by_office", ["officeId"]).index("by_user", ["userId"]).index("by_peer", ["peerId"]).index("by_at", ["at"]),
+
+  /** WebRTC signaling between two people aboard the same ship: offers, answers, ICE candidates. Deleted once read. */
+  signals: defineTable({
+    officeId: v.id("offices"),
+    from: v.string(),
+    to: v.string(),
+    kind: v.string(),
+    data: v.string(),
+    at: v.number(),
+  }).index("by_to", ["to"]).index("by_at", ["at"]),
 
   /**
    * A project the crew works on: a git checkout on one of your machines. An office has one or more; each task is in
@@ -134,6 +195,8 @@ export default defineSchema({
     prs: v.optional(v.array(v.object({ repoId: v.id("repos"), url: v.union(v.string(), v.null()), branch: v.string() }))),
     createdAt: v.number(),
     lastMessageAt: v.number(),
+    /** Who started it (the owner, or a friend aboard). Missing on threads from before friends: the owner. */
+    startedBy: v.optional(v.id("users")),
   }).index("by_office", ["officeId", "lastMessageAt"]),
 
   messages: defineTable({
@@ -243,6 +306,13 @@ export default defineSchema({
     options: v.union(v.array(v.string()), v.null()),
     answer: v.union(v.string(), v.null()),
     answeredAt: v.union(v.number(), v.null()),
+    /**
+     * Whom it is for: the person who last spoke in the thread (Computah asks whoever asked), the owner for a permission
+     * on their machine, or null for anyone aboard. Missing on questions from before friends: the owner.
+     */
+    askedOf: v.optional(v.union(v.id("users"), v.null())),
+    /** Who answered it (anyone aboard may answer a question; only the owner a permission). */
+    answeredBy: v.optional(v.id("users")),
     /** When the runner handed the answer to the agent. */
     deliveredAt: v.union(v.number(), v.null()),
     createdAt: v.number(),

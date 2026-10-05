@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { COMPUTER_HANDLE, COMPUTER_NAME } from "@offsite/contracts";
-import { fail, requireOffice, requireUser } from "./lib";
+import { fail, requireAboard, requireOffice, requireUser } from "./lib";
 import { crewOf, hire } from "./crewlib";
 
 /** How many crew a new ship starts with. */
@@ -22,17 +22,25 @@ export const mine = query({
   },
 });
 
+/** A ship, for anyone aboard. `role` is yours on it: "owner" (the captain) or "member" (a friend aboard). */
 export const get = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, { officeId }) => {
-    const { office } = await requireOffice(ctx, officeId);
+    const { office, role } = await requireAboard(ctx, officeId);
     const { repo: _legacyRepo, setupCommand: _legacySetup, ...rest } = office;
     const repos = await reposOf(ctx, office);
     const at = computerMachine(repos);
     const machine = at ? await ctx.db.get(at) : null;
+    const owner = await ctx.db.get(office.ownerId);
     return {
       ...rest,
-      repos: repos.map((r) => ({ _id: r._id, name: r.name, machineId: r.machineId, path: r.path, defaultBranch: r.defaultBranch, setupCommand: r.setupCommand })),
+      role,
+      /** The captain: whose machines and subscriptions the crew run on. */
+      owner: { _id: office.ownerId, name: owner?.name ?? "Captain" },
+      /** Friends aboard may start threads and talk to Computah. */
+      membersCanAsk: office.membersCanAsk !== false,
+      // Where each repo sits on the captain's machine is the captain's to see: friends get the names.
+      repos: repos.map((r) => ({ _id: r._id, name: r.name, machineId: r.machineId, path: role === "owner" ? r.path : "", defaultBranch: r.defaultBranch, setupCommand: role === "owner" ? r.setupCommand : null })),
       /** The machine Computah works on: the one holding the first repo. */
       machine: machine ? { _id: machine._id, name: machine.name, lastSeenAt: machine.lastSeenAt } : null,
     };
@@ -73,6 +81,7 @@ export const create = mutation({
       arrivesAt: now,
       dismissedAt: null,
     });
+    await ctx.db.patch(user._id, { aboardId: officeId });
     const office = (await ctx.db.get(officeId))!;
     // A full first crew, so the deck is lively from the start: seven aboard, all free.
     for (let i = 0; i < STARTING_CREW; i++) await hire(ctx, office, { aboard: true });
@@ -105,8 +114,10 @@ export const update = mutation({
     name: v.optional(v.string()),
     setupCommand: v.optional(v.union(v.string(), v.null())),
     defaultHarness: v.optional(harness),
+    /** Friends aboard may start threads and talk to Computah (on by default). */
+    membersCanAsk: v.optional(v.boolean()),
   },
-  handler: async (ctx, { officeId, name, setupCommand, defaultHarness }) => {
+  handler: async (ctx, { officeId, name, setupCommand, defaultHarness, membersCanAsk }) => {
     await requireOffice(ctx, officeId);
     const patch: Record<string, unknown> = {};
     if (name !== undefined) {
@@ -120,6 +131,7 @@ export const update = mutation({
       if (first) await ctx.db.patch(first._id, { setupCommand: cleanSetup(setupCommand) });
     }
     if (defaultHarness !== undefined) patch["defaultHarness"] = defaultHarness;
+    if (membersCanAsk !== undefined) patch["membersCanAsk"] = membersCanAsk;
     await ctx.db.patch(officeId, patch);
   },
 });

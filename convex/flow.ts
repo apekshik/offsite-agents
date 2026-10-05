@@ -3,6 +3,17 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { computerOf, freeCrew, hire, liveRunOf } from "./crewlib";
 import { fail } from "./lib";
 
+/**
+ * How Computah hears who spoke: "Maya (a friend aboard)" or "Alice (the captain)" once the ship has friends aboard;
+ * null on a ship with only its captain, whose words go to Computah as they always have.
+ */
+export async function spokenBy(ctx: QueryCtx | MutationCtx, office: Doc<"offices">, userId: Id<"users">): Promise<string | null> {
+  const friends = await ctx.db.query("members").withIndex("by_office", (q) => q.eq("officeId", office._id)).first();
+  if (!friends) return null;
+  const name = (await ctx.db.get(userId))?.name ?? "Someone";
+  return office.ownerId === userId ? `${name} (the captain)` : `${name} (a friend aboard)`;
+}
+
 // How work moves: the computer's turns, tasks starting when they can, and waking the computer
 // when something it handed out comes back. All plain functions, run inside the calling mutation,
 // so a change and its consequences commit together.
@@ -100,6 +111,17 @@ export async function tick(ctx: MutationCtx, officeId: Id<"offices">): Promise<v
     const thread = await ctx.db.get(task.threadId);
     if (thread && thread.state === "open") await ctx.db.patch(thread._id, { state: "working" });
   }
+}
+
+/**
+ * Whom a question is for. A permission (approval) is about the captain's own machine: theirs alone. Anything else goes
+ * to whoever spoke last in the thread, so Computah asks whoever asked; outside a thread, the captain.
+ */
+export async function askedOfFor(ctx: QueryCtx | MutationCtx, office: Doc<"offices">, threadId: Id<"threads"> | null, kind: "approval" | "input"): Promise<Id<"users">> {
+  if (kind === "approval" || !threadId) return office.ownerId;
+  const recent = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", threadId)).order("desc").take(50);
+  const said = recent.find((m) => m.author.kind === "captain");
+  return (said?.author.kind === "captain" ? said.author.userId : undefined) ?? office.ownerId;
 }
 
 /** Post into a thread. */

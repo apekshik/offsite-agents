@@ -10,7 +10,9 @@ import { activityTone, ago, Button, Card, Chip, ConfirmButton, errorText, Face, 
 import { activityOf, harnessName, placeOf, useShip, workTitle, type CrewRow } from "../overlay/ship.tsx";
 import { find, QuestionCard, RepoChip, ViewChanges } from "./Conversation.tsx";
 import { phone } from "./state.ts";
-import { walkToCrew } from "../overlay/walk.tsx";
+import { walkToCrew, walkToPerson } from "../overlay/walk.tsx";
+import { useAboard } from "../people/people.ts";
+import { MuteButton, PersonRow } from "./Friends.tsx";
 
 // The crew tab: Computah, then everyone aboard, and one of them up close (what they are doing, their live work,
 // Walk over, Find, Message, Stop, their look and specialty). Hiring lives here too.
@@ -60,10 +62,29 @@ export function CrewRowCard({ c, selected, onClick }: { c: CrewRow; selected: bo
   );
 }
 
+/** People on deck with you (friends, or the captain): walk over to them, or mute them. */
+function PeopleOnDeck() {
+  const { officeId } = useShip();
+  const { others } = useAboard(officeId);
+  if (!others.length) return null;
+  return (
+    <>
+      <span className="lab dim crew-sec">On deck with you · {others.length}</span>
+      {others.map((p) => (
+        <PersonRow key={p.userId} p={p}>
+          <MuteButton userId={p.userId} name={p.name} />
+          <Button kind="plain" size="sm" title={`Walk over to ${p.name}; the phone stays open`} onClick={() => walkToPerson(p.userId)}>Walk over</Button>
+        </PersonRow>
+      ))}
+    </>
+  );
+}
+
 export function CrewList({ selected, onSelect }: { selected: string | null; onSelect: (id: string) => void }) {
   const { crew, computer } = useShip();
   return (
     <div className="crew-list">
+      <PeopleOnDeck />
       {computer ? <CrewRowCard c={computer} selected={selected === computer._id} onClick={() => onSelect(computer._id)} /> : null}
       {computer && crew.length ? <span className="lab dim crew-sec">Crew · {crew.length}</span> : null}
       {crew.map((c) => <CrewRowCard key={c._id} c={c} selected={selected === c._id} onClick={() => onSelect(c._id)} />)}

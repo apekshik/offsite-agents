@@ -1,0 +1,52 @@
+/* Friends aboard (Friends.tsx): the invite link, the people aboard, the ship switcher. */
+
+.friends .people { display: flex; flex-direction: column; gap: 6px; }
+.person-row { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(238, 243, 247, 0.07); }
+.person-row.talking { border-color: rgba(109, 255, 168, 0.45); }
+.person-row .pr-face { display: inline-flex; border-radius: 50%; transition: box-shadow 0.2s ease; }
+.person-row.talking .pr-face { box-shadow: 0 0 0 2px rgba(109, 255, 168, 0.85), 0 0 14px rgba(109, 255, 168, 0.5); }
+.person-row .pr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.person-row .pr-name { font-weight: 600; font-size: 13.5px; }
+.person-row .pr-line { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+
+.invite { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.invite-why { margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.invite-link { display: flex; gap: 8px; }
+.invite-link input {
+  flex: 1; min-width: 0; font-size: 12px; padding: 6px 9px; border-radius: 8px; color: var(--ink);
+  background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(238, 243, 247, 0.14);
+}
+.invite-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; flex-wrap: wrap; }
+
+.ask-toggle { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.4; cursor: pointer; }
+.ask-toggle input { margin-top: 3px; accent-color: var(--accent); }
+
+.switcher { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; min-height: 30px; }
+.switch-row.here b { color: var(--accent); }
+.switch-new { font-size: 12.5px; color: var(--accent); text-decoration: none; }
+.switch-new:hover { text-decoration: underline; }
+
+/* A person's name over their message, and their face, in a thread with friends aboard. */
+.msg-row.person .msg.them { border-color: rgba(255, 200, 97, 0.18); }
+.msg .lab.who { display: block; margin-bottom: 2px; }
+.msg.me .who-me { display: block; text-align: right; font-size: 10.5px; opacity: 0.7; margin-bottom: 2px; }
+.q-for { font-size: 11.5px; }
+.composer-off { font-size: 12.5px; padding: 10px 12px; }
+
+/* Who's aboard, in the HUD: small faces, ringed while they talk; the mic. */
+.hud-people { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; pointer-events: auto; }
+.hud-people .hp-face { position: relative; display: inline-flex; border-radius: 50%; cursor: pointer; transition: box-shadow 0.2s ease, transform 0.15s ease; }
+.hud-people .hp-face:hover { transform: translateY(-1px); }
+.hud-people .hp-face.talking { box-shadow: 0 0 0 2px rgba(109, 255, 168, 0.9), 0 0 12px rgba(109, 255, 168, 0.55); }
+.hud-people .hp-face.muted::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--amber, #ffc861); border: 1.5px solid #05070b; }
+.hud-people .hp-face.relayed { opacity: 0.75; }
+.hud-mic {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  color: var(--ink-2); background: rgba(5, 8, 14, 0.62); border: 1px solid rgba(238, 243, 247, 0.14); backdrop-filter: blur(10px); cursor: pointer;
+}
+.hud-mic.live { color: #05070b; background: #6dffa8; border-color: #6dffa8; }
+.hud-mic.live.talking { box-shadow: 0 0 0 3px rgba(109, 255, 168, 0.35); }
+.hud-mic.muted { color: var(--amber, #ffc861); border-color: rgba(255, 200, 97, 0.4); }
+.hud-mic kbd { font: inherit; font-size: 10.5px; opacity: 0.7; padding: 0 4px; border-radius: 4px; border: 1px solid currentColor; }
+.hud-mic-note { font-size: 11.5px; color: var(--amber, #ffc861); max-width: 260px; }

@@ -28,6 +28,8 @@ export interface RunContext {
   } | null;
   resumeCursor: unknown;
   context: string;
+  /** Everyone aboard, for Computah: the captain first, then friends they invited. Absent from older deployments. */
+  people?: { name: string; role: "captain" | "friend" }[];
 }
 
 export interface LiveRun {

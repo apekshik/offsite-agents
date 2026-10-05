@@ -40,12 +40,16 @@ export function ShipProvider({ officeId, children }: { officeId: string; childre
   const office = useQuery(api.offices.get, { officeId: id });
   const snap = useQuery(api.world.snapshot, { officeId: id });
   const threads = useQuery(api.threads.list, { officeId: id });
-  const machines = useQuery(api.machines.mine);
+  const mine = useQuery(api.machines.mine);
   const me = useQuery(api.users.me);
   const value = useMemo<Ship>(() => {
     // Computah by name, even on a ship whose row predates the rename.
     const all = (snap?.crew ?? []).map((c) => (c.role === "computer" && c.name !== COMPUTER_NAME ? { ...c, name: COMPUTER_NAME } : c));
     const byId = new Map(all.map((c) => [c._id as string, c]));
+    // A friend aboard someone else's ship: the crew's machines are the captain's, seen through the ship (offices.get).
+    const machines: MachineRow[] | undefined = office?.role === "member"
+      ? (office.machine ? [{ _id: office.machine._id, name: office.machine.name, hostname: "", lastSeenAt: office.machine.lastSeenAt, online: Date.now() - office.machine.lastSeenAt < 90_000, probe: [] }] : [])
+      : mine;
     const machine = machines?.find((m) => m._id === office?.machine?._id) ?? machines?.find((m) => m.online) ?? machines?.[0];
     return {
       officeId: id, office, snap, threads, machines, me,
@@ -55,7 +59,7 @@ export function ShipProvider({ officeId, children }: { officeId: string; childre
       byId,
       machine,
     };
-  }, [id, office, snap, threads, machines, me]);
+  }, [id, office, snap, threads, mine, me]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

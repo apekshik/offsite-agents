@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { ACTIVITY_LABEL, COMPUTER_NAME, crewActivity, isLive, type RunState } from "@offsite/contracts";
 import { fail, requireMachine, requireOwnRun } from "./lib";
 import { crewByHandle, crewOf, freeCrew, hire, liveRunOf } from "./crewlib";
-import { post, resolveTask, tick } from "./flow";
+import { askedOfFor, post, resolveTask, tick } from "./flow";
 import { harness } from "./schema";
 import { ensureRepos, repoByName, repoForPlan, repoOfTask, reposOf } from "./repolib";
 
@@ -183,12 +183,13 @@ export const messageCrew = mutation({
 export const askCaptain = mutation({
   args: { token: v.string(), runId: v.id("runs"), question: v.string(), options: v.optional(v.array(v.string())) },
   handler: async (ctx, { token, runId, question, options }) => {
-    const { run } = await liveRun(ctx, token, runId);
+    const { run, office } = await liveRun(ctx, token, runId);
     const requestId = `ask-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
     const questionId = await ctx.db.insert("questions", {
       officeId: run.officeId, threadId: run.threadId, runId, crewId: run.crewId, requestId, kind: "input",
       prompt: question.trim().slice(0, 1000), options: options?.slice(0, 6).map((o) => o.slice(0, 120)) ?? null,
       answer: null, answeredAt: null, deliveredAt: null, createdAt: Date.now(),
+      askedOf: await askedOfFor(ctx, office, run.threadId, "input"),
     });
     return { questionId, requestId };
   },

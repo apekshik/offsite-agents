@@ -98,7 +98,9 @@ const who = (p: Planned | undefined) => (p?.assignee ? p.assignee : "someone fre
 
 export async function computerScript(ctx: SimContext): Promise<void> {
   const { r, text } = ctx;
-  const request = text.split(/\n\nMessages for you:/)[0]!.trim();
+  // With friends aboard, each request says who asked ("Maya (a friend aboard) asks: …", "Ada (the captain) says: …"):
+  // the work is what comes after.
+  const request = text.split(/\n\nMessages for you:/)[0]!.trim().replace(/^[^\n:]{1,60} \((?:the captain|a friend aboard)\) (?:asks|says): /gm, "");
   // Notes from the ship start "@juniper landed …", "@juniper could not finish …" or "The captain stopped …".
   const wake = /^(@[\w-]+ (landed|could not finish)|The captain stopped)/m.test(request);
   const chat = !wake && request.split(/\s+/).length < 4;

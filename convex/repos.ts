@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { fail, requireOffice } from "./lib";
+import { fail, requireAboard, requireOffice } from "./lib";
 import { checkBranch, checkName, checkPath, cleanSetup, ensureRepos, freshName, MAX_REPOS, migrateOffice, repoOfTask, reposOf } from "./repolib";
 
 // The projects a ship's crew works on: git checkouts on your machines, any number of them. Each task is in one repo;
@@ -11,11 +11,12 @@ import { checkBranch, checkName, checkPath, cleanSetup, ensureRepos, freshName, 
 export const list = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, { officeId }) => {
-    const { office } = await requireOffice(ctx, officeId);
+    const { office, role } = await requireAboard(ctx, officeId);
     const repos = await reposOf(ctx, office);
     return Promise.all(repos.map(async (r) => {
       const m = await ctx.db.get(r.machineId);
-      return { ...r, machine: m ? { _id: m._id, name: m.name, lastSeenAt: m.lastSeenAt } : null };
+      // A friend aboard sees the names, not where they sit on the captain's machine.
+      return { ...r, ...(role === "owner" ? {} : { path: "", setupCommand: null }), machine: m ? { _id: m._id, name: m.name, lastSeenAt: m.lastSeenAt } : null };
     }));
   },
 });

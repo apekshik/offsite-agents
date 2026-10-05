@@ -7,11 +7,20 @@ import { Button, CloseIcon, errorText, Face } from "../ui/index.tsx";
 import { useShip, type QuestionRow } from "../overlay/ship.tsx";
 import { find } from "../phone/Conversation.tsx";
 import { phone, usePhone } from "../phone/state.ts";
+import { COMPUTER_NAME } from "@offsite/contracts";
+import { forMe, useAboard } from "../people/people.ts";
 
 // Toasts: a crew member asking (stays until answered or waved off), a delivery landing, someone
-// getting stuck, a pull request opening, a new hire flying in. Quiet while the phone or helm is open.
+// getting stuck, a pull request opening, a new hire flying in, a friend coming aboard or going ashore, a friend
+// asking Computah for something. Quiet while the phone or helm is open.
 
-interface Note { id: string; tone: "green" | "red" | "dim"; title: string; body: string; crewId?: string; href?: string; threadId?: string; until: number }
+interface Note {
+  id: string; tone: "green" | "red" | "dim" | "accent"; title: string; body: string; crewId?: string; href?: string; threadId?: string; until: number;
+  /** A person aboard (their face instead of a crew member's). */
+  person?: { avatar: unknown; look: unknown };
+}
+
+
 
 const LABEL: Record<string, string> = { allow: "Allow", always: "Always", deny: "Deny" };
 
@@ -45,7 +54,10 @@ function QuestionToast({ q, onHide }: { q: QuestionRow; onHide: () => void }) {
 }
 
 export function Toasts() {
-  const { crew, questions, threads, byId, snap } = useShip();
+  const { crew, questions: all, threads, byId, snap, officeId } = useShip();
+  const aboard = useAboard(officeId);
+  // Only what's for you buzzes and pops up: a question to someone else stays in the thread for them.
+  const questions = all.filter((q) => aboard.loading || forMe(q, aboard.me, aboard.isOwner));
   const helm = useUi((s) => s.helm);
   const fold = usePhone((s) => s.fold);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -82,7 +94,29 @@ export function Toasts() {
         if (seen.current && !seen.current.has(k)) fresh.push({ id: k, tone: "dim", title: `${c.name} is flying in`, body: "The helicopter lands on the helipad, aft.", crewId: c._id, until: now + 8000 });
       }
     }
+    // Friends coming aboard and going ashore (not whoever was already on deck when the page opened).
+    if (!aboard.loading) {
+      for (const p of aboard.people) {
+        if (p.me) continue;
+        const k = `deck:${p.userId}:${p.onDeck ? "on" : "off"}`;
+        keys.add(k);
+        const flip = `deck:${p.userId}:${p.onDeck ? "off" : "on"}`;
+        if (seen.current && !seen.current.has(k) && (seen.current.has(flip) || p.onDeck)) {
+          fresh.push(p.onDeck
+            ? { id: `${k}:${now}`, tone: "accent", title: `${p.name} came aboard`, body: p.owner ? "The captain is on deck." : "Say hello: they're on deck.", person: p, until: now + 7000 }
+            : { id: `${k}:${now}`, tone: "dim", title: `${p.name} went ashore`, body: "They left the deck.", person: p, until: now + 6000 });
+        }
+        if (seen.current) seen.current.delete(flip);
+      }
+    }
     for (const t of threads ?? []) {
+      // A friend asked Computah for something.
+      if (t.startedBy && t.startedBy.userId !== aboard.me && t.createdAt > started.current) {
+        const k = `asked:${t._id}`;
+        keys.add(k);
+        const who = aboard.byId.get(t.startedBy.userId);
+        if (seen.current && !seen.current.has(k)) fresh.push({ id: k, tone: "accent", title: `${t.startedBy.name} asked ${COMPUTER_NAME}…`, body: t.title, threadId: t._id, ...(who ? { person: who } : {}), until: now + 10000 });
+      }
       if (t.state !== "done") continue;
       const k = `done:${t._id}`;
       keys.add(k);
@@ -94,7 +128,7 @@ export function Toasts() {
     // A delivery, or a thread finished with its pull requests: the chime. Someone asking: the buzz.
     if (fresh.some((n) => n.tone === "green")) audio.ui("landed");
     if (buzz) audio.ui("phone-buzz");
-  }, [crew, threads, snap, questions]);
+  }, [crew, threads, snap, questions, aboard]);
 
   useEffect(() => {
     if (!notes.length) return;
@@ -112,7 +146,7 @@ export function Toasts() {
         return (
           <div key={n.id} className={`toast ${n.tone} fade-up`}>
             <div className="t-head">
-              {who ? <Face avatar={who.avatar} look={who.look} size={26} /> : <Face computer size={26} />}
+              {n.person ? <Face avatar={n.person.avatar} look={n.person.look} size={26} /> : who ? <Face avatar={who.avatar} look={who.look} size={26} /> : <Face computer size={26} />}
               <div className="t-who"><span className={`lab t-${n.tone}`}>{n.title}</span><span className="clip t-line">{n.body}</span></div>
               <button className="t-x" onClick={() => setNotes((x) => x.filter((y) => y.id !== n.id))} aria-label="Hide"><CloseIcon /></button>
             </div>

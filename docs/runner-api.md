@@ -20,7 +20,8 @@ A ship has one or more repos (`repos.list`), each a checkout on one machine with
   - `thread: { id, title, branch } | null`
   - `task: { id, key, repo, title, brief, notes, branch, dependsOn: [{ key, title, state }] } | null`. `repo` is the name of its repo in `office.repos`.
   - `resumeCursor` (opaque; from the last run of this crew member in this thread/task)
-  - `context`: text the agent should know: for Computah, the repos, the thread so far and the crew roster; for a crew member, the thread's title, the repos, and what teammates landed.
+  - `context`: text the agent should know: for Computah, the repos, who is aboard (once the captain has friends aboard), the thread so far (each person's words labelled with their name) and the crew roster; for a crew member, the thread's title, the repos, and what teammates landed.
+  - `people` (Computah's runs): everyone aboard, `[{ name, role: "captain" | "friend" }]`, the captain first. A friend's words reach Computah as `Maya (a friend aboard) asks: …`; the captain's, once friends are aboard, as `Ada (the captain) says: …`. Questions (`ask_captain`) go to whoever spoke last; a permission (`request.opened` approval) is the captain's alone.
 
 Where runs work (under `~/.offsite/worktrees/<officeId>/<thread6>/`): Computah in `_thread/`, a plain folder holding a detached worktree of the thread's branch for each repo on this machine (`_thread/web/`, `_thread/api/`; a repo's default branch until a task there makes the thread branch); each task in `<key>/`, a worktree of its own repo on its own branch. Landing and `sync_with_team` are serialized per (thread, repo).
 - `runner.started` (mutation) `{ token, runId, worktree, threadBranch?, taskBranch? }`. The run is working; the branches are recorded (the thread's branch name is the same in every repo).

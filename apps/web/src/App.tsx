@@ -3,6 +3,7 @@ import { convex } from "./convex.ts";
 import { useOffsiteAuth } from "./auth.ts";
 import { Gate } from "./screens/Gate.tsx";
 import { Pair } from "./screens/Pair.tsx";
+import { Join, joinToken } from "./screens/Join.tsx";
 
 // Offsite: the 3D world (src/game) under the interface (src/overlay, src/screens, src/ui).
 // They meet only in src/bridge.ts.
@@ -15,10 +16,12 @@ export function App() {
 }
 
 /**
- * /pair?code= approves a machine (from the runner, RUNNER_COMMAND); everything else is the way aboard. Coming back from
- * sign-in, the address is /callback until auth settles and puts back where sign-in started, so this reads it again then.
+ * /pair?code= approves a machine (from the runner, RUNNER_COMMAND); /join/<token> is a friend's invite; everything else
+ * is the way aboard. Coming back from sign-in, the address is /callback until auth settles and puts back where sign-in started, so this reads it again then.
  */
 function Routes() {
   useConvexAuth();
-  return location.pathname === "/pair" ? <Pair /> : <Gate />;
+  if (location.pathname === "/pair") return <Pair />;
+  const token = joinToken();
+  return token ? <Join token={token} /> : <Gate />;
 }

@@ -3,6 +3,7 @@ import { ui, useUi, type WalkTarget } from "../bridge.ts";
 import { Key } from "../ui/index.tsx";
 import { phone } from "../phone/state.ts";
 import { useShip } from "./ship.tsx";
+import { useAboard } from "../people/people.ts";
 
 // Walking over by yourself: "Walk over" on a crew member, "Walk to the helm", or H and 1–9 while
 // the phone is out. The interface sets ui.walkTo; the game walks the captain there (the phone stays
@@ -20,6 +21,8 @@ export function stopWalking() {
 
 export const walkToCrew = (crewId: string) => walkTo({ kind: "crew", crewId });
 export const walkToHelm = () => walkTo({ kind: "helm" });
+/** Walk over to someone else aboard: a friend on deck, or the captain. */
+export const walkToPerson = (userId: string) => walkTo({ kind: "person", userId });
 
 /** A crew member's face in a conversation that walks you over to them when clicked. */
 export function WalkFace({ crewId, name, children }: { crewId: string; name: string; children: ReactNode }) {
@@ -89,7 +92,8 @@ function Steps() {
 export function WalkChip() {
   const to = useUi((s) => s.walkTo);
   const end = useUi((s) => s.walkEnd);
-  const { byId } = useShip();
+  const { byId, officeId } = useShip();
+  const aboard = useAboard(officeId);
   const [note, setNote] = useState<NonNullable<typeof end> | null>(null);
   useEffect(() => {
     if (!end || end.outcome === "stopped") { setNote(null); return; }
@@ -97,7 +101,7 @@ export function WalkChip() {
     const t = setTimeout(() => setNote((n) => (n === end ? null : n)), end.outcome === "failed" ? 3200 : 2400);
     return () => clearTimeout(t);
   }, [end]);
-  const name = (t: WalkTarget) => (t.kind === "helm" ? "the helm" : byId.get(t.crewId)?.name ?? "them");
+  const name = (t: WalkTarget) => (t.kind === "helm" ? "the helm" : t.kind === "person" ? aboard.byId.get(t.userId)?.name ?? "them" : byId.get(t.crewId)?.name ?? "them");
   if (to) {
     return (
       <div className="walk-chip" role="status" key="walking">

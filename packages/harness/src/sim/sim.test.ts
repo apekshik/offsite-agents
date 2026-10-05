@@ -162,6 +162,19 @@ describe("the sim Computah", () => {
     expect(calls.map((c) => c.name)).toEqual(["plan_tasks", "review_task", "review_task", "review_task", "finish_thread"]);
     expect((events.filter((e) => e.type === "content.final").at(-1) as { text: string }).text).toMatch(/pull\/7/);
   });
+
+  it("plans what a friend aboard asked for, not who asked", async () => {
+    const plans: { title: string }[][] = [];
+    const tools = toolsFrom(COMPUTER_TOOLS, {
+      crew_status: async () => JSON.stringify({ crew: [], tasks: [] }),
+      plan_tasks: async (a) => { plans.push(a["tasks"] as { title: string }[]); return "[]"; },
+    });
+    const { session, until } = await start({ kind: "computer", crew: { name: "Computah", handle: "computah", role: "computer", model: null, effort: "high" }, tools });
+    await session.send("Maya (a friend aboard) asks: Add a counter page\n\nAda (the captain) says: Make the button blue");
+    await until(1);
+    expect(plans[0]![0]!.title).toMatch(/^Add a counter page/);
+    expect(plans[0]![0]!.title).not.toMatch(/friend aboard|the captain/);
+  });
 });
 
 describe("the sim's look", () => {

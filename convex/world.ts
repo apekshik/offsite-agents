@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { isLive, type RunState } from "@offsite/contracts";
 import type { Id } from "./_generated/dataModel";
-import { requireOffice } from "./lib";
+import { requireAboard } from "./lib";
 import { crewOf } from "./crewlib";
 import { repoOfTask, reposOf } from "./repolib";
 
@@ -14,7 +14,7 @@ import { repoOfTask, reposOf } from "./repolib";
 export const snapshot = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, { officeId }) => {
-    const { office } = await requireOffice(ctx, officeId);
+    const { office } = await requireAboard(ctx, officeId);
     const crew = await crewOf(ctx, officeId);
     const repos = await reposOf(ctx, office);
     const repoOf = async (taskId: Id<"tasks"> | null) => {
@@ -60,7 +60,8 @@ export const snapshot = query({
     return {
       office: { _id: office._id, name: office.name, world: office.world, hasRepo: repos.length > 0, repos: repos.map((r) => r.name) },
       crew: views,
-      questions: open.sort((a, b) => a.createdAt - b.createdAt).map((q) => ({ ...q, crewName: crew.find((c) => c._id === q.crewId)?.name ?? "Someone" })),
+      // askedOf: whom it is for (null: anyone aboard). Questions from before friends were the captain's.
+      questions: open.sort((a, b) => a.createdAt - b.createdAt).map((q) => ({ ...q, askedOf: q.askedOf === undefined ? office.ownerId : q.askedOf, crewName: crew.find((c) => c._id === q.crewId)?.name ?? "Someone" })),
     };
   },
 });

@@ -45,6 +45,11 @@ export interface Stage {
   slot(id: string): Slot | undefined;
   /** Where the captain is (for following them with a question). */
   captain: THREE.Object3D;
+  /**
+   * Whom someone with a question walks to, when it isn't you: the person on deck it is for (a friend, or the captain
+   * in a friend's view). Null or absent: you.
+   */
+  askee?(crewId: string): THREE.Object3D | null;
   /** Say something, if the bubble budget allows (nearby, on screen, or in focus). */
   say(body: CrewBody, text: string, ms?: number): void;
   fx(e: Effect): void;
@@ -177,7 +182,7 @@ export class CrewBody {
       walker.go(pts, { facing: slot.facing, seat: slot.seat ?? null }, () => this.arrive(slot), speed);
     } else if (d.target.kind === "captain") {
       fig.setAct(null);
-      walker.follow(this.stage.captain, {
+      walker.follow(this.stage.askee?.(this.id) ?? this.stage.captain, {
         graph: this.stage.nav, distance: 1.6, speed: 2.4,
         onReach: () => {
           this.arrived = true;
@@ -429,7 +434,10 @@ export class CrewBody {
       else if (this.pacing && d) this.backToSeat(d);
     }
     if (!this.pacing) walker.update(dt);
-    if (this.dir?.target.kind === "captain" && this.arrived) fig.lookAt(this.stage.captain.position.clone().setY(this.stage.captain.position.y + 1.5));
+    if (this.dir?.target.kind === "captain" && this.arrived) {
+      const to = this.stage.askee?.(this.id) ?? this.stage.captain;
+      fig.lookAt(to.position.clone().setY(to.position.y + 1.5));
+    }
     this.habits(wall, t);
     fig.setSleeping(this.arrived && !this.moment && NAPS.has(fig.act));
     fig.update(dt, t, { speed: this.pacing ? this.paceSpeed : walker.speed, seat: this.pacing ? null : walker.seat, camera });

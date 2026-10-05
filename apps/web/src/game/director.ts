@@ -366,6 +366,18 @@ export class Director {
   /** A slot by id: the world's own, or one the director made up. */
   slot(id: string): Slot | undefined { return this.byId.get(id) ?? this.made.get(id); }
 
+  /** The made-up slots (group spots, the bartender's) among `ids`, for sharing a plan with another tab. */
+  madeSlots(ids: Iterable<string>): Slot[] {
+    const out: Slot[] = [];
+    for (const id of ids) { const s = this.made.get(id); if (s) out.push(s); }
+    return out;
+  }
+
+  /** Slots another tab's director made up, so its plan can be followed here (game/engine.ts follow). */
+  adopt(slots: Slot[]) {
+    for (const s of slots) if (!this.byId.has(s.id)) this.made.set(s.id, s);
+  }
+
   /** The game says they reached the drop-off with their package. */
   delivered(crewId: string, now: number) {
     const e = this.errands.get(crewId);

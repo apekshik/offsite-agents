@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { LIMITS, Look, RunEvent, isLive, type RunState } from "@offsite/contracts";
 import { fail, requireMachine, requireOwnRun } from "./lib";
 import { crewOf, liveRunOf } from "./crewlib";
-import { closeStream, post, queueComputer, tick } from "./flow";
+import { askedOfFor, closeStream, post, queueComputer, tick } from "./flow";
 import { computerMachine, ensureRepos, repoOfTask, reposOf } from "./repolib";
 import { changeStats } from "./schema";
 
@@ -70,14 +70,32 @@ export const work = query({
   },
 });
 
-async function renderTranscript(ctx: QueryCtx, thread: Doc<"threads">, crew: Doc<"crew">[]): Promise<string> {
+/** Everyone aboard: the captain first, then the friends they invited. */
+async function peopleOf(ctx: QueryCtx, office: Doc<"offices">): Promise<{ userId: Id<"users">; name: string; role: "captain" | "friend" }[]> {
+  const owner = await ctx.db.get(office.ownerId);
+  const members = await ctx.db.query("members").withIndex("by_office", (q) => q.eq("officeId", office._id)).collect();
+  const friends = await Promise.all(members.sort((a, b) => a.joinedAt - b.joinedAt).map(async (m) => ({ userId: m.userId, name: (await ctx.db.get(m.userId))?.name ?? "Someone", role: "friend" as const })));
+  return [{ userId: office.ownerId, name: owner?.name ?? "Captain", role: "captain" as const }, ...friends];
+}
+
+async function renderTranscript(ctx: QueryCtx, thread: Doc<"threads">, crew: Doc<"crew">[], office: Doc<"offices">, people: { userId: Id<"users">; name: string }[]): Promise<string> {
   const messages = (await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).order("desc").take(40)).reverse();
   const nameOf = (id: Id<"crew">) => crew.find((c) => c._id === id)?.name ?? "Someone";
-  return messages.map((m) => {
-    const who = m.author.kind === "captain" ? "Captain" : m.author.kind === "crew" ? nameOf(m.author.crewId) : "Ship";
+  // With friends aboard, each person's words carry their name; alone, the captain is "Captain" as before.
+  const many = people.length > 1;
+  const personOf = async (userId: Id<"users"> | undefined) => {
+    if (!many) return "Captain";
+    const id = userId ?? office.ownerId;
+    const name = people.find((p) => p.userId === id)?.name ?? (await ctx.db.get(id))?.name ?? "Someone";
+    return id === office.ownerId ? `${name} (captain)` : name;
+  };
+  const lines = [];
+  for (const m of messages) {
+    const who = m.author.kind === "captain" ? await personOf(m.author.userId) : m.author.kind === "crew" ? nameOf(m.author.crewId) : "Ship";
     const label = m.kind === "report" ? `${who} (report)` : who;
-    return `${label}: ${m.text.length > 1500 ? `${m.text.slice(0, 1500)}…` : m.text}`;
-  }).join("\n\n");
+    lines.push(`${label}: ${m.text.length > 1500 ? `${m.text.slice(0, 1500)}…` : m.text}`);
+  }
+  return lines.join("\n\n");
 }
 
 async function rosterText(ctx: QueryCtx, crew: Doc<"crew">[]): Promise<string> {
@@ -139,14 +157,19 @@ export const claim = mutation({
     }
 
     let context = "";
+    const people = run.kind === "computer" ? await peopleOf(ctx, office!) : [];
     if (run.kind === "computer" && thread) {
+      const asked = thread.startedBy ? people.find((p) => p.userId === thread.startedBy)?.name : null;
       context = [
         `Ship: ${office!.name}. Thread: "${thread.title}".`,
+        people.length > 1
+          ? `People aboard (they all talk to you in threads; every message below is labelled with who said it, so address people by name, and ask_captain goes to whoever spoke last):\n${people.map((p) => `- ${p.name}${p.role === "captain" ? " (the captain: the ship, its machines and the crew's subscriptions are theirs; only they allow permissions)" : " (a friend the captain invited)"}`).join("\n")}${asked ? `\n${asked} started this thread.` : ""}`
+          : "",
         `Repos:\n${repos.map((r) => `- ${r.name}: ${r.path} (default branch ${r.defaultBranch})${r.machineId === machine._id ? "" : `, on ${machineNames.get(r.machineId)}: you can't read it from here, but you can plan tasks in it`}`).join("\n")}`,
         `Crew aboard:\n${await rosterText(ctx, crew)}`,
         `Tasks in this thread:\n${await tasksText(ctx, thread._id, crew, repos)}`,
-        `The thread so far:\n${await renderTranscript(ctx, thread, crew)}`,
-      ].join("\n\n");
+        `The thread so far:\n${await renderTranscript(ctx, thread, crew, office!, people)}`,
+      ].filter(Boolean).join("\n\n");
     } else if (run.kind === "task" && thread && task) {
       const first = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).first();
       const tasks = await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", thread._id)).collect();
@@ -202,6 +225,8 @@ export const claim = mutation({
       },
       resumeCursor,
       context,
+      /** Everyone aboard, for Computah: the captain first, then friends they invited. Empty for other runs. */
+      people: people.map((p) => ({ name: p.name, role: p.role })),
     };
   },
 });
@@ -274,6 +299,7 @@ export const events = mutation({
           await ctx.db.insert("questions", {
             officeId: run.officeId, threadId: run.threadId, runId, crewId: run.crewId, requestId: e.requestId, kind: e.kind,
             prompt: e.prompt.slice(0, 2000), options: e.options, answer: null, answeredAt: null, deliveredAt: null, createdAt: now,
+            askedOf: await askedOfFor(ctx, (await ctx.db.get(run.officeId))!, run.threadId, e.kind),
           });
           break;
         case "request.resolved": {

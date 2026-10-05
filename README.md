@@ -344,6 +344,7 @@ own copy: [docs/deploy.md](docs/deploy.md).
 | <kbd>Esc</kbd> | Stop walking; close the helm, the phone or a card |
 | <kbd>E</kbd> | Use what's in front of you: the helm, a package on the counter, a desk's last delivery |
 | <kbd>M</kbd> | Mute or unmute |
+| <kbd>T</kbd> | Voice chat with friends aboard: mic on, then mute and unmute (people near you hear you) |
 
 <br>
 
@@ -443,6 +444,7 @@ time of day and seats crew for checking scale. See [CONTRIBUTING.md](CONTRIBUTIN
 ## Development
 
 ```sh
+pnpm dev:demo     # the whole app in your browser on a pretend ship: no account, no backend (localhost:5190)
 pnpm test         # every package's tests, plus the backend's (convex-test)
 pnpm typecheck
 pnpm build        # the web app, into apps/web/dist
@@ -457,7 +459,8 @@ node scripts/readme-media.mjs     # docs/media/*.webp, sized for the README (nee
 ```
 
 Backend changes go to your own dev deployment (`pnpm dev:backend`), never to production. Start
-with [AGENTS.md](AGENTS.md) for the house rules and [CONTRIBUTING.md](CONTRIBUTING.md) for the rest.
+with [CONTRIBUTING.md](CONTRIBUTING.md) (five minutes from clone to a pull request, in demo mode) and
+[AGENTS.md](AGENTS.md) for the house rules.
 
 <br>
 
@@ -465,7 +468,9 @@ with [AGENTS.md](AGENTS.md) for the house rules and [CONTRIBUTING.md](CONTRIBUTI
 
 Offsite is young. Today it is:
 
-- **Single player.** Your ship, your crew. Friends coming aboard is planned.
+- **Friends aboard.** Invite a friend from the phone's Ship tab: they walk the decks with you, talk
+  to you by voice (<kbd>T</kbd>) and to Computah in the same threads. The work still runs on your
+  machines and subscriptions. Up to 8 aboard.
 - **One world,** the yacht. Mars and space are next, and open to anyone who wants to build them.
 - **Runner from the site.** Until the npm package (`offsite-agents`) is published, `npx` installs it from offsiteagents.app.
 - **Run on macOS so far.** Linux and Windows haven't been tried.

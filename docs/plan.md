@@ -4,7 +4,7 @@
 
 One person (the captain) and their crew of coding agents, on a superyacht in the browser. The crew are Claude Code and Codex agents running on the captain's own machine, on the captain's own subscriptions. The captain walks the decks in first or third person, talks to Computah (the main orchestrator), and watches the crew work and play.
 
-Single player for now. Later, friends come aboard over Ready Player One's peer connections and voice; it is still your ship and your subscriptions.
+Friends come aboard with an invite link: they walk the decks (Ready Player One's peer connections, with Convex as the signaling server and the fallback), talk by proximity voice, and talk to Computah in the same threads. It is still your ship and your subscriptions: a friend's requests run on your machines, and the machines, repos, crew and settings stay yours.
 
 ## Words
 
@@ -69,4 +69,4 @@ Contracts first, then parallel streams that build against them.
 3. **Computah.** Threads split across the crew and across repos, landing on one branch name, a pull request per repo.
 4. **Make it yours.** Characters, polish.
 
-Later: friends aboard, more worlds, agent-built worlds.
+Later: more worlds, agent-built worlds.

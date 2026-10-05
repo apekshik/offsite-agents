@@ -25,3 +25,12 @@ it("introduces Computah as the main orchestrator, and tells the crew who gave th
   expect(p).toMatch(/^You are Computah \(@computah\), the main orchestrator on .+\. You help Ada, the captain, manage the crew\./);
   expect(crewPrompt(ctx, { cwd: "/w/dark-mode", taskBranch: "offsite/dark-mode-x-dark-mode", threadBranch: "offsite/dark-mode-x", port: null })).toMatch(/Computah, the main orchestrator, gave you a task/);
 });
+
+it("tells Computah about friends aboard, and only when there are some", () => {
+  const alone = computerPrompt({ ...ctx, people: [{ name: "Ada", role: "captain" }] }, "Ada", { threadBranch: "offsite/x", cwd: "/w/_thread", repos: ["app"] });
+  expect(alone).not.toMatch(/friends aboard/);
+  const p = computerPrompt({ ...ctx, people: [{ name: "Ada", role: "captain" }, { name: "Maya", role: "friend" }] }, "Ada", { threadBranch: "offsite/x", cwd: "/w/_thread", repos: ["app"] });
+  expect(p).toMatch(/Ada has friends aboard: Maya\./);
+  expect(p).toMatch(/run on Ada's machines and subscriptions/);
+  expect(p).toMatch(/answer the person who asked, by name/);
+});

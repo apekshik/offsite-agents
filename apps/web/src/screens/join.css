@@ -1,0 +1,23 @@
+/* The invite page, and the welcome over the ship once you're aboard. */
+
+.join-who { display: flex; align-items: center; gap: 18px; }
+.join-who .sc-hero { gap: 6px; }
+.join-what { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+
+.welcome {
+  position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center; pointer-events: none;
+  animation: welcome-out 0.9s ease 4.2s both;
+}
+.welcome-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 40px 30px; text-align: center;
+  background: rgba(5, 8, 14, 0.72); border: 1px solid rgba(238, 243, 247, 0.14); border-radius: 18px; backdrop-filter: blur(16px);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5); animation: welcome-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.6s both;
+}
+.welcome-card .disp { font-size: clamp(30px, 5vw, 52px); font-weight: 800; letter-spacing: -0.02em; line-height: 1; color: #fff; }
+.welcome-card .ship { color: var(--accent); }
+.welcome-card p { margin: 0; color: var(--ink-2); font-size: 15px; max-width: 30em; }
+@keyframes welcome-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes welcome-out { to { opacity: 0; visibility: hidden; } }
+
+/* No longer aboard (you left, or were taken off): a card in place of the ship. */
+.gone-card { text-align: left; }

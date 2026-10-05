@@ -8,4 +8,7 @@ crons.interval("sweep pairing", { hours: 1 }, internal.machines.sweep, {});
 // Folder scans and listings past their ten minutes (each also has its own scheduled delete).
 crons.interval("sweep folder requests", { minutes: 5 }, internal.folders.sweep, {});
 
+// Whoever stopped beating has left the deck, and WebRTC signaling nobody read is thrown away.
+crons.interval("sweep presence", { seconds: 15 }, internal.presence.sweep, {});
+
 export default crons;

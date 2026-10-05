@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { COMPUTER_BLURB, COMPUTER_NAME } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
@@ -240,16 +240,26 @@ const loadAboard = () => import("./Aboard.tsx");
 const Aboard = lazy(() => loadAboard().then((m) => ({ default: m.Aboard })));
 const Boarding = () => <div className="boarding"><span className="disp">Boarding</span><span className="dots"><i /><i /><i /></span></div>;
 
+/** /?new=ship: make a ship of your own (from the ship switcher, when you've only joined others'). */
+const wantsNewShip = () => new URLSearchParams(location.search).get("new") === "ship";
+const dropNewShip = () => {
+  const q = new URLSearchParams(location.search);
+  q.delete("new");
+  history.replaceState({}, "", `${location.pathname}${q.size ? `?${q}` : ""}`);
+};
+
 export function Gate() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
   const ensure = useMutation(api.users.ensure);
   const offices = useQuery(api.offices.mine, me ? {} : "skip");
+  const joined = useQuery(api.members.joined, me ? {} : "skip");
   const machines = useQuery(api.machines.mine, me ? {} : "skip");
   // An older pairing link: /?connect=CODE is now /pair?code=CODE.
   const [connect] = useState(() => new URLSearchParams(location.search).get("connect"));
   useEffect(() => { if (connect) location.replace(`/pair?code=${encodeURIComponent(connect)}`); }, [connect]);
   const [made, setMade] = useState<string | null>(null);
+  const [newShip, setNewShip] = useState(wantsNewShip);
   const [stage, setStage] = useState<"meet" | "connect" | "project" | null>(null);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [ensureErr, setEnsureErr] = useState<string | null>(null);
@@ -261,27 +271,81 @@ export function Gate() {
     if (isAuthenticated && me === null) void ensure().catch((e) => setEnsureErr(errorText(e)));
   }, [isAuthenticated, me, ensure]);
 
-  const office = offices ? ((made ? offices.find((o) => o._id === made) : undefined) ?? offices[0]) : undefined;
+  // The ship you're aboard: the one you just made, else the one you last boarded (yours, or a friend's you joined),
+  // else your newest, else the newest you joined. A friend with no ship of their own never sees "make your ship".
+  const want = made ?? me?.aboardId ?? null;
+  const wantJoined = want ? joined?.find((j) => j._id === want) : undefined;
+  const own = (want ? offices?.find((o) => o._id === want) : undefined) ?? (wantJoined ? undefined : offices?.[0]);
+  const friend = own ? undefined : (wantJoined ?? joined?.[0]);
+  const office = own ?? (friend ? { _id: friend._id, repoCount: 1 } : undefined);
+  // A friend's ship you were just on and aren't any more (you left, or were taken off): say so, once.
+  const lastFriend = useRef<{ _id: string; name: string } | null>(null);
+  const [gone, setGone] = useState<string | null>(null);
+  useEffect(() => {
+    if (friend) { lastFriend.current = { _id: friend._id, name: friend.name }; return; }
+    const was = lastFriend.current;
+    if (was && joined && !joined.some((j) => j._id === was._id)) { setGone(was.name); lastFriend.current = null; }
+  }, [friend, joined]);
   const skippedHere = !!office && (skipped.has(office._id) || readSkip(office._id));
   // A step the ship still needs stays on screen until you move on from it: pairing a machine
-  // celebrates before the repos, and adding a first repo doesn't whisk you aboard mid-list.
-  const need = !office || skippedHere || stage !== null || !machines ? null
-    : machines.length === 0 ? "connect" : !office.repoCount ? "project" : null;
+  // celebrates before the repos, and adding a first repo doesn't whisk you aboard mid-list. Only your own ship.
+  const need = !own || skippedHere || stage !== null || !machines ? null
+    : machines.length === 0 ? "connect" : !own.repoCount ? "project" : null;
   useEffect(() => { if (need) setStage(need); }, [need]);
 
   if (isLoading) return <Landing checking />;
   if (!isAuthenticated) return <Landing />;
   if (ensureErr) return <Shell><p className="error" role="alert">{ensureErr}</p></Shell>;
-  if (!me || offices === undefined || machines === undefined) return <Splash text="Checking the manifest" />;
+  if (!me || offices === undefined || joined === undefined || machines === undefined) return <Splash text="Checking the manifest" />;
   if (connect) return <Splash text="Opening the pairing page" />;
 
-  if (!office) return <MakeShip onMade={(id) => { setMade(id); setStage("meet"); }} />;
+  if (gone) {
+    return (
+      <Shell label="Not aboard">
+        <div className="sc-hero">
+          <h1 className="disp">You're not aboard {gone} any more</h1>
+          <p className="ink2">You left, or its captain took you off the ship. Ask them for a new invite link to come back.</p>
+        </div>
+        <div className="actions"><Button kind="primary" onClick={() => setGone(null)}>{office ? "Back to your ship" : "Make a ship of your own"}</Button></div>
+      </Shell>
+    );
+  }
+  if (!office || (newShip && !made)) return <MakeShip onMade={(id) => { setMade(id); setNewShip(false); dropNewShip(); setStage("meet"); }} />;
   const id = office._id;
   const skip = () => { writeSkip(id); setSkipped((s) => new Set(s).add(id)); setStage(null); };
-  const current = stage ?? need;
+  const current = own ? stage ?? need : null;
 
   if (current === "meet") return <Meet officeId={id} onNext={() => setStage("connect")} />;
   if (current === "connect") return <Connect onNext={() => setStage("project")} onSkip={skip} />;
   if (current === "project") return <Project officeId={id} onDone={() => setStage(null)} onSkip={skip} />;
-  return <Suspense fallback={<Boarding />}><Aboard key={id} officeId={id} /></Suspense>;
+  return (
+    <NotAboard key={id} ship={friend?.name ?? own?.name ?? "that ship"}>
+      <Suspense fallback={<Boarding />}><Aboard key={id} officeId={id} /></Suspense>
+    </NotAboard>
+  );
+}
+
+/**
+ * A ship you were on and aren't any more (you left it, or its captain took you off): its queries refuse, and this
+ * says so instead of a blank screen. The ship switcher has already moved you on by then, usually.
+ */
+class NotAboard extends Component<{ ship: string; children: ReactNode }, { gone: boolean }> {
+  override state = { gone: false };
+  static getDerivedStateFromError(e: unknown) {
+    const text = String((e as { data?: unknown })?.data ?? (e as Error)?.message ?? e);
+    if (/No such ship|No such thread/.test(text)) return { gone: true };
+    throw e;
+  }
+  override render() {
+    if (!this.state.gone) return this.props.children;
+    return (
+      <Shell label="Not aboard">
+        <div className="sc-hero">
+          <h1 className="disp">You're not aboard {this.props.ship} any more</h1>
+          <p className="ink2">You left, or its captain took you off the ship. Ask them for a new invite link to come back.</p>
+        </div>
+        <div className="actions"><Button kind="primary" onClick={() => location.reload()}>Continue</Button></div>
+      </Shell>
+    );
+  }
 }

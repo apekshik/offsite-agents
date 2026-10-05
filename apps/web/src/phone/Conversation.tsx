@@ -11,6 +11,8 @@ import { phone } from "./state.ts";
 import { Stats } from "../review/Review.tsx";
 import { openReview } from "../review/open.ts";
 import { WalkFace } from "../overlay/walk.tsx";
+import { forMe, useAboard, type Aboard } from "../people/people.ts";
+import "./friends.css";
 
 // The conversation with Computah, shared by the phone and the helm console: the threads, one thread
 // (your messages, Computah's replies, its plan, crew reports), and questions.
@@ -31,13 +33,18 @@ export function find(crewId: string) {
  * words). The most important moment on the ship, so it is amber wherever it shows.
  */
 export function QuestionCard({ q, context = true, findLink = true, wide = false, className }: { q: QuestionRow; context?: boolean; findLink?: boolean; wide?: boolean; className?: string }) {
-  const { byId } = useShip();
+  const { byId, officeId } = useShip();
+  const aboard = useAboard(officeId);
   const answer = useMutation(api.questions.answer);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const now = useNow(5000);
   const who = byId.get(q.crewId);
+  // With friends aboard: whom it's for, and a permission on the captain's machine is the captain's alone to give.
+  const askedOf = "askedOf" in q && typeof q.askedOf === "string" ? aboard.byId.get(q.askedOf) : undefined;
+  const forLabel = aboard.people.length > 1 && askedOf ? (askedOf.me ? "for you" : `for ${askedOf.name}`) : null;
+  const captainOnly = q.kind === "approval" && !aboard.isOwner;
   const options = q.options ?? (q.kind === "approval" ? ["allow", "deny"] : []);
   const send = async (a: string) => {
     setBusy(a);
@@ -50,12 +57,14 @@ export function QuestionCard({ q, context = true, findLink = true, wide = false,
     <Card tone="amber" className={`question ${className ?? ""}`}>
       <div className="q-head">
         <Face avatar={who?.avatar} look={who?.look} computer={who?.role === "computer"} />
-        <span className="lab t-amber clip">{q.crewName} needs you</span>
+        <span className="lab t-amber clip">{q.crewName} {askedOf && !askedOf.me && aboard.people.length > 1 ? `asks ${askedOf.name}` : "needs you"}</span>
+        {forLabel && askedOf?.me ? <span className="q-for t-amber">{forLabel}</span> : null}
         {findLink && who && who.role === "crew" ? <a href="#" className="q-find" onClick={(e) => { e.preventDefault(); find(q.crewId); }}>Find {q.crewName}</a> : <span className="q-age">{ago(now - q.createdAt)}</span>}
       </div>
       <div className={q.kind === "approval" ? "mono q-prompt" : "q-prompt q-ask"}>{q.prompt}</div>
       {context && (where || thread) ? <div className="q-ctx clip">{[where, thread].filter(Boolean).join(" · ")}</div> : null}
-      {options.length ? (
+      {captainOnly ? <div className="q-ctx">Waiting on {aboard.owner?.name ?? "the captain"}: it runs on their machine.</div> : null}
+      {options.length && !captainOnly ? (
         <div className={`q-opts ${wide ? "wide" : ""}`}>
           {options.map((o, i) => (
             <Button
@@ -97,20 +106,25 @@ export function threadState(t: ThreadRow, computer: CrewRow | undefined): { labe
 }
 
 export function ThreadCard({ t, selected, onClick, progress }: { t: ThreadRow; selected: boolean; onClick: () => void; progress?: boolean }) {
-  const { byId, computer } = useShip();
+  const { byId, computer, officeId, questions } = useShip();
+  const aboard = useAboard(officeId);
+  // What waits on you here: a friend isn't asked for the captain's permissions.
+  const waiting = aboard.people.length > 1 ? questions.filter((q) => q.threadId === t._id && forMe(q, aboard.me, aboard.isOwner)).length : t.openQuestions;
+  // "Maya asked": who started it, once there's more than one person who could have.
+  const starter = "startedBy" in t && t.startedBy && aboard.people.length > 1 ? (t.startedBy.userId === aboard.me ? "You" : t.startedBy.name) : null;
   const st = threadState(t, computer);
   const thinking = computer?.live?.threadId === t._id;
   return (
     <Card tone={selected ? "accent" : undefined} quiet={!selected} className="thread-card" onClick={onClick}>
       <div className="tc-top">
         <span className="tc-title">{t.title}</span>
-        {t.openQuestions ? <Pill tone="amber">{t.openQuestions} needs you</Pill> : null}
+        {waiting ? <Pill tone="amber">{waiting} needs you</Pill> : null}
       </div>
       <div className="tc-meta">
         {t.crewIds.length ? <span className="faces">{t.crewIds.slice(0, 5).map((id) => { const c = byId.get(id); return <Face key={id} avatar={c?.avatar} look={c?.look} title={c?.name} />; })}</span>
           : thinking ? <Face computer /> : null}
         <span className={`lab t-${st.tone}`}>{st.label}</span>
-        <span className="clip">· {st.detail}</span>
+        <span className="clip">{starter ? `· ${starter} asked ` : ""}· {st.detail}</span>
         {t.diff ? <Stats s={t.diff} files={false} className="tc-stats" /> : null}
       </div>
       {progress && t.state === "working" && t.tasks.total ? <div className="bar"><i style={{ width: `${(100 * t.tasks.landed) / t.tasks.total}%` }} /></div> : null}
@@ -132,6 +146,7 @@ export function ThreadList({ selected, onSelect, progress }: { selected: string 
 /** "Ask Computah for something…": starts a thread. */
 export function NewThread({ autoFocus, onStarted, placeholder = `Ask ${COMPUTER_NAME} for something…`, big }: { autoFocus?: boolean; onStarted?: (id: string) => void; placeholder?: string; big?: boolean }) {
   const { officeId } = useShip();
+  const aboard = useAboard(officeId);
   const create = useMutation(api.threads.create);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -150,6 +165,7 @@ export function NewThread({ autoFocus, onStarted, placeholder = `Ask ${COMPUTER_
       onStarted?.(id);
     } catch (x) { setErr(errorText(x)); } finally { setBusy(false); }
   };
+  if (!aboard.canAsk) return <div className="card composer composer-off dim">{aboard.owner?.name ?? "The captain"} has turned off asking {COMPUTER_NAME} for friends aboard. You can read along.</div>;
   return (
     <>
       <form className={`card composer ${big ? "big" : ""}`} onSubmit={(e) => void submit(e)}>
@@ -239,10 +255,22 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
 
 function lower(s: string) { return s.charAt(0).toLowerCase() + s.slice(1); }
 
-function Message({ m, tasks, isLatestPlan, big, thread }: { m: MessageRow; tasks: TaskRow[]; isLatestPlan: boolean; big?: boolean; thread?: ThreadRow | undefined }) {
+function Message({ m, tasks, isLatestPlan, big, thread, aboard }: { m: MessageRow; tasks: TaskRow[]; isLatestPlan: boolean; big?: boolean; thread?: ThreadRow | undefined; aboard: Aboard }) {
   const { byId } = useShip();
   if (m.author.kind === "captain") {
-    return <div className="msg me"><RichText text={m.text} /></div>;
+    // A person aboard. Yours on the right; with friends aboard, everyone else's on the left with their face and name.
+    const userId = m.author.userId ?? aboard.owner?.userId;
+    const person = userId ? aboard.byId.get(userId) : undefined;
+    if (!userId || userId === aboard.me || aboard.people.length < 2) return <div className="msg me"><RichText text={m.text} /></div>;
+    return (
+      <div className="msg-row person">
+        <Face avatar={person?.avatar} look={person?.look} size={big ? 26 : 22} title={person?.name} />
+        <div className="msg them">
+          <span className={`lab who ${person?.owner ? "t-amber" : "t-accent"}`}>{person?.name ?? "Someone"}{person?.owner ? " · captain" : ""}</span>
+          <span><RichText text={m.text} /></span>
+        </div>
+      </div>
+    );
   }
   if (m.author.kind === "system" || m.kind === "system") {
     const lines = m.text.split("\n");
@@ -290,7 +318,8 @@ function Message({ m, tasks, isLatestPlan, big, thread }: { m: MessageRow; tasks
 }
 
 export function ThreadView({ threadId, big }: { threadId: string; big?: boolean }) {
-  const { threads, computer, questions } = useShip();
+  const { threads, computer, questions, officeId } = useShip();
+  const aboard = useAboard(officeId);
   const id = threadId as Id<"threads">;
   const messages = useQuery(api.messages.list, { threadId: id });
   const tasks = useQuery(api.tasks.list, { threadId: id }) ?? [];
@@ -328,7 +357,7 @@ export function ThreadView({ threadId, big }: { threadId: string; big?: boolean 
       </div>
       <div className="thread-body" ref={list}>
         {messages === undefined ? <div className="empty dim">…</div> : null}
-        {messages?.map((m) => <Message key={m._id} m={m} tasks={tasks} isLatestPlan={m._id === latestPlan} big={big ?? false} thread={t} />)}
+        {messages?.map((m) => <Message key={m._id} m={m} tasks={tasks} isLatestPlan={m._id === latestPlan} big={big ?? false} thread={t} aboard={aboard} />)}
         {thinking ? (
           <div className="msg-row">
             <Face computer size={big ? 26 : 22} />
@@ -337,12 +366,13 @@ export function ThreadView({ threadId, big }: { threadId: string; big?: boolean 
         ) : null}
         {qs.map((q) => <QuestionCard key={q._id} q={q} context={false} />)}
       </div>
+      {!aboard.canAsk ? <div className="card composer composer-off dim">{aboard.owner?.name ?? "The captain"} has turned off asking {COMPUTER_NAME} for friends aboard. You can read along.</div> : (
       <form className="card composer" onSubmit={(e) => void submit(e)}>
         <label className="sr" htmlFor={`say-${big ? "helm" : "phone"}`}>Message {COMPUTER_NAME}</label>
         <input id={`say-${big ? "helm" : "phone"}`} value={text} onChange={(e) => setText(e.target.value)} placeholder={`Message ${COMPUTER_NAME}…`} autoComplete="off" />
         {big ? <Button kind="primary" type="submit" disabled={!text.trim()}>Send</Button>
           : <button className="iconbtn" type="submit" aria-label="Send" disabled={!text.trim()}><SendIcon /></button>}
-      </form>
+      </form>)}
       {err ? <div className="error">{err}</div> : null}
     </div>
   );

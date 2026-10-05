@@ -235,7 +235,18 @@ export class AudioManager {
     this.update(p);
   }
 
-  private level() { return this.prefs.muted ? 0 : this.prefs.volume; }
+  private level() { return this.prefs.muted ? 0 : this.prefs.volume * this.duck; }
+
+  /** 1 normally; lower while someone aboard is talking (voice chat), so the ship's sound steps back a little. */
+  private duck = 1;
+  /** Duck everything the ship plays (music, beds, one-shots) to `level` of its volume, easing over about a second. */
+  setDuck(level: number): void {
+    const d = Math.min(1, Math.max(0, level));
+    if (Math.abs(d - this.duck) < 0.01) return;
+    this.duck = d;
+    const l = this.listener;
+    if (l) l.gain.gain.setTargetAtTime(this.level(), l.context.currentTime, 0.35);
+  }
 
   private update(p: Partial<AudioSnapshot>) {
     this.snap = { ...this.snap, ...p };

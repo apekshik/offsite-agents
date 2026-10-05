@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { COMPUTER_HANDLE, COMPUTER_HANDLE_ALIASES, COMPUTER_NAME, LIMITS } from "@offsite/contracts";
-import { capJson, fail, requireCrew, requireOffice } from "./lib";
+import { capJson, fail, requireAboard, requireCrew, requireOffice } from "./lib";
 import { crewOf, hire as hireCrew, liveRunOf } from "./crewlib";
 import { harness } from "./schema";
 
@@ -9,7 +9,7 @@ import { harness } from "./schema";
 export const list = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, { officeId }) => {
-    await requireOffice(ctx, officeId);
+    await requireAboard(ctx, officeId);
     return crewOf(ctx, officeId);
   },
 });

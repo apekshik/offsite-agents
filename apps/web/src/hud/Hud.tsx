@@ -6,6 +6,8 @@ import { audio, useAudio } from "../audio/index.ts";
 import { PingMarker } from "./Ping.tsx";
 import { Toasts } from "./Toasts.tsx";
 import { WalkChip } from "../overlay/walk.tsx";
+import { PeopleOnDeck } from "./People.tsx";
+import { forMe, useAboard } from "../people/people.ts";
 import "./hud.css";
 
 // The HUD: as little as possible. Where you are and whether a machine is working for you, what
@@ -22,6 +24,7 @@ function Status() {
         <span className="disp hud-ship">{office?.name ?? ""}</span>
         {!(noMachine || noProject) && machine ? <span className="hud-machine"><Dot tone={machine.online ? "on" : "off"} />{machine.name}{machine.online ? "" : " · offline: the crew waits for it"}</span> : null}
       </span>
+      <PeopleOnDeck />
       {noMachine || noProject ? (
         <div className="hud-warn">
           <Dot tone="amber" />
@@ -79,7 +82,9 @@ export function Hud() {
   const helm = useUi((s) => s.helm);
   const fold = usePhone((s) => s.fold);
   const creator = usePhone((s) => s.creator);
-  const { questions } = useShip();
+  const { questions: all, officeId } = useShip();
+  const aboard = useAboard(officeId);
+  const questions = all.filter((q) => aboard.loading || forMe(q, aboard.me, aboard.isOwner));
   const busy = helm || fold === "open" || creator !== null;
   return (
     <>

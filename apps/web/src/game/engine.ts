@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  Captain, Collision, ComputerBot, CrewFigure, Input, LIGHT, Laptop, SELF_LAYER, Walker,
+  Captain, Collision, ComputerBot, CrewFigure, FirstPersonHands, Input, LIGHT, Laptop, SELF_LAYER, Walker,
   buildAvatar, createPipeline, createRenderer, findRoute, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
   type AutopilotGoal, type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
@@ -12,6 +12,8 @@ import { Splash, type Effect } from "./fx.ts";
 import { CrewScreen, describeSlot, faceOf, takeOverLaptop, type HelmContent, type ScreenContent } from "./screens.ts";
 import { DEFAULT_SURFACE, disposeObject, makeMore, makePackage, packageSpots, type Surface } from "./dropoff.ts";
 import { audio, busyLevel, flightPhase, type Emitter } from "../audio/index.ts";
+import type { SelfState } from "../net/index.ts";
+import { People, type PersonOnDeck } from "./people.ts";
 
 // The game: one world, the captain, and the crew as the backend sees them. The Game component feeds
 // it world.snapshot; everything else (where people go, what they do there, the helicopter, pings)
@@ -20,7 +22,7 @@ import { audio, busyLevel, flightPhase, type Emitter } from "../audio/index.ts";
 export interface Snapshot {
   office?: { name: string };
   crew: (CrewView & { avatar: unknown; look: unknown })[];
-  questions: { crewId: string; prompt: string; crewName?: string }[];
+  questions: { crewId: string; prompt: string; crewName?: string; askedOf?: string | null }[];
 }
 
 /** The threads, for the helm's screen (threads.list). */
@@ -59,6 +61,10 @@ export interface GameOptions {
   world: WorldModule;
   quality?: Quality;
   captain: { avatar: unknown; look: unknown } | null;
+  /** A friend aboard someone else's ship: their own hands in first person, not the captain's uniform. */
+  guest?: boolean;
+  /** Your user id: a question for someone else on deck sends its asker to them, not to you. */
+  userId?: string;
 }
 
 /** At most this many name tags at once (nearest first), plus anyone asking, pinged or in focus. */
@@ -76,6 +82,11 @@ const TYPING_ACTS = new Set(["type", "laptop", "lounge-laptop"]);
 const PERSONAL_SPACE = 0.62;
 /** Walking over to someone (the phone's "Walk over"): stop this far short, metres. */
 const WALK_UP_TO = 1.2;
+/** Crew this close to someone coming aboard wave hello, metres; at most this many. */
+const GREET_RANGE = 30;
+/** Follow another tab's plan for the crew while it keeps coming; after this long without one, plan here again. */
+const FOLLOW_MS = 3500;
+const GREETERS = 2;
 
 /** A world that can show how busy the ship is (lights in the office, music…): BuiltWorld's optional hook. */
 type BusyWorld = BuiltWorld & { setBusy?: (level: number) => void };
@@ -107,6 +118,8 @@ export class Game {
   private world!: BuiltWorld;
   private collision!: Collision;
   private captain!: Captain;
+  /** Everyone else on deck (friends aboard, or the captain): ./people.ts. */
+  people!: People;
   private input!: Input;
   private director!: Director;
   private slots = new Map<string, Slot>();
@@ -231,8 +244,11 @@ export class Game {
     this.input = new Input({ element: o.canvas, suspended: () => ui.typing() });
     const spawn = this.world.layout.slots.find((s) => s.kind === "captain-spawn");
     const me = o.captain;
+    const mine = me?.avatar ? spec(me.avatar) : null;
     this.captain = new Captain({
       camera, collision: this.collision, input: this.input,
+      // A friend's own hands in first person; the captain keeps the uniform's sleeves.
+      ...(o.guest && mine ? { hands: new FirstPersonHands({ skin: mine.skin, sleeve: mine.top }) } : {}),
       avatar: buildAvatar(me?.avatar ? spec(me.avatar) : CAPTAIN_PRESET.spec, me?.avatar ? look(me.look) : CAPTAIN_PRESET.look),
       interactables: this.world.interactables,
       // A little above the floor: starting exactly on it can miss it and drop you a deck.
@@ -242,6 +258,16 @@ export class Game {
       lockInThird: true,
     });
     scene.add(this.captain.object);
+    this.people = new People({
+      scene, camera,
+      blocked: (from, to) => {
+        const d = to.clone().sub(from);
+        const len = d.length();
+        const hit = this.collision.raycast(from, d.normalize(), len);
+        return !!hit && hit.t < len - 0.4;
+      },
+    });
+    sceneBridge.locatePerson = (id) => this.people.locate(id);
     this.captain.onPrompt = (it) => ui.set({ prompt: it ? { id: it.id, label: it.label } : null });
     this.captain.onUse = (it) => {
       if (it.id === "helm") this.openInterface({ helm: true });
@@ -266,6 +292,11 @@ export class Game {
       scene, nav: this.world.layout.nav, collision: this.collision,
       slot: (id) => this.director.slot(id),
       captain: this.captain.object,
+      askee: (crewId) => {
+        const to = this.snapshot?.questions.find((q) => q.crewId === crewId)?.askedOf;
+        if (!to || to === this.o.userId) return null;
+        return this.people.objects().find((p) => p.userId === to)?.object ?? null;
+      },
       say: (b, text, ms) => this.say(b, text, ms),
       fx: (e) => {
         if (!e.object.parent) scene.add(e.object);
@@ -459,6 +490,17 @@ export class Game {
       const spot = new THREE.Vector3(...helm.pos);
       return { target: () => spot, route: (from) => findRoute(nav, from, helm), stopShort: 0, face: helm.facing };
     }
+    if (to.kind === "person") {
+      if (!this.people.position(to.userId)) return null;
+      return {
+        // Gone if they step off the deck.
+        target: () => this.people.position(to.userId),
+        route: (from, at) => findRoute(nav, from, at),
+        stopShort: WALK_UP_TO,
+        face: "target",
+        replanEvery: 0.5,
+      };
+    }
     const body = this.bodies.get(to.crewId);
     if (!body) return null;
     return {
@@ -482,6 +524,81 @@ export class Game {
     this.plan(now);
   }
 
+  // ---- everyone else on deck ----
+
+  /** This tab's captain, for everyone else: where, which way, how fast, and what they're doing. */
+  self(): SelfState | null {
+    if (!this.captain) return null;
+    const p = this.captain.position;
+    const s = ui.get();
+    const act = s.helm ? "helm" : s.phone === "open" ? (s.phoneUnfolded ? "phone-open" : "phone") : "walk";
+    return { pos: [p.x, p.y, p.z], facing: this.captain.facing, act, speed: this.captain.groundSpeed };
+  }
+
+  /** Everyone else on deck (the deck's roster). Crew nearby wave at whoever just came aboard. */
+  setPeople(list: PersonOnDeck[]) {
+    if (!this.people) return;
+    const joined = this.people.setRoster(list);
+    for (const id of joined) this.greet(id, list.find((p) => p.userId === id)?.name ?? "");
+  }
+
+  /**
+   * The crew nearest someone coming aboard (a user id, or null for you) look up and wave, and one says hello. Each
+   * tab picks the same crew: the director places them the same everywhere.
+   */
+  greet(userId: string | null, name: string) {
+    const at = () => (userId ? this.people.position(userId) : this.captain.position);
+    // A moment for them to appear on deck (their first sample) before anyone waves.
+    setTimeout(() => {
+      const where = at();
+      if (!where || this.disposed) return;
+      const near = [...this.bodies.values()]
+        .filter((b) => b.fig.object.visible && b.arrived && !b.busy && b.dir && !isWorking(b.dir.activity) && b.dir.activity !== "asking")
+        .map((b) => ({ b, d: b.fig.object.position.distanceTo(where) }))
+        .filter((x) => x.d < GREET_RANGE)
+        .sort((p, q) => p.d - q.d || (p.b.id < q.b.id ? -1 : 1))
+        .slice(0, GREETERS);
+      const head = where.clone().setY(where.y + 1.5);
+      near.forEach(({ b }, i) => {
+        b.fig.lookAt(head);
+        b.fig.playEmote("wave");
+        if (i === 0 && name) this.say(b, `Welcome aboard, ${name}!`, 3500);
+        setTimeout(() => b.fig.lookAt(null), 4000);
+      });
+    }, 1500);
+  }
+
+  private followed: { d: Direction[]; at: number } | null = null;
+
+  /** This tab's plan for the crew, for everyone else on deck to follow: each direction, and the made-up spots it uses. */
+  sharedPlan(): { d: Direction[]; slots: Slot[] } | null {
+    if (!this.directions.length) return null;
+    const ids = this.directions.flatMap((d) => [d.target.kind === "slot" ? d.target.slotId : null, d.spawnSlot]).filter((x): x is string => !!x);
+    return { d: this.directions, slots: this.director.madeSlots(ids) };
+  }
+
+  /** The host's plan for the crew (another tab's sharedPlan): follow it, so everyone aboard sees the same thing. */
+  follow(plan: unknown) {
+    const p = plan as { d?: unknown; slots?: unknown };
+    if (!Array.isArray(p?.d) || !Array.isArray(p.slots)) return;
+    const d = (p.d as Direction[]).filter((x) => x && typeof x.crewId === "string" && x.target && typeof x.target.kind === "string");
+    this.director.adopt((p.slots as Slot[]).filter((s) => s && typeof s.id === "string" && Array.isArray(s.pos)));
+    // The first plan from the host: everyone is simply where it says (no one strolls across the ship to get there).
+    const first = !this.followed;
+    this.followed = { d, at: Date.now() };
+    this.plan(Date.now());
+    if (first) {
+      for (const x of d) {
+        const b = this.bodies.get(x.crewId);
+        const slot = x.target.kind === "slot" ? this.director.slot(x.target.slotId) : undefined;
+        if (b && slot && b.fig.object.visible && !x.scramble) b.place(slot, x);
+      }
+    }
+  }
+
+  /** Stop following another tab (this one directs the crew now). */
+  lead() { if (this.followed) this.followed = null; }
+
   /** Finished tasks (diffs.deliveries): packages on the drop-off, and what each desk offers. */
   setDeliveries(list: Delivery[]) {
     this.deliveries = list;
@@ -500,11 +617,16 @@ export class Game {
     const snap = this.snapshot;
     if (!snap || !this.director) return;
     this.lastPlan = now;
-    let directions = this.director.plan(snap.crew, now);
+    // With others on deck, one tab (the host: whoever came on deck first) directs the crew for everyone, so all aboard
+    // see the same crew in the same places; the rest follow its plan (follow) while it keeps arriving.
+    const f = this.followed;
+    const following = f && now - f.at < FOLLOW_MS && snap.crew.every((c) => c.role !== "crew" || f.d.some((d) => d.crewId === c._id));
+    let directions = following ? f.d.filter((d) => snap.crew.some((c) => c._id === d.crewId)) : this.director.plan(snap.crew, now);
     if (this.film?.stage) directions = this.film.stage(directions, now);
     const seen = new Set<string>();
     for (const d of directions) {
-      const view = snap.crew.find((c) => c._id === d.crewId)!;
+      const view = snap.crew.find((c) => c._id === d.crewId);
+      if (!view) continue;
       seen.add(d.crewId);
       this.direct(view, d, snap.questions.find((q) => q.crewId === d.crewId)?.prompt ?? null);
     }
@@ -1027,6 +1149,7 @@ export class Game {
       if (!b.fig.object.visible) continue;
       b.update(dt, t, wall, this.camera);
     }
+    this.people.update(dt, t);
     this.separate(dt);
     this.updateBanter(wall);
     this.effects = this.effects.filter((e) => {
@@ -1055,6 +1178,8 @@ export class Game {
     sceneBridge.locate = () => null;
     sceneBridge.captain = () => null;
     sceneBridge.where = () => null;
+    sceneBridge.locatePerson = () => null;
+    this.people?.dispose();
     this.stopSound();
     for (const b of [...this.bodies.values()]) this.removeBody(b);
     for (const e of this.effects) { e.object.removeFromParent(); e.dispose(); }

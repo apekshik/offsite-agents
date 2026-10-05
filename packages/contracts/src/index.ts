@@ -8,3 +8,4 @@ export * from "./names.ts";
 export * from "./review.ts";
 export * from "./install.ts";
 export * from "./folders.ts";
+export * from "./people.ts";

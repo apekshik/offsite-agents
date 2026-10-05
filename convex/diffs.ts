@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { DiffResult } from "@offsite/contracts";
-import { fail, ONLINE_MS, requireMachine, requireOffice, requireThread } from "./lib";
+import { fail, ONLINE_MS, requireAboard, requireMachine, requireOffice, requireThread, requireThreadAboard } from "./lib";
 import { ensureRepos, repoOfTask, reposOf } from "./repolib";
 
 // The crew's work, for the captain to read: a task's changes, or a thread's in each repo it touched. The app asks
@@ -37,11 +37,11 @@ async function taskIn(ctx: Ctx, threadId: Id<"threads">, taskId: Id<"tasks"> | u
 const rowsFor = (ctx: Ctx, threadId: Id<"threads">, taskId: Id<"tasks"> | null) =>
   ctx.db.query("diffs").withIndex("by_thread", (q) => q.eq("threadId", threadId).eq("taskId", taskId)).collect();
 
-/** Ask for a task's changes, or (no taskId) the thread's in each repo. Cheap to call on every open. */
+/** Ask for a task's changes, or (no taskId) the thread's in each repo. Cheap to call on every open. Anyone aboard. */
 export const request = mutation({
   args: { threadId: v.id("threads"), taskId: v.optional(v.id("tasks")) },
   handler: async (ctx, { threadId, taskId }) => {
-    const { office, thread } = await requireThread(ctx, threadId);
+    const { office, thread } = await requireThreadAboard(ctx, threadId);
     const task = await taskIn(ctx, threadId, taskId);
     const rows = await rowsFor(ctx, threadId, task?._id ?? null);
     const now = Date.now();
@@ -66,11 +66,11 @@ export const request = mutation({
   },
 });
 
-/** A task's changes, or the thread's per repo, with each repo's machine (offline: the diff waits there). Owner only. */
+/** A task's changes, or the thread's per repo, with each repo's machine (offline: the diff waits there). Anyone aboard. */
 export const get = query({
   args: { threadId: v.id("threads"), taskId: v.optional(v.id("tasks")) },
   handler: async (ctx, { threadId, taskId }) => {
-    const { office, thread } = await requireThread(ctx, threadId);
+    const { office, thread } = await requireThreadAboard(ctx, threadId);
     const task = await taskIn(ctx, threadId, taskId);
     const repos = await reposOf(ctx, office);
     const rows = await rowsFor(ctx, threadId, task?._id ?? null);
@@ -101,7 +101,10 @@ export const get = query({
   },
 });
 
-/** The captain opened a task's changes (or a whole thread's: every task in it): their packages leave the drop-off. */
+/**
+ * The captain opened a task's changes (or a whole thread's: every task in it): their packages leave the drop-off. A
+ * friend aboard opening them leaves the packages for the captain.
+ */
 export const seen = mutation({
   args: { taskId: v.optional(v.id("tasks")), threadId: v.optional(v.id("threads")) },
   handler: async (ctx, { taskId, threadId }) => {
@@ -109,11 +112,13 @@ export const seen = mutation({
     if (taskId) {
       const task = await ctx.db.get(taskId);
       if (!task) fail("No such task");
-      await requireOffice(ctx, task!.officeId);
+      const { role } = await requireAboard(ctx, task!.officeId);
+      if (role !== "owner") return;
       if (!task!.seenAt) await ctx.db.patch(taskId, { seenAt: now });
     }
     if (threadId) {
-      await requireThread(ctx, threadId);
+      const { role } = await requireThreadAboard(ctx, threadId);
+      if (role !== "owner") return;
       const tasks = await ctx.db.query("tasks").withIndex("by_thread", (q) => q.eq("threadId", threadId)).collect();
       for (const t of tasks) if (t.state === "landed" && !t.seenAt) await ctx.db.patch(t._id, { seenAt: now });
     }
@@ -127,7 +132,7 @@ export const seen = mutation({
 export const deliveries = query({
   args: { officeId: v.id("offices") },
   handler: async (ctx, { officeId }) => {
-    await requireOffice(ctx, officeId);
+    await requireAboard(ctx, officeId);
     const landed = await ctx.db.query("tasks").withIndex("by_office_state", (q) => q.eq("officeId", officeId).eq("state", "landed")).collect();
     const recent = landed.sort((a, b) => (b.landedAt ?? 0) - (a.landedAt ?? 0)).slice(0, 40);
     const names = new Map<string, string>();
