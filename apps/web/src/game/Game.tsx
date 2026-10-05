@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useConvex, useQuery } from "convex/react";
 import type { WorldModule } from "@offsite/kit";
 import { yacht } from "@offsite/world-yacht";
+import { moonBase } from "@offsite/world-moon-base";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Deck } from "../net/index.ts";
@@ -9,11 +10,11 @@ import { voice } from "../voice/index.ts";
 import { personLook } from "../people/look.ts";
 import { Game as Engine } from "./engine.ts";
 
-// The 3D world: renderer, the office's world (the yacht), the captain, the crew, and everyone else on deck (the deck:
+// The 3D world: renderer, the office's world (the yacht, the moon base…), the captain, the crew, and everyone else on deck (the deck:
 // src/net, peer to peer with a fallback through Convex). Owned by the game stream; the interface never imports from
 // here (see src/bridge.ts).
 
-const WORLDS: Record<string, WorldModule> = { yacht };
+const WORLDS: Record<string, WorldModule> = { yacht, "moon-base": moonBase };
 
 /** ?p2p=off (dev only): no peer-to-peer at all, every position through Convex. For trying the fallback. */
 const P2P = !(import.meta.env.DEV && new URLSearchParams(location.search).get("p2p") === "off");

@@ -256,6 +256,8 @@ export class Game {
       view: ui.get().view,
       // Click grabs the mouse in both views; Esc lets go. The crosshair then points at things.
       lockInThird: true,
+      // How the captain moves here (the moon base's low gravity), if the world says.
+      ...(this.world.captain ? { move: this.world.captain } : {}),
     });
     scene.add(this.captain.object);
     this.people = new People({
@@ -342,6 +344,7 @@ export class Game {
   /** The listener on the camera, M to mute, and the loops that never move: the bar, the hot tub, the pool, the server room. */
   private startSound() {
     audio.attach(this.camera, this.scene);
+    audio.setSoundscape(this.world.soundscape ?? null);
     this.unbindMute = audio.bindMuteKey();
     const slots = this.world.layout.slots;
     const middle = (list: Slot[]) => list.length
@@ -371,7 +374,7 @@ export class Game {
       audio.setAmbience({ night: LIGHT.uNight.value, busy: this.busySound });
     }
     // Helicopters: the world's flights and the helicopter flying each.
-    const flying = (this.world as BuiltWorld).aircraft?.(wall) ?? [];
+    const flying = this.world.soundscape?.aircraft === "none" ? [] : (this.world as BuiltWorld).aircraft?.(wall) ?? [];
     const now = new Set<THREE.Object3D>();
     for (const f of flying) {
       const { phase, ms } = flightPhase(f, wall);
@@ -1181,6 +1184,7 @@ export class Game {
     sceneBridge.locatePerson = () => null;
     this.people?.dispose();
     this.stopSound();
+    audio.setSoundscape(null);
     for (const b of [...this.bodies.values()]) this.removeBody(b);
     for (const e of this.effects) { e.object.removeFromParent(); e.dispose(); }
     this.effects = [];

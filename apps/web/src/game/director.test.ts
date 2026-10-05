@@ -371,4 +371,23 @@ describe("the yacht's other spaces", () => {
     expect(soloAct(at("core", ["server-room"], "core-1"), 0.9).act).toBe("rail");
     expect(soloAct(at("core", ["server-room"], "core-aisle-s"), 0.9).act).toBe("mingle");
   });
+
+  it("says what a world calls a spot's pastime, and keeps work out of spots marked for time off", () => {
+    const at = (kind: Slot["kind"], tags: string[], id: string = kind): Slot => ({ id, kind, pos: [0, 0, 0], facing: 0, nav: "n", tags });
+    expect(soloAct(at("workshop", ["greenhouse", "pastime:tending the plants"]), 0.5)).toMatchObject({ act: "tinker", pastime: "tending the plants" });
+    expect(soloAct(at("workshop", ["garage"]), 0.5).pastime).toBe("tinkering");
+    // Only a sling marked leisure and a desk: someone who'd rather work in a hammock gets the desk.
+    const d = new Director([
+      { id: "sling", kind: "hammock", pos: [0, 0, 0], facing: 0, nav: "n", tags: ["leisure"] },
+      { id: "desk-1", kind: "desk", pos: [3, 0, 0], facing: 0, nav: "n" },
+    ]);
+    const lazy = Array.from({ length: 200 }, (_, i) => `crew${i}`).find((h) => workHabit(h)[0] === "hammock")!;
+    const [w] = d.plan([person(lazy, { live: working("edit") })], T0);
+    expect(w!.target).toEqual({ kind: "slot", slotId: "desk-1" });
+    // Off duty, the sling is theirs to nap in.
+    const off = new Director([{ id: "sling", kind: "hammock", pos: [0, 0, 0], facing: 0, nav: "n", tags: ["leisure", "pastime:napping in the quarters"] }]);
+    const [o] = off.plan([person(lazy)], T0);
+    expect(o!.target).toEqual({ kind: "slot", slotId: "sling" });
+    expect(o!.label).toContain("napping in the quarters");
+  });
 });

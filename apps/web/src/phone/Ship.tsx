@@ -16,7 +16,7 @@ import { personLook } from "../people/look.ts";
 // (Friends.tsx). A friend aboard someone else's ship sees it read-only, and how to leave.
 
 export function ShipSummary() {
-  const { office, officeId, me, machines, crew } = useShip();
+  const { office, officeId, me, machines, crew, world } = useShip();
   const aboard = useAboard(officeId);
   const owner = aboard.isOwner;
   const mine = me ? personLook({ userId: me._id, avatar: me.avatar, look: me.look, owner }) : null;
@@ -50,7 +50,7 @@ export function ShipSummary() {
       </Card>
       <Button kind="soft" size="sm" className="walk-helm" onClick={walkToHelm} title="The phone stays open while you walk (H)"><HelmIcon />Walk to the helm</Button>
       <div className="ship-facts">
-        <div><span className="dim">The world</span><span>The Yacht</span></div>
+        <div><span className="dim">The world</span><span>{world.name}</span></div>
         <div><span className="dim">Machines</span><span>{!owner ? `${office?.machine?.name ?? "None yet"} (${office?.owner.name}'s)` : machines?.length ? machines.map((m) => m.name).join(", ") : "None yet"}</span></div>
         <div><span className="dim">{office?.repos.length === 1 ? "Repo" : "Repos"}</span><span className="mono clip">{office?.repos.length ? office.repos.map((r) => r.name).join(", ") : "None yet"}</span></div>
         {owner && office?.repos.length === 1 ? <div><span className="dim">Folder</span><span className="mono clip">{office.repos[0]!.path}</span></div> : null}

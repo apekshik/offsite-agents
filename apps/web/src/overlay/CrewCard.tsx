@@ -19,7 +19,7 @@ export function CrewCard() {
   const locked = useUi((s) => s.pointerLocked);
   const helm = useUi((s) => s.helm);
   const fold = usePhone((s) => s.fold);
-  const { byId, questions } = useShip();
+  const { byId, questions, world } = useShip();
   const interrupt = useMutation(api.runs.interrupt);
   const now = useNow(1000);
   const el = useRef<HTMLDivElement>(null);
@@ -52,7 +52,7 @@ export function CrewCard() {
   if (!id || !c || helm || fold === "open") return null;
   const a = activityOf(c, now);
   const tone = activityTone(a);
-  const line = crewLine(c, now);
+  const line = crewLine(c, now, world.words);
   const q = questions.find((x) => x.crewId === c._id);
   return (
     <div className={`crew-card ${tone === "amber" ? "amber" : tone === "accent" ? "accent" : ""}`} ref={el}>

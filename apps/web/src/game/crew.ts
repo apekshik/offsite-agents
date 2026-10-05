@@ -434,6 +434,7 @@ export class CrewBody {
       else if (this.pacing && d) this.backToSeat(d);
     }
     if (!this.pacing) walker.update(dt);
+    this.hop();
     if (this.dir?.target.kind === "captain" && this.arrived) {
       const to = this.stage.askee?.(this.id) ?? this.stage.captain;
       fig.lookAt(to.position.clone().setY(to.position.y + 1.5));
@@ -441,6 +442,15 @@ export class CrewBody {
     this.habits(wall, t);
     fig.setSleeping(this.arrived && !this.moment && NAPS.has(fig.act));
     fig.update(dt, t, { speed: this.pacing ? this.paceSpeed : walker.speed, seat: this.pacing ? null : walker.seat, camera });
+  }
+
+  /** Standing at a spot a world marks "low-g" (the moon base's court): long, slow hops. */
+  private hop() {
+    if (!this.arrived || this.moment || !this.key.startsWith("slot:")) return;
+    const slot = this.stage.slot(this.key.slice(5));
+    if (!slot?.tags?.includes("low-g") || slot.seat !== undefined) return;
+    const T = 2.2, rest = 0.5, u = ((this.t + (hash(this.id) % 97) / 10) % (T + rest)) / T;
+    this.fig.object.position.y = slot.pos[1] + (u < 1 ? 4 * 1.3 * u * (1 - u) : 0);
   }
 
   /** Little things on a schedule: a stretch or a coffee at work, leaning in with company, a fish. */

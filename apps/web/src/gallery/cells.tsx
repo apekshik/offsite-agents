@@ -59,6 +59,8 @@ export const CELLS: Cell[] = [
   { group: "Phone", name: "phone-crew-off", title: "Crew: off duty", kind: "overlay", setup: ABOARD, show: (d) => phone.openCrew(d.ship.snapshot().crew.find((c) => c.role === "crew")?._id ?? null) },
   { group: "Phone", name: "phone-hire", title: "Crew: hiring someone", kind: "overlay", setup: ABOARD, show: () => { phone.set({ fold: "open", tab: "crew", hiring: true }); } },
   { group: "Phone", name: "phone-ship", title: "Ship: machines and repos", kind: "overlay", setup: ABOARD, show: () => phone.openShip() },
+  { group: "Phone", name: "phone-hire-moon", title: "Crew: hiring someone on the moon base (they come by lander)", kind: "overlay", setup: { ...ABOARD, world: "moon-base" }, show: () => { phone.set({ fold: "open", tab: "crew", hiring: true }); } },
+  { group: "Phone", name: "phone-ship-moon", title: "Ship: a ship on the moon base", kind: "overlay", setup: { ...ABOARD, world: "moon-base" }, show: () => phone.openShip() },
   { group: "Phone", name: "phone-review", title: "Review: a landed task's diff", kind: "overlay", setup: ABOARD, seed: along(ASK, 60), show: (d) => { const t = newest(d)!; openReview({ threadId: t, taskId: d.ship.tasks(t).find((x) => x.state === "landed")?._id ?? null }); } },
 
   // Around the ship.

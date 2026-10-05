@@ -99,6 +99,8 @@ export class AudioManager {
   private readonly playing = new Map<string, number>();
   private readonly helis = new Map<THREE.Object3D, { phase: FlightPhase; loop: Emitter | null }>();
   private mix = { night: 0, busy: 0 };
+  /** The beds of the outdoors (the sea, the breeze, the night) are on: the world has air and water round it. */
+  private outdoors = true;
   private disarm: (() => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastSlot = -1;
@@ -286,9 +288,20 @@ export class AudioManager {
     });
   }
 
+  /**
+   * What the world sounds like (BuiltWorld.soundscape): without a sea the sea, the breeze and the
+   * night's beds go quiet, and without wildlife no gulls or dolphins. Null: the yacht's, all of it.
+   */
+  setSoundscape(s: { sea?: boolean; wildlife?: boolean } | null): void {
+    this.outdoors = s?.sea ?? true;
+    this.wildlife = s?.wildlife ?? true;
+    this.applyMix(1);
+  }
+
   private applyMix(seconds: number) {
     if (!this.listener) return;
     const levels = ambienceMix(this.mix.night, this.mix.busy);
+    if (!this.outdoors) levels.ocean = levels.wind = levels.night = 0;
     const t = this.listener.context.currentTime;
     for (const [id, bed] of this.layers) bed.gain.gain.setTargetAtTime(levels[id] * LAYERS[id].volume, t, seconds / 3);
   }

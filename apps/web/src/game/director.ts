@@ -145,6 +145,14 @@ const has = (s: Slot | undefined, tag: string) => !!s?.tags?.includes(tag);
 
 /** What someone does on their own at a spot. `r` (0..1) is theirs for as long as they stay. */
 export function soloAct(slot: Slot | undefined, r: number): { act: Act; props: Prop[]; pastime: string } {
+  const what = baseSoloAct(slot, r);
+  return { ...what, pastime: pastimeOf(slot) ?? what.pastime };
+}
+
+/** What a world calls a spot's pastime, if it says (a tag "pastime:tending the plants"). */
+export const pastimeOf = (slot: Slot | undefined): string | null => slot?.tags?.find((t) => t.startsWith("pastime:"))?.slice(8) || null;
+
+function baseSoloAct(slot: Slot | undefined, r: number): { act: Act; props: Prop[]; pastime: string } {
   const kind = slot?.kind;
   switch (kind) {
     case "lounger": return r < 0.4 ? { act: "nap", props: [], pastime: "napping" } : { act: "sunbathe", props: [], pastime: "sunbathing" };
@@ -398,10 +406,11 @@ export class Director {
   }
 
   /** The first free slot of the first kind in `kinds` that has one, spread out by a per-person offset. */
-  private freeSlot(crewId: string, kinds: readonly SlotKind[], salt = 0): Slot | null {
+  private freeSlot(crewId: string, kinds: readonly SlotKind[], salt = 0, work = false): Slot | null {
     const taken = this.taken(crewId);
     for (const kind of kinds) {
-      const free = this.slots.filter((s) => s.kind === kind && !taken.has(s.id));
+      // A world marks spots that are only for time off (a sleep sling, a seat at the lookout): nobody works there.
+      const free = this.slots.filter((s) => s.kind === kind && !taken.has(s.id) && !(work && has(s, "leisure")));
       if (free.length) return free[(strHash(crewId) + salt) % free.length]!;
     }
     return null;
@@ -773,7 +782,7 @@ export class Director {
 
     if (isWorking(activity) || activity === "failed") {
       let slot = seat?.mode === "work" ? current ?? null : null;
-      if (!slot) slot = this.hold(c._id, this.freeSlot(c._id, workHabit(c.handle)), "work", now);
+      if (!slot) slot = this.hold(c._id, this.freeSlot(c._id, workHabit(c.handle), 0, true), "work", now);
       const act = activity === "failed" ? "slump" : workAct(slot?.kind, activity, c._id, now);
       const step = c.live?.step?.summary ?? c.lastStep;
       return {
@@ -819,6 +828,11 @@ export class Director {
   }
 
   private groupAct(g: Group, spot: Slot, crewId: string): { act: Act; props: Prop[]; pastime: string } {
+    const what = this.baseGroupAct(g, spot, crewId);
+    return g.mood === "cheers" ? what : { ...what, pastime: pastimeOf(spot) ?? what.pastime };
+  }
+
+  private baseGroupAct(g: Group, spot: Slot, crewId: string): { act: Act; props: Prop[]; pastime: string } {
     switch (g.spot) {
       case "bar": return { act: "stool", props: ["drink"], pastime: g.mood === "cheers" ? "celebrating" : "at the bar" };
       case "tub": return { act: "soak", props: [], pastime: "in the hot tub" };

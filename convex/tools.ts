@@ -3,7 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import type { Doc, Id } from "./_generated/dataModel";
 import { ACTIVITY_LABEL, COMPUTER_NAME, crewActivity, isLive, type RunState } from "@offsite/contracts";
 import { fail, requireMachine, requireOwnRun } from "./lib";
-import { crewByHandle, crewOf, freeCrew, hire, liveRunOf } from "./crewlib";
+import { arrivesBy, crewByHandle, crewOf, freeCrew, hire, liveRunOf } from "./crewlib";
 import { askedOfFor, post, resolveTask, tick } from "./flow";
 import { harness } from "./schema";
 import { ensureRepos, repoByName, repoForPlan, repoOfTask, reposOf } from "./repolib";
@@ -162,7 +162,7 @@ export const hireCrew = mutation({
   handler: async (ctx, { token, runId, name, harness, specialty }) => {
     const { office, thread, run } = await computerRun(ctx, token, runId);
     const c = await hire(ctx, office, { name, harness, specialty });
-    await post(ctx, thread._id, { author: { kind: "system" }, kind: "system", text: `${c.name} is on the way by helicopter.`, runId: run._id });
+    await post(ctx, thread._id, { author: { kind: "system" }, kind: "system", text: `${c.name} is on the way by ${arrivesBy(office.world)}.`, runId: run._id });
     return { handle: c.handle, name: c.name, arrivesAt: c.arrivesAt };
   },
 });
