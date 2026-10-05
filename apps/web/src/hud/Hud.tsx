@@ -30,6 +30,23 @@ function Status() {
   );
 }
 
+/** The crosshair while the mouse is grabbed. On a crew member it opens into a ring with their name. */
+function Reticle() {
+  const aim = useUi((s) => s.aim);
+  return (
+    <div className={`hud-reticle ${aim ? "on" : ""}`} aria-hidden="true">
+      <span className="hud-reticle-dot" />
+      {aim ? (
+        <div className="hud-reticle-tag">
+          <b>{aim.name}</b>
+          {aim.line ? <span>{aim.line}</span> : null}
+          <em>Click for their card</em>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function Hud() {
   const prompt = useUi((s) => s.prompt);
   const view = useUi((s) => s.view);
@@ -47,7 +64,8 @@ export function Hud() {
       {!busy && prompt ? (
         <div className="hud-prompt fade-up" key={prompt.id}><Key>E</Key><span>{prompt.label}</span></div>
       ) : null}
-      {!busy && !locked && !prompt && fold === "away" ? <div className="hud-look">Click the world to look around</div> : null}
+      {!busy && !locked && !prompt && fold === "away" ? <div className="hud-look">Click the world to look around · Esc lets go</div> : null}
+      {!busy && locked ? <Reticle /> : null}
       {!busy ? (
         <div className="hud-hints">
           <span className={`hud-hint ${questions.length ? "asking" : ""}`}>

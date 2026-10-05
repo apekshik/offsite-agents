@@ -27,6 +27,8 @@ export interface UiState {
   threadId: string | null;
   /** A crew member the captain clicked in the world: the interface shows their card. */
   crewCard: string | null;
+  /** Who the crosshair is on while the mouse is grabbed (written by the game, ~10 times a second). */
+  aim: { crewId: string; name: string; line: string } | null;
 }
 
 const initial: UiState = {
@@ -38,6 +40,7 @@ const initial: UiState = {
   pointerLocked: false,
   threadId: null,
   crewCard: null,
+  aim: null,
 };
 
 let state = initial;

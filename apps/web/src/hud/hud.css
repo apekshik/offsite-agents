@@ -66,3 +66,22 @@
 .cc-line { font-size: 13px; }
 .cc-sub { font-size: 11.5px; color: var(--dim); }
 .cc-hint { font-size: 12px; color: var(--dim); display: flex; align-items: center; gap: 6px; }
+
+/* The crosshair: a dot in the middle of the screen; on someone it opens into a ring. */
+.hud-reticle { position: fixed; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 5; }
+.hud-reticle-dot {
+  position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(238, 243, 247, 0.9); box-shadow: 0 0 0 1px rgba(4, 7, 11, 0.5);
+  transition: all 0.12s ease-out;
+}
+.hud-reticle.on .hud-reticle-dot {
+  left: -11px; top: -11px; width: 22px; height: 22px; background: transparent;
+  border: 2px solid var(--acc, #4fe3ff); box-sizing: border-box; box-shadow: 0 0 0 1px rgba(4, 7, 11, 0.4);
+}
+.hud-reticle-tag {
+  position: absolute; left: 22px; top: 14px; display: flex; flex-direction: column; gap: 1px; white-space: nowrap;
+  padding: 7px 10px; border-radius: 8px; background: rgba(5, 7, 11, 0.82); border: 1px solid rgba(238, 243, 247, 0.12);
+  font-size: 13px; color: #eef3f7;
+}
+.hud-reticle-tag span { color: #9aa8b6; font-size: 12px; }
+.hud-reticle-tag em { font-style: normal; color: var(--acc, #4fe3ff); font-size: 11.5px; margin-top: 2px; }

@@ -160,6 +160,8 @@ export class Game {
       // A little above the floor: starting exactly on it can miss it and drop you a deck.
       ...(spawn ? { spawn: { pos: [spawn.pos[0], spawn.pos[1] + 0.3, spawn.pos[2]], facing: spawn.facing } } : {}),
       view: ui.get().view,
+      // Click grabs the mouse in both views; Esc lets go. The crosshair then points at things.
+      lockInThird: true,
     });
     scene.add(this.captain.object);
     this.captain.onPrompt = (it) => ui.set({ prompt: it ? { id: it.id, label: it.label } : null });
@@ -169,7 +171,7 @@ export class Game {
     this.captain.onClick = (ndc) => {
       const hit = pick(ndc, camera, [...this.bodies.values()].map((b) => b.fig.object));
       const body = [...this.bodies.values()].find((b) => b.fig.object === hit);
-      if (body) ui.set({ crewCard: body.id });
+      if (body) this.openInterface({ crewCard: body.id }); // let go of the mouse so the card's buttons work
     };
     this.unsub = ui.subscribe(() => this.onUi(ui.get()));
     this.onUi(ui.get());
@@ -516,6 +518,21 @@ export class Game {
     }
   }
 
+  /** Who the crosshair is on: the nearest crew member under the middle of the screen, within reach. */
+  private aimAt = 0;
+  private updateAim(t: number) {
+    if (t - this.aimAt < 0.1) return;
+    this.aimAt = t;
+    let aim: UiState["aim"] = null;
+    if (ui.get().pointerLocked) {
+      const hit = pick(new THREE.Vector2(0, 0), this.camera, [...this.bodies.values()].filter((b) => b.fig.object.visible).map((b) => b.fig.object));
+      const body = [...this.bodies.values()].find((b) => b.fig.object === hit);
+      if (body && body.fig.object.position.distanceTo(this.captain.position) < 25) aim = { crewId: body.id, name: body.name, line: body.dir?.label ?? "" };
+    }
+    const was = ui.get().aim;
+    if (was?.crewId !== aim?.crewId || was?.line !== aim?.line) ui.set({ aim });
+  }
+
   private v = new THREE.Vector3();
   private locate(id: string) {
     const body = this.bodies.get(id);
@@ -554,6 +571,7 @@ export class Game {
     for (const l of this.laptops.values()) l.screen.update(dt);
     this.updatePing(t);
     this.updateLabels(t);
+    this.updateAim(t);
     this.pipeline.render(dt);
   };
 
