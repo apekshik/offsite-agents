@@ -197,13 +197,14 @@
 }
 .phone-wrap.cover .book { transform: translateX(-262px); }
 
-/* The left leaf turns on the hinge's centre line (its right edge plus half the hinge). */
+/* The left leaf turns on the hinge's centre line (its right edge plus half the hinge), swinging out
+   towards you, the way you open a book you are holding. */
 .flip {
   width: 511px; flex: none; height: 100%; position: relative; z-index: 2;
   transform-style: preserve-3d; transform-origin: calc(100% + 7px) 50%;
   transition: transform var(--fold);
 }
-.phone-wrap.cover .flip { transform: rotateY(-180deg); }
+.phone-wrap.cover .flip { transform: rotateY(180deg); }
 .leaf-face { position: absolute; left: 0; top: 0; width: 100%; height: 100%; box-sizing: border-box; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .leaf-face.back { transform: rotateY(180deg); }
 .leaf-cover {
@@ -216,8 +217,12 @@
 /* The inner screens dim as the phone closes over them, and light up as it opens. */
 .leaf-right > .pane, .leaf-left > .pane { transition: opacity 0.35s ease; }
 .phone-wrap.cover .leaf-right > .pane { opacity: 0; }
+/* Folded, the cover is the whole phone: the hinge and the inner leaf's square corners would show
+   past its rounded edge, so they go once the cover has landed, and come back as it starts to open. */
+.hinge, .leaf-right { transition: opacity 0.1s ease; }
+.phone-wrap.cover .hinge, .phone-wrap.cover .leaf-right { opacity: 0; transition: opacity 0.1s ease 0.5s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .book, .flip { transition-duration: 0.01s; }
+  .book, .flip, .hinge, .leaf-right { transition-duration: 0.01s; transition-delay: 0s; }
   .phone-wrap, .phone-wrap.leaving { animation-duration: 0.01s; }
 }

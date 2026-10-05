@@ -205,7 +205,8 @@ export const chair: Prefab<MatKey> = prefab("chair", (p) => {
 /** A white planter with a palm: fronds arching out from a short trunk. */
 export const palm: Prefab<MatKey> = prefab("palm", (p) => {
   p.box("pot", -0.3, 0, -0.3, 0.3, 0.62, 0.3);
-  p.box("soil", -0.26, 0.58, -0.26, 0.26, 0.6, 0.26);
+  // The soil sits a touch proud of the pot's top: sharing that face would z-fight.
+  p.box("soil", -0.26, 0.6, -0.26, 0.26, 0.635, 0.26);
   p.cyl("wood", 0, 0.58, 0, 0.06, 0.55, 6, 0.045);
   const frond = (len: number, droop: number) => {
     // A leaf: a strip arching up and out along +z, wider in the middle, folded along its spine.
@@ -237,7 +238,8 @@ export const palm: Prefab<MatKey> = prefab("palm", (p) => {
 /** A small potted plant for desks and ledges: a round white pot and a spray of leaves. */
 export const shrub: Prefab<MatKey> = prefab("shrub", (p) => {
   p.cyl("pot", 0, 0, 0, 0.22, 0.42, 16, 0.26);
-  p.cyl("soil", 0, 0.4, 0, 0.23, 0.02, 12);
+  // The soil sits a touch proud of the pot's top: sharing that face would z-fight.
+  p.cyl("soil", 0, 0.4, 0, 0.235, 0.035, 16);
   const n = 11;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + (i % 3) * 0.4, len = 0.4 + (i % 4) * 0.08;

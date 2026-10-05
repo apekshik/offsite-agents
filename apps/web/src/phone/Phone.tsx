@@ -194,7 +194,7 @@ export function Phone() {
         <div className="device-hint">
           {shown === "open"
             ? <><Key>F</Key> half view <Key>Esc</Key> put away</>
-            : <><Key>F</Key><Key>F</Key> unfold <Key>F</Key> put away</>}
+            : <><Key>F</Key> twice to unfold <Key>F</Key> put away</>}
         </div>
       </div>
     </>
