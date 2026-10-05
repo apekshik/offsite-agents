@@ -3,6 +3,9 @@ import { mutation, query } from "./_generated/server";
 import { COMPUTER_HANDLE, COMPUTER_NAME } from "@offsite/contracts";
 import { fail, requireOffice, requireUser } from "./lib";
 import { hire } from "./crewlib";
+
+/** How many crew a new ship starts with. */
+export const STARTING_CREW = 7;
 import { harness } from "./schema";
 import { checkBranch, checkPath, cleanSetup, computerMachine, ensureRepos, reposOf } from "./repolib";
 import { addRepo } from "./repos";
@@ -71,7 +74,8 @@ export const create = mutation({
       dismissedAt: null,
     });
     const office = (await ctx.db.get(officeId))!;
-    for (let i = 0; i < 3; i++) await hire(ctx, office, { aboard: true });
+    // A full first crew, so the deck is lively from the start: seven aboard, all free.
+    for (let i = 0; i < STARTING_CREW; i++) await hire(ctx, office, { aboard: true });
     return officeId;
   },
 });

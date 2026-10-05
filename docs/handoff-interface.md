@@ -77,7 +77,7 @@ The backend is live on the dev deployment: every function below exists in `conve
 | `users.setAvatar` | `{ avatar, look? }` | |
 | `offices.mine` (query) | | your offices |
 | `offices.get` (query) | `{ officeId }` | office: `{ name, world, repo: { machineId, path, defaultBranch } \| null, setupCommand, defaultHarness }` |
-| `offices.create` | `{ name, world }` | officeId (comes with Computah and three crew aboard) |
+| `offices.create` | `{ name, world }` | officeId (comes with Computah and seven crew aboard) |
 | `offices.setRepo` | `{ officeId, machineId, path, defaultBranch }` | |
 | `offices.update` | `{ officeId, name?, setupCommand?, defaultHarness? }` | |
 | `machines.mine` (query) | | `[{ _id, name, hostname, online, lastSeenAt, probe }]`; probe lists each harness: installed, signed in, version, models |

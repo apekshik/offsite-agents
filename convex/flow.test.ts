@@ -34,7 +34,7 @@ describe("a thread from request to pull request", () => {
   it("plans, hands out, lands and finishes", async () => {
     const { t, captain, officeId, token } = await aboard();
     const crew = await captain.query(api.crew.list, { officeId });
-    expect(crew.filter((c) => c.role === "crew")).toHaveLength(3);
+    expect(crew.filter((c) => c.role === "crew")).toHaveLength(7);
     expect(crew.find((c) => c.role === "computer")).toMatchObject({ name: "Computah", handle: "computah" });
 
     const threadId = await captain.mutation(api.threads.create, { officeId, text: "Add dark mode to the settings page" });
@@ -115,16 +115,17 @@ describe("a thread from request to pull request", () => {
 
   it("hires by helicopter when nobody is free", async () => {
     const { t, captain, officeId, token } = await aboard();
-    await captain.mutation(api.threads.create, { officeId, text: "Four things at once" });
+    await captain.mutation(api.threads.create, { officeId, text: "Eight things at once" });
     const work = await t.query(api.runner.work, { token });
     const c = await t.mutation(api.runner.claim, { token, runId: work.queued[0]!.runId });
     const plan = await t.mutation(api.tools.planTasks, {
       token, runId: c!.run.id,
-      tasks: ["a", "b", "c", "d"].map((k) => ({ key: k, title: k, brief: k })),
+      tasks: ["a", "b", "c", "d", "e", "f", "g", "h"].map((k) => ({ key: k, title: k, brief: k })),
     });
     expect(plan.every((p) => p.state === "doing")).toBe(true);
+    // Seven start aboard; the eighth task brings a hire.
     const crew = (await captain.query(api.crew.list, { officeId })).filter((x) => x.role === "crew");
-    expect(crew).toHaveLength(4);
+    expect(crew).toHaveLength(8);
     const newcomer = crew.sort((a, b) => b.hiredAt - a.hiredAt)[0]!;
     expect(newcomer.arrivesAt).toBeGreaterThan(newcomer.hiredAt);
   });
