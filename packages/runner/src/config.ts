@@ -30,16 +30,15 @@ async function parse(file: string): Promise<RunnerConfig | null> {
 /** This machine's pairing with the active deployment, or null. */
 export async function readConfig(): Promise<RunnerConfig | null> {
   const target = active || PRODUCTION.convexUrl;
-  const own = await parse(configFile(target));
-  if (own) return own.convexUrl === target ? own : null;
   // Before pairings were kept per deployment, runner.json held whichever came last. Move one that belongs to another
-  // deployment to its own file, so Offsite's own never picks up a dev pairing (and the dev one keeps working).
+  // deployment to its own file first, so Offsite's own never picks up a dev pairing, pairing with Offsite doesn't
+  // overwrite it, and the dev one keeps working.
   const legacy = await parse(configFile(PRODUCTION.convexUrl));
   if (legacy && !isProduction(legacy.convexUrl)) {
     await rename(configFile(PRODUCTION.convexUrl), configFile(legacy.convexUrl)).catch(() => {});
-    return legacy.convexUrl === target ? legacy : null;
   }
-  return null;
+  const own = await parse(configFile(target));
+  return own && own.convexUrl === target ? own : null;
 }
 
 export async function writeConfig(c: RunnerConfig): Promise<void> {

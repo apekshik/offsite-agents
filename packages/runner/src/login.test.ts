@@ -63,6 +63,8 @@ it("moves an old dev pairing out of runner.json so Offsite's own doesn't pick it
   await writeFile(join(home, "runner.json"), JSON.stringify({ convexUrl: "https://dev-one.convex.cloud", siteUrl: "https://dev-one.convex.site", token: "ofr_dev", name: "Mac" }));
   useDeployment(PRODUCTION.convexUrl);
   expect(await readConfig()).toBeNull();
+  // Moved aside already, so pairing with Offsite's own can't overwrite it.
+  await expect(stat(join(home, "runner.json"))).rejects.toThrow();
   useDeployment("https://dev-one.convex.cloud");
   expect((await readConfig())?.token).toBe("ofr_dev");
   expect(JSON.parse(await readFile(join(home, "runner.dev-one.json"), "utf8")).token).toBe("ofr_dev");
