@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
-[CONDUCT CONTACT EMAIL], or privately through
+apekshik@gmail.com, or privately through
 [GitHub's report feature](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam).
 Please don't report conduct in a public issue.
 All complaints will be reviewed and investigated promptly and fairly.
