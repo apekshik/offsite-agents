@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  Captain, Collision, ComputerBot, CrewFigure, Input, Laptop, SELF_LAYER, Walker,
+  Captain, Collision, ComputerBot, CrewFigure, Input, LIGHT, Laptop, SELF_LAYER, Walker,
   buildAvatar, createPipeline, createRenderer, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
   type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
@@ -8,9 +8,10 @@ import { isWorking, type AvatarSpec, type Look, type Slot, type Vec3 } from "@of
 import { scene as sceneBridge, ui, type UiState } from "../bridge.ts";
 import { Director, type CrewView, type Direction, type Hangout } from "./director.ts";
 import { CrewBody, SPEED, type Stage } from "./crew.ts";
-import type { Effect } from "./fx.ts";
+import { Splash, type Effect } from "./fx.ts";
 import { CrewScreen, describeSlot, faceOf, takeOverLaptop, type HelmContent, type ScreenContent } from "./screens.ts";
 import { DEFAULT_SURFACE, disposeObject, makeMore, makePackage, packageSpots, type Surface } from "./dropoff.ts";
+import { audio, busyLevel, flightPhase, type Emitter } from "../audio/index.ts";
 
 // The game: one world, the captain, and the crew as the backend sees them. The Game component feeds
 // it world.snapshot; everything else (where people go, what they do there, the helicopter, pings)
@@ -65,6 +66,12 @@ const MAX_PLATES = 9;
 /** At most this many speech bubbles up at once, and only this close to the camera, unless in focus. */
 const MAX_BUBBLES = 4;
 const BUBBLE_RANGE = 26;
+/** Footsteps and close-up typing are heard within this many metres of the camera. */
+const STEP_RANGE = 12;
+const TYPING_RANGE = 7;
+/** At most this many crew typing are heard up close (the typing bed covers the rest). */
+const MAX_TYPISTS = 3;
+const TYPING_ACTS = new Set(["type", "laptop", "lounge-laptop"]);
 /** How close two people get on foot before they ease apart, metres. */
 const PERSONAL_SPACE = 0.62;
 
@@ -145,6 +152,19 @@ export class Game {
   private disposed = false;
   /** Set by the film page only (src/film). */
   film: FilmHooks | null = null;
+  // ---- sound (src/audio) ----
+  private sounds: Emitter[] = [];
+  private swim: Emitter | null = null;
+  private swimming = false;
+  private unbindMute: (() => void) | null = null;
+  /** busyLevel (audio/mix.ts) of the crew at work, eased, for the ambience beds. */
+  private busySound = 0;
+  private ambienceAt = -1;
+  private stepAt = new Map<string, number>();
+  private typists = new Map<string, Emitter>();
+  private typistsAt = -1;
+  private aloft = new Set<THREE.Object3D>();
+  private readonly ear = new THREE.Vector3();
 
   private readonly o: GameOptions;
 
@@ -245,13 +265,25 @@ export class Game {
       slot: (id) => this.director.slot(id),
       captain: this.captain.object,
       say: (b, text, ms) => this.say(b, text, ms),
-      fx: (e) => { if (!e.object.parent) scene.add(e.object); this.effects.push(e); },
-      delivered: (id) => this.director.delivered(id, Date.now()),
+      fx: (e) => {
+        if (!e.object.parent) scene.add(e.object);
+        this.effects.push(e);
+        // A cannonball hitting the water, or someone climbing out and shaking off.
+        if (e instanceof Splash) audio.play("cannonball", e.at, { volume: e.big ? 1 : 0.3 });
+      },
+      sfx: (sound, where, o) => audio.play(sound, where, o),
+      delivered: (id) => {
+        this.director.delivered(id, Date.now());
+        const d = this.dropoff;
+        if (d) audio.play("package-thump", { x: d.pos[0], y: d.pos[1] + 0.95, z: d.pos[2] }, { delay: 0.15 });
+      },
       headOf: (id) => {
         const b = this.bodies.get(id);
         return b ? b.fig.object.localToWorld(b.fig.rig.headTop(new THREE.Vector3()).add(new THREE.Vector3(0, -0.25, 0))) : null;
       },
     };
+
+    this.startSound();
 
     sceneBridge.locate = (id) => this.locate(id);
     sceneBridge.captain = () => {
@@ -268,8 +300,100 @@ export class Game {
     addEventListener("resize", this.resize);
     this.resize();
     // For poking at it from the console while developing.
-    if (import.meta.env.DEV) Object.assign(window, { offsite: { game: this, captain: this.captain, world: this.world, ui } });
+    if (import.meta.env.DEV) Object.assign(window, { offsite: { game: this, captain: this.captain, world: this.world, director: this.director, audio, ui } });
     this.loop();
+  }
+
+  // ---- sound ----
+
+  /** The listener on the camera, M to mute, and the loops that never move: the bar, the hot tub, the pool, the server room. */
+  private startSound() {
+    audio.attach(this.camera, this.scene);
+    this.unbindMute = audio.bindMuteKey();
+    const slots = this.world.layout.slots;
+    const middle = (list: Slot[]) => list.length
+      ? { x: list.reduce((n, s) => n + s.pos[0], 0) / list.length, y: list.reduce((n, s) => n + s.pos[1], 0) / list.length, z: list.reduce((n, s) => n + s.pos[2], 0) / list.length }
+      : null;
+    const bar = this.director.barCentre;
+    if (bar) this.sounds.push(audio.emitter("bar-music", { x: bar[0], y: bar[1] + 1.2, z: bar[2] }));
+    const tub = middle(slots.filter((s) => s.kind === "hot-tub"));
+    if (tub) this.sounds.push(audio.emitter("hot-tub", tub));
+    const pool = middle(slots.filter((s) => s.kind === "pool"));
+    if (pool) {
+      this.swim = audio.emitter("pool-swim", pool, { volume: 0 });
+      this.sounds.push(this.swim);
+    }
+    // The ship's computer: its core (an object the world names), or the middle of the spots round it.
+    const core = this.world.root.getObjectByName("ship-computer");
+    const hum = core
+      ? (() => { const v = core.getWorldPosition(new THREE.Vector3()); return { x: v.x, y: v.y + 1.5, z: v.z }; })()
+      : middle(slots.filter((s) => s.kind === "core" && !s.id.includes("aisle")));
+    if (hum) this.sounds.push(audio.emitter("server-hum", hum));
+  }
+
+  /** Every frame: the beds, the helicopters, footsteps, splashing, typing close by. */
+  private updateSound(t: number, wall: number) {
+    if (t - this.ambienceAt > 0.25) {
+      this.ambienceAt = t;
+      audio.setAmbience({ night: LIGHT.uNight.value, busy: this.busySound });
+    }
+    // Helicopters: the world's flights and the helicopter flying each.
+    const flying = (this.world as BuiltWorld).aircraft?.(wall) ?? [];
+    const now = new Set<THREE.Object3D>();
+    for (const f of flying) {
+      const { phase, ms } = flightPhase(f, wall);
+      audio.helicopter(f.object, phase, ms);
+      now.add(f.object);
+    }
+    for (const o of this.aloft) if (!now.has(o)) audio.helicopter(o, "away");
+    this.aloft = now;
+    // Footsteps: anyone walking near the camera, a step per stride; the captain too.
+    const ear = this.camera.getWorldPosition(this.ear);
+    const step = (key: string, obj: THREE.Object3D, speed: number) => {
+      if (speed < 0.5) { this.stepAt.delete(key); return; }
+      const next = this.stepAt.get(key);
+      if (next === undefined) { this.stepAt.set(key, t + 0.12); return; }
+      if (t < next) return;
+      this.stepAt.set(key, t + Math.max(0.28, 0.75 / speed));
+      audio.play("footstep", obj, { volume: Math.min(1, 0.55 + speed / 6) });
+    };
+    let wet = false;
+    for (const b of this.bodies.values()) {
+      if (!b.fig.object.visible) continue;
+      if (b.inWater) wet = true;
+      const near = b.fig.object.position.distanceTo(ear) < STEP_RANGE;
+      step(b.id, b.fig.object, near && !b.inWater ? b.walker.speed : 0);
+    }
+    step("captain", this.captain.object, this.captain.groundSpeed);
+    if (wet !== this.swimming && this.swim) {
+      this.swimming = wet;
+      this.swim.setVolume(wet ? 1 : 0, 1.2);
+    }
+    // Typing up close: the nearest few at a keyboard, twice a second.
+    if (t - this.typistsAt > 0.5) {
+      this.typistsAt = t;
+      const near = [...this.bodies.values()]
+        .filter((b) => b.fig.object.visible && b.arrived && TYPING_ACTS.has(b.fig.act ?? "") && b.dir && isWorking(b.dir.activity))
+        .map((b) => ({ b, d: b.fig.object.position.distanceTo(ear) }))
+        .filter((x) => x.d < TYPING_RANGE)
+        .sort((p, q) => p.d - q.d)
+        .slice(0, MAX_TYPISTS);
+      const keep = new Set(near.map((x) => x.b.id));
+      for (const [id, e] of this.typists) if (!keep.has(id)) { e.stop(0.6); this.typists.delete(id); }
+      for (const { b } of near) if (!this.typists.has(b.id)) this.typists.set(b.id, audio.emitter("typing", b.fig.object));
+    }
+  }
+
+  private stopSound() {
+    this.unbindMute?.();
+    this.unbindMute = null;
+    for (const e of this.sounds) e.stop(0);
+    for (const e of this.typists.values()) e.stop(0);
+    for (const o of this.aloft) audio.helicopter(o, "away");
+    this.sounds = [];
+    this.typists.clear();
+    this.aloft.clear();
+    audio.detach();
   }
 
   private openInterface(patch: Partial<UiState>) {
@@ -365,6 +489,9 @@ export class Game {
   }
 
   private removeBody(b: CrewBody) {
+    this.stepAt.delete(b.id);
+    this.typists.get(b.id)?.stop(0);
+    this.typists.delete(b.id);
     this.scene.remove(b.fig.object);
     b.dispose();
     this.bodies.delete(b.id);
@@ -724,7 +851,14 @@ export class Game {
         const key = `${g.id}:${beat.round}:cheers`;
         if (!this.said.has(key)) {
           this.said.add(key);
-          for (const b of here) if (b.fig.rig.prop?.kind === "drink") b.fig.gesture("cheers");
+          const raised = here.filter((b) => b.fig.rig.prop?.kind === "drink");
+          for (const b of raised) b.fig.gesture("cheers");
+          // The glasses meet 0.7 s into the gesture, over the middle of the group.
+          if (raised.length >= 2) {
+            const mid = new THREE.Vector3();
+            for (const b of raised) mid.add(this.stage.headOf(b.id) ?? b.fig.object.position);
+            audio.play("clink", mid.divideScalar(raised.length), { delay: 0.7 });
+          }
         }
       }
     }
@@ -778,14 +912,16 @@ export class Game {
   /** How busy the ship is, for a world that shows it. */
   private updateBusy(dt: number) {
     const w = this.world as BusyWorld;
-    if (!w.setBusy) return;
     let on = 0, all = 0;
     for (const b of this.bodies.values()) {
       if (!b.fig.object.visible || !b.dir) continue;
       all++;
       if (isWorking(b.dir.activity)) on++;
     }
-    this.busy += ((all ? on / all : 0) - this.busy) * (1 - Math.exp(-0.8 * dt));
+    const k = 1 - Math.exp(-0.8 * dt);
+    this.busySound += (busyLevel(on, all) - this.busySound) * k;
+    if (!w.setBusy) return;
+    this.busy += ((all ? on / all : 0) - this.busy) * k;
     if (Math.abs(this.busy - this.busySent) > 0.002) {
       this.busySent = this.busy;
       w.setBusy(this.busy);
@@ -859,6 +995,7 @@ export class Game {
     this.updatePing(t);
     this.updateLabels(t);
     this.updateAim(t);
+    this.updateSound(t, wall);
     this.pipeline.render(dt);
   };
 
@@ -870,6 +1007,7 @@ export class Game {
     sceneBridge.locate = () => null;
     sceneBridge.captain = () => null;
     sceneBridge.where = () => null;
+    this.stopSound();
     for (const b of [...this.bodies.values()]) this.removeBody(b);
     for (const e of this.effects) { e.object.removeFromParent(); e.dispose(); }
     this.effects = [];

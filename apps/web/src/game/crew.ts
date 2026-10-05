@@ -5,6 +5,7 @@ import {
 } from "@offsite/kit";
 import { isWorking, type NavGraph, type Slot, type Vec3 } from "@offsite/contracts";
 import type { Act, Direction } from "./director.ts";
+import type { OneShotSound, PlayOptions } from "../audio/index.ts";
 import { LooseGlass, Splash, type Effect } from "./fx.ts";
 import { SCRAMBLE } from "./banter.ts";
 import { hash, rand } from "./rng.ts";
@@ -27,6 +28,7 @@ export const ACT: Record<Act, ActId | null> = {
   drink: "drink", "sit-drink": "sit-drink", "lean-back": "leanBack", nap: "nap", "nap-hammock": "nap-hammock", "nap-chair": "nap-chair",
   dance: "dance", cards: "cards", selfie: "selfie", stretch: "stretch", bartend: "bartend", huddle: "huddle", pace: null,
   sofa: "sofa", "hammock-rest": "hammock-rest", mingle: "listen", jog: "jog", sauna: "sauna", tinker: "tinker",
+  lift: "lift", "lift-bench": "lift-bench",
 };
 const NAPS = new Set<ActId | null>(["nap", "nap-hammock", "nap-chair"]);
 const CATCH_LINES = {
@@ -46,6 +48,8 @@ export interface Stage {
   /** Say something, if the bubble budget allows (nearby, on screen, or in focus). */
   say(body: CrewBody, text: string, ms?: number): void;
   fx(e: Effect): void;
+  /** A sound once, at a place or on something (the game's audio; quiet until sound has started). */
+  sfx(sound: OneShotSound, where: THREE.Object3D | THREE.Vector3, o?: PlayOptions): void;
   /** Someone reached the drop-off with their package. */
   delivered(id: string): void;
   /** Where someone's head is, to look at them. */
@@ -195,6 +199,8 @@ export class CrewBody {
     this.fig.setBackpack(false);
     if (slot.kind === "dropoff") this.stage.delivered(this.id);
     const now = this.dir;
+    // Settling onto a bar stool: ice in the glass.
+    if (slot.kind === "bar-stool" && now?.act !== "bartend") this.stage.sfx("ice", this.fig.object, { delay: 0.5 });
     if (now) this.fig.setAct(ACT[now.act], this.propOpt(now));
   }
 

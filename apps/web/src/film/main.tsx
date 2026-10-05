@@ -2,6 +2,7 @@
 // /dev/film.html?shot=<name>          plays a shot in real time, for looking at (loops)
 // /dev/film.html?shot=<name>&capture  waits for scripts/film to step it, frame by frame
 // /dev/film.html                      the list of shots
+// /dev/film.html?shot=<name>&sound    a preview with the game's sound on (click once to start it)
 //
 // The clock goes first: everything imported after it reads virtual time.
 import { clock, BASE_EPOCH, FRAME_MS } from "./clock.ts";
@@ -14,11 +15,16 @@ import { Overlay } from "../overlay/Overlay.tsx";
 import "../review/highlight.ts";
 import { FilmBackend } from "./backend.ts";
 import { gameHandle, ShotRunner } from "./runner.ts";
+import { audio } from "../audio/index.ts";
 import { SHOTS, STILLS } from "./shots.ts";
 import type { Shot } from "./dsl.ts";
 import "./film.css";
 
 const params = new URLSearchParams(location.search);
+// No sound here: frame capture can't record it, and the cut uses the soundtrack files
+// (assets/audio/video). &sound turns it on in a preview, to hear a shot's cues while writing it.
+if (!params.has("sound") || params.has("capture")) audio.disable();
+
 const capture = params.has("capture");
 const all: Shot[] = [...SHOTS, ...STILLS];
 const named = all.find((s) => s.name === params.get("shot"));

@@ -8,7 +8,7 @@ import { BRIDGE, D4, D5, SLAB } from "./dims.ts";
 import { helmChair, palm, sofa } from "./furniture.ts";
 import { inset, outline, runs, yawOf, type Outline } from "./kit.ts";
 import { BUSY } from "./mats.ts";
-import { balustrade, house, slab, type Ship } from "./parts.ts";
+import { balustrade, house, roomLight, slab, type Ship } from "./parts.ts";
 
 /** The mast's top (its masthead light) and the ends of its yardarm, for lights and flags. */
 export const MAST = { z: -24.6 + 1.5, top: D5 + 11.8, yardY: D5 + 7.55, yardX: 2.62, yardZ: -24.6 + 1.2 };
@@ -88,6 +88,18 @@ export function buildBridge(s: Ship): Interactable[] {
   pile.box("wood", -5.6, D4, zA - 0.75, -1.7, D4 + 0.9, zA - 0.2);
   pile.box("white", -5.65, D4 + 0.9, zA - 0.8, -1.65, D4 + 0.95, zA - 0.2);
   col.box(-5.6, D4, zA - 0.75, -1.7, D4 + 1.0, zA - 0.2);
+  // After dark: a warm strip under the counter's lip, and a light over it so a package reads.
+  pile.box("lamp", -5.55, D4 + 0.84, zA - 0.81, -1.75, D4 + 0.87, zA - 0.79);
+  pile.box("lamp", -5.55, D4 + 0.03, zA - 0.79, -1.75, D4 + 0.05, zA - 0.77);
+
+  // The bridge at night: warm downlights in the ceiling (pools of light on the floor), and two real
+  // lights, over the counter and over the helm, so whoever is in here is lit, not a silhouette.
+  for (const [x, z] of [[-3.7, -23.4], [-1.2, -24.6], [1.2, -24.6], [3.7, -23.4], [-2.4, -27.4], [2.4, -27.4]] as const) {
+    pile.cyl("lamp", x, D5 - SLAB - 0.035, z, 0.1, 0.02, 12);
+    s.lights.push({ x, y: D5 - SLAB - 0.04, z, r: 1.4, k: 0.8 });
+  }
+  roomLight(s, -3.6, D5 - SLAB - 0.5, zA - 1.9, { intensity: 7, distance: 8 });
+  roomLight(s, 0.8, D5 - SLAB - 0.5, -27.0, { intensity: 5, distance: 9 });
   props.put(sofa, 4.1, D4, zA - 0.75, Math.PI);
   col.box(2.95, D4, zA - 1.2, 5.25, D4 + 0.8, zA - 0.2);
   props.put(palm, 5.9, D4, -24.2, 0.3);

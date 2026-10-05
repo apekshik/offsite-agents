@@ -39,7 +39,8 @@ export type Act =
   | "type" | "laptop" | "lounge-laptop" | "sunbathe" | "hammock" | "fish" | "carry" | "slump" | "think"
   | "celebrate" | "rail" | "swim" | "soak" | "stool" | "wave" | "stand"
   | "drink" | "sit-drink" | "lean-back" | "nap" | "nap-hammock" | "nap-chair" | "dance" | "cards" | "selfie"
-  | "stretch" | "bartend" | "huddle" | "pace" | "sofa" | "hammock-rest" | "mingle" | "jog" | "sauna" | "tinker";
+  | "stretch" | "bartend" | "huddle" | "pace" | "sofa" | "hammock-rest" | "mingle" | "jog" | "sauna" | "tinker"
+  | "lift" | "lift-bench";
 
 export type Prop = "laptop" | "box" | "rod" | "drink";
 
@@ -143,10 +144,8 @@ function workAct(kind: SlotKind | undefined, activity: CrewActivity, crewId: str
 const has = (s: Slot | undefined, tag: string) => !!s?.tags?.includes(tag);
 
 /** What someone does on their own at a spot. `r` (0..1) is theirs for as long as they stay. */
-function soloAct(slot: Slot | undefined, r: number): { act: Act; props: Prop[]; pastime: string } {
+export function soloAct(slot: Slot | undefined, r: number): { act: Act; props: Prop[]; pastime: string } {
   const kind = slot?.kind;
-  if (has(slot, "gym")) return { act: "stretch", props: [], pastime: "working out" };
-  if (has(slot, "cinema")) return { act: "sofa", props: [], pastime: "at the movies" };
   switch (kind) {
     case "lounger": return r < 0.4 ? { act: "nap", props: [], pastime: "napping" } : { act: "sunbathe", props: [], pastime: "sunbathing" };
     case "pool": return { act: "swim", props: [], pastime: "swimming" };
@@ -159,11 +158,18 @@ function soloAct(slot: Slot | undefined, r: number): { act: Act; props: Prop[]; 
       if (r < 0.65) return { act: "selfie", props: [], pastime: "taking selfies" };
       if (r < 0.82) return { act: "stretch", props: [], pastime: "stretching" };
       return { act: "dance", props: [], pastime: "dancing" };
-    case "gym": return r < 0.5 ? { act: "jog", props: [], pastime: "working out" } : { act: "stretch", props: [], pastime: "stretching" };
+    // A treadmill: a jog; the bench and the rack: curls; anywhere else in the gym, a stretch.
+    case "gym":
+      if (has(slot, "run")) return { act: "jog", props: [], pastime: "on the treadmill" };
+      if (has(slot, "bench")) return { act: "lift-bench", props: [], pastime: "lifting" };
+      if (has(slot, "weights")) return r < 0.7 ? { act: "lift", props: [], pastime: "lifting" } : { act: "stretch", props: [], pastime: "stretching" };
+      return r < 0.5 ? { act: "jog", props: [], pastime: "working out" } : { act: "stretch", props: [], pastime: "stretching" };
+    // Bean bags and the sofa have their own seat heights (Slot.seat): sunk in, or asleep in the dark.
     case "cinema": return r < 0.25 ? { act: "nap-chair", props: [], pastime: "asleep at the movies" } : { act: "sofa", props: [], pastime: "at the movies" };
     case "sauna": return { act: "sauna", props: [], pastime: "in the sauna" };
     case "workshop": return { act: "tinker", props: [], pastime: "tinkering" };
-    case "core": return { act: "rail", props: [], pastime: "watching the core" };
+    // Leaning on the rail round the core, or (by the racks, where there's no rail) just watching it.
+    case "core": return slot?.id.includes("aisle") || r < 0.4 ? { act: "mingle", props: [], pastime: "watching the core" } : { act: "rail", props: [], pastime: "watching the core" };
     case "deck-chair":
       if (r < 0.35) return { act: "nap-chair", props: [], pastime: "napping" };
       if (r < 0.7) return { act: "sit-drink", props: ["drink"], pastime: "having a drink" };
@@ -221,11 +227,42 @@ function fitCentre(stools: Slot[]): Vec3 | null {
   return [(c * bx - b * bz) / det, stools[0]!.pos[1], (a * bz - b * bx) / det];
 }
 
+/**
+ * Bar stools that stand together: on one deck, each within reach of the next. A ship can have
+ * several bars (a round one on deck, a straight one in the galley); each is its own cluster.
+ */
+export function stoolClusters(slots: Slot[]): Slot[][] {
+  const left = slots.filter((s) => s.kind === "bar-stool");
+  const out: Slot[][] = [];
+  while (left.length) {
+    const group = [left.shift()!];
+    for (let i = 0; i < group.length; i++) {
+      for (let j = left.length - 1; j >= 0; j--) {
+        const a = group[i]!, b = left[j]!;
+        if (Math.abs(a.pos[1] - b.pos[1]) < 0.3 && dist2(a.pos, b.pos) < 2.5) group.push(...left.splice(j, 1));
+      }
+    }
+    out.push(group);
+  }
+  return out;
+}
+
 function findBar(slots: Slot[]): Bar | null {
-  const raw = slots.filter((s) => s.kind === "bar-stool");
-  if (raw.length < 3) return null;
-  const centre = fitCentre(raw);
-  if (!centre) return null;
+  // The round bar: the biggest cluster of stools whose lines of sight meet over one point.
+  let raw: Slot[] = [], found: Vec3 | null = null;
+  for (const c of stoolClusters(slots).sort((a, b) => b.length - a.length)) {
+    if (c.length < 3) break;
+    const at = fitCentre(c);
+    if (!at) continue;
+    const r = c.reduce((n, s) => n + dist2(s.pos, at), 0) / c.length;
+    const facingIn = c.every((s) => { const [dx, dz] = dir(s.facing); return (dx * (at[0] - s.pos[0]) + dz * (at[2] - s.pos[2])) / Math.max(1e-3, dist2(s.pos, at)) > 0.8; });
+    if (r < 1.2 || r > 6 || !facingIn) continue;
+    raw = c;
+    found = at;
+    break;
+  }
+  if (!found) return null;
+  const centre = found;
   const angle = (s: Slot) => Math.atan2(s.pos[2] - centre[2], s.pos[0] - centre[0]);
   const stools = [...raw].sort((p, q) => angle(p) - angle(q));
   const tagged = slots.find((s) => has(s, "bartender"));
@@ -796,6 +833,14 @@ export class Director {
       : ["All quiet", "Open the phone (F) or ask me here"];
     return { crewId: c._id, slotId: slot, mood, screen };
   }
+
+  /** Behind the round bar: the spot, and the way round the counter to it (a film stages a bartender with it). */
+  get behindTheBar(): { slot: Slot; approach: Vec3[] | null } | null {
+    return this.bar ? { slot: this.bar.bartender, approach: this.bar.approach } : null;
+  }
+
+  /** The middle of the round bar (where its music plays), or null if the world has none. */
+  get barCentre(): Vec3 | null { return this.bar?.centre ?? null; }
 
   /** For tests and the dev page: the hangouts as they stand, and who is behind the bar. */
   hangouts(): Hangout[] { return [...this.groups.values()].map((g) => this.hangout(g)); }

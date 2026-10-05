@@ -113,7 +113,7 @@ describe("the director", () => {
 // ---------- off duty, the scramble, and determinism ----------
 
 import { ALL_LINES, BANTER, beatAt, lineMs } from "./banter.ts";
-import { BUCKET_MS, WAVE_STEP_MS, type Direction } from "./director.ts";
+import { BUCKET_MS, WAVE_STEP_MS, soloAct, stoolClusters, type Direction } from "./director.ts";
 
 /** A small ship with a round bar, a hot tub, chairs round a table, rails, desks and loungers. */
 function ship(): Slot[] {
@@ -344,5 +344,31 @@ describe("banter", () => {
     // Consecutive rounds say different things.
     const next = beatAt("g1", members, T0, "chat", a.until + 10)!;
     expect(next.lines[0]!.text).not.toBe(a.lines[0]!.text);
+  });
+});
+
+describe("the yacht's other spaces", () => {
+  it("finds the round bar among straight bars on other decks", () => {
+    const slots = ship();
+    // A galley counter and a beach bar below: stools in a row, all facing one way.
+    for (let i = 0; i < 4; i++) slots.push({ id: `galley-${i}`, kind: "bar-stool", pos: [6, 4, 10 + i * 0.7], facing: -Math.PI / 2, nav: "n", seat: 0.76 });
+    for (let i = 0; i < 5; i++) slots.push({ id: `beach-${i}`, kind: "bar-stool", pos: [-2, 4, 50 + i * 0.75], facing: -Math.PI / 2, nav: "n", seat: 0.76 });
+    const d = new Director(slots);
+    const c = d.barCentre!;
+    expect(Math.hypot(c[0], c[2] - 40)).toBeLessThan(0.05);
+    expect(c[1]).toBe(10);
+    expect(stoolClusters(slots).map((g) => g.length).sort()).toEqual([4, 5, 8]);
+  });
+
+  it("jogs on a treadmill, lifts at the bench, sinks into a bean bag, tinkers in the garage, watches the core", () => {
+    const at = (kind: Slot["kind"], tags: string[], id: string = kind): Slot => ({ id, kind, pos: [0, 0, 0], facing: 0, nav: "n", tags });
+    expect(soloAct(at("gym", ["gym", "run"]), 0.9).act).toBe("jog");
+    expect(soloAct(at("gym", ["gym", "bench"]), 0.1).act).toBe("lift-bench");
+    expect(soloAct(at("gym", ["gym", "weights"]), 0.1).act).toBe("lift");
+    expect(soloAct(at("cinema", ["cinema"]), 0.9).act).toBe("sofa");
+    expect(soloAct(at("sauna", ["spa"]), 0.5).act).toBe("sauna");
+    expect(soloAct(at("workshop", ["garage"]), 0.5).act).toBe("tinker");
+    expect(soloAct(at("core", ["server-room"], "core-1"), 0.9).act).toBe("rail");
+    expect(soloAct(at("core", ["server-room"], "core-aisle-s"), 0.9).act).toBe("mingle");
   });
 });

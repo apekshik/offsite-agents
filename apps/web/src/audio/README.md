@@ -45,6 +45,7 @@ audio.volume = 0.6; audio.muted = true; audio.toggleMute();   // persisted
 useAudio();                                         // React: { started, volume, muted }, for a HUD control
 audio.setDeterministic({ seed, clock });            // the film rig; null to go back
 audio.setWildlife(false);                           // gulls and dolphins on their own (default on)
+audio.disable();                                    // never start (the film page)
 ```
 
 Sounds: emitters `bar-music`, `server-hum`, `hot-tub`, `pool-swim`, `typing`, `heli-rotor`,
@@ -53,95 +54,46 @@ Sounds: emitters `bar-music`, `server-hum`, `hot-tub`, `pool-swim`, `typing`, `h
 `fold-close`, `send`, `landed`. Beds: `ocean`, `wind`, `night` (soft waves and halyards), `typing`,
 `murmur`, `hum`.
 
-## Wiring it into the game
+## How the game uses it
 
-None of this is wired yet. All of it goes in `src/game` and the interface, which were being edited
-while this was written; the line references are from that time.
+All of it is wired; this is where, for changing it.
 
-### Start-up (`engine.ts`, `start()`)
+### The engine (`src/game/engine.ts`)
 
-After the world is built and the camera exists:
+- **Start-up** (`startSound`, at the end of building the world): `audio.attach(camera, scene)` and
+  `bindMuteKey()`; the loops that never move, placed from the world's slots so they follow layout
+  changes: `bar-music` over the round bar (`director.barCentre`), `hot-tub` and `pool-swim` (silent
+  until someone is in the water) in the middle of their slots, `server-hum` at the object named
+  `"ship-computer"` (the yacht's core). `dispose()` stops them, unbinds M and detaches.
+- **Every frame** (`updateSound`): the beds four times a second, `setAmbience({ night, busy })` with
+  `night` from the kit's `LIGHT.uNight` (the sky's own) and `busy` the eased `busyLevel(working, crew)`;
+  each helicopter from the world's optional `aircraft(now)` (`BuiltWorld`, the yacht's flights and
+  the helicopter flying each) through `flightPhase` into `audio.helicopter`, and "away" for one that
+  has gone; footsteps once a stride for crew walking within 12 m and for the captain
+  (`Captain.groundSpeed`); a `typing` emitter on the nearest three at a keyboard within 7 m.
+- **Crew moments**, through `Stage`: `fx()` plays `cannonball` for every `Splash` (full for a
+  cannonball, 0.3 for climbing out), `delivered()` the `package-thump` on the drop-off counter,
+  `sfx()` lets a body play a one-shot (`ice` as someone settles onto a bar stool, in `crew.ts`
+  `arrive()`), and a toast (`updateBanter`, `beat.cheersAt`) clinks over the group 0.7 s into the
+  raised glasses.
 
-```ts
-audio.attach(this.camera, this.scene);
-this.unbindMute = audio.bindMuteKey();
-// Loops that never move. Positions from the world's slots (worlds/yacht), so they follow layout changes:
-const at = (kind: SlotKind) => this.world.layout.slots.find((s) => s.kind === kind)?.pos;
-const bar = at("bar-stool"), tub = at("hot-tub"), pool = at("pool");
-if (bar) audio.emitter("bar-music", { x: bar[0], y: bar[1] + 1.2, z: bar[2] });   // the sun-deck bar
-if (tub) audio.emitter("hot-tub", { x: tub[0], y: tub[1], z: tub[2] });
-// The server room's hum: wherever the world puts the ship's computer's racks (a slot or a named object).
-```
+### The interface
 
-Use the bar's centre rather than a stool if the world exposes it (sundeck.ts `BAR = { x: 1.2, z: 43.4 }`
-at deck `D3`). In `dispose()`: `this.unbindMute(); audio.detach();`.
-
-### Every frame (`engine.ts`, the loop)
-
-- **Ambience:** `audio.setAmbience({ night, busy })` a few times a second, with `night` the yacht's
-  `sky.state.night` (`YachtWorld.sky`; or `{ hour }` from the shared clock)
-  (it eases on its own; calling it every frame is fine too). `busy = busyLevel(working, crew)`
-  (`mix.ts`), with `working` the crew whose direction has `isWorking(d.activity)` (@offsite/contracts).
-- **Helicopters:** for each flight from `planFlights(touchdowns)` (`@offsite/world-yacht`, the same
-  touchdowns `setSnapshot` gives `world.setArrivals`), take its helicopter object and call
-  `audio.helicopter(obj, phase, ms)` with `flightPhase(flight, Date.now())` (`cues.ts`). Approach and
-  take-off play their recordings attached to the helicopter (ARRIVAL's 14 s approach matches the
-  recording); on the pad its rotors idle; a page loaded mid-flight hears the rotor loop. The world
-  doesn't expose its fleet: the helicopters are the children of the object named `"helicopters"`
-  under `world.root`, in the same order as the flights in the air (helicopter.ts `update`). A
-  `helicopterFor(flightIndex)` on `YachtWorld` would be cleaner.
-- **Footsteps:** for each `CrewBody` within ~12 m of the camera whose `walker.speed > 0.5` and isn't
-  in the water, `audio.play("footstep", body.fig.object)` once a stride: every `max(0.28, 0.75 / speed)` s (about 0.5 s at a walk). Do
-  the same for the captain from `this.captain` (speed from its controller). The manager drops steps
-  beyond 12 m and caps them at 8 at once.
-
-### Crew (`crew.ts`, through `Stage`)
-
-| event | where it happens now | sound |
-|---|---|---|
-| A cannonball lands | `crew.ts` `cannonball()`: `this.stage.fx(new Splash(land, …))` | `audio.play("cannonball", land)` |
-| Climbing out of the pool | `outOfThePool()`: `this.stage.fx(new Splash(…, { big: false }))` | `audio.play("cannonball", at, { volume: 0.3 })` |
-| Swimming | while anyone `inWater` | one `pool-swim` emitter at the pool slot; `setVolume(0)` when nobody is in |
-| Sitting down at the bar | `place()` / `arrive()` with slot kind `bar-stool` | `audio.play("ice", body.fig.object)` |
-| A toast | `engine.ts` `updateBanter`: `beat.cheersAt` | `audio.play("clink", head of the group)` once per beat |
-| Package set down | `arrive()` at kind `dropoff` → `stage.delivered(id)` (engine: `this.director.delivered`) | `audio.play("package-thump", slot position)` |
-| Working at a desk | `act` is `type`/`laptop`/`lounge-laptop` | the `typing` bed rises with `busy`; for a close-up feel, a `typing` emitter on the body while they type, `stop()` when they get up |
-
-The simplest single hook is `Stage.fx(e)` in `engine.ts`: `if (e instanceof Splash) audio.play("cannonball", e.at, { volume: e.big ? 1 : 0.3 })`
-(give `Splash` readonly `at` and `big` fields), and `Stage.delivered(id)`.
-
-### The phone and the interface
-
-- **Fold clicks** (`phone/state.ts`): subscribe once (e.g. in `Overlay.tsx`) and compare folds:
-
-  ```ts
-  let was = phone.get().fold;
-  phone.subscribe(() => {
-    const now = phone.get().fold;
-    if (now === was) return;
-    if (now === "open") audio.ui("fold-open");
-    else if (was === "open") audio.ui("fold-close");
-    was = now;
-  });
-  ```
-  Taking it out of the pocket (away → cover) is silent; add a soft `fold-close` at 0.4 if it feels
-  too quiet.
-- **Phone buzz:** when a question arrives that wasn't there before (the same "new since the page
-  opened" set `hud/Toasts.tsx` keeps for its toasts): `audio.ui("phone-buzz")`. Not for questions
-  already waiting when the page loads.
-- **Landed chime:** when Toasts makes a "{name} delivered" note (`lastEnded.state === "landed"`),
-  `audio.ui("landed")`; also when a thread finishes with its pull requests.
-- **Send tick:** after a successful send in `phone/Conversation.tsx` (`api.threads.create`, `api.threads.send`,
-  and the answer buttons) and `phone/Crew.tsx` (`@handle` messages): `audio.ui("send")`.
-- **Mute:** the M key is bound by `bindMuteKey`; a HUD toggle can read `useAudio()` and set `audio.muted`.
+- **Fold clicks**: `overlay/Overlay.tsx` watches the phone's fold (`fold-open`, `fold-close`; out of
+  the pocket is silent).
+- **Buzz and chime**: `hud/Toasts.tsx` buzzes for a question that wasn't waiting when the page
+  opened, and chimes with each green note (a delivery, a thread finished with its pull requests).
+- **Send tick**: after a successful send in `phone/Conversation.tsx` (new thread, message, an
+  answer), `phone/Crew.tsx` (`@handle`) and an answer from a toast.
+- **Mute and volume**: M (`bindMuteKey`), and the speaker and slider at the end of the HUD's hint
+  bar (`hud/Hud.tsx`, `useAudio()`).
 
 ### The film rig (`src/film`)
 
-The film's clock (`film/clock.ts`) already makes `performance.now`, `setInterval` and `Math.random`
-virtual and seeded, so the manager's timers follow it. For variations that don't depend on how
-many sounds played before, call `audio.setDeterministic({ seed: 1, clock: () => performance.now() / 1000 })`
-before the first shot: then which footstep, which gull and how much detune are a function of the seed,
-the sound and the film's time (to the millisecond), and the gulls and dolphins come on the same
-half-second slots every render. To place wildlife by hand, `audio.setWildlife(false)` and `audio.play("gull", …)`
-in the shot. Frame capture doesn't record audio: for the cut, use `assets/audio/video/` (the
-soundtrack and an effects pack), lined up to the same cues.
+The film page calls `audio.disable()` before anything else: frame capture doesn't record sound,
+and the cut uses `assets/audio/video/` (the soundtrack and an effects pack), lined up to the same
+cues. `/dev/film.html?shot=<name>&sound` previews a shot with the game's sound on, to hear its cues
+while writing it (click once to start it). For a deterministic render with sound one day:
+`audio.setDeterministic({ seed: 1, clock: () => performance.now() / 1000 })` makes variations a
+function of the seed, the sound and the film's time, and `audio.setWildlife(false)` hands gulls and
+dolphins to the shot.

@@ -3,10 +3,12 @@ import type { Slot } from "@offsite/contracts";
 import { ui } from "../bridge.ts";
 import { phone } from "../phone/state.ts";
 import { openReview, closeReview } from "../review/open.ts";
-import type { Act, Direction, Prop } from "../game/director.ts";
+import { soloAct, type Act, type Direction, type Hangout, type Prop } from "../game/director.ts";
+import { beatAt, roundMs } from "../game/banter.ts";
+import { BASE_EPOCH } from "./epoch.ts";
 import type { FilmHooks } from "../game/engine.ts";
 import { damp, dolly, orbit, turn, yawTo, type Pose, type Vec3 } from "./camera.ts";
-import type { Action, Blocking, Shot, Target } from "./dsl.ts";
+import type { Action, Blocking, FilmGroup, Shot, Target } from "./dsl.ts";
 import type { FilmBackend } from "./backend.ts";
 import { crewId } from "./story.ts";
 
@@ -27,6 +29,8 @@ export interface GameHandle {
     focus?(ids: string[] | null): void;
     bodies: Map<string, Body>;
   };
+  /** The director, for the places it makes up (behind the bar, standing in a group). */
+  director?: { slot(id: string): Slot | undefined; behindTheBar?: { slot: Slot; approach: Vec3[] | null } | null };
   captain: {
     object: THREE.Object3D;
     position: THREE.Vector3;
@@ -58,16 +62,32 @@ export const gameHandle = (): GameHandle | null => {
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 const range = (v: number | [number, number] | undefined, u: number) => (v === undefined ? undefined : typeof v === "number" ? v : lerp(v[0], v[1], u));
 
-/** What someone staged at a slot does there, unless the shot says otherwise (the director's own defaults), and their nameplate's line. */
+/**
+ * What someone staged at a slot does there, unless the shot says otherwise: the director's own
+ * choice for that kind of spot (soloAct), with a few picked for the film (a drink on the stool, a
+ * nap in the hammock).
+ */
 const SLOT_ACT: Partial<Record<Slot["kind"], { act: Act; props: Prop[]; label: string }>> = {
   "bar-stool": { act: "stool", props: ["drink"], label: "at the bar" },
-  "deck-chair": { act: "stool", props: ["drink"], label: "having a drink" },
+  "deck-chair": { act: "sit-drink", props: ["drink"], label: "having a drink" },
   "hot-tub": { act: "soak", props: [], label: "in the hot tub" },
   pool: { act: "swim", props: [], label: "swimming" },
   lounger: { act: "sunbathe", props: [], label: "sunbathing" },
-  hammock: { act: "hammock", props: [], label: "napping" },
+  hammock: { act: "nap-hammock", props: [], label: "napping" },
   fishing: { act: "fish", props: ["rod"], label: "fishing" },
   rail: { act: "rail", props: [], label: "watching the sea" },
+};
+/** The nameplate's line for an act a shot asks for by name. */
+const ACT_LABEL: Partial<Record<Act, string>> = {
+  cards: "playing cards", dance: "dancing", selfie: "taking selfies", nap: "napping", "nap-hammock": "napping", "nap-chair": "napping",
+  drink: "having a drink", "sit-drink": "having a drink", lift: "lifting", "lift-bench": "lifting", jog: "on the treadmill", stretch: "stretching",
+  bartend: "bartending", tinker: "tinkering", sofa: "taking it easy", swim: "swimming", sunbathe: "sunbathing", fish: "fishing",
+};
+const fitFor = (slot: Slot) => {
+  const f = SLOT_ACT[slot.kind];
+  if (f) return f;
+  const solo = soloAct(slot, 0.6);
+  return { act: solo.act, props: solo.props, label: solo.pastime };
 };
 
 export class ShotRunner {
@@ -168,7 +188,7 @@ export class ShotRunner {
 
   // ---- the game's hooks ----
 
-  private stage(dirs: Direction[], _now: number): Direction[] {
+  private stage(dirs: Direction[], now: number): Direction[] {
     this.knowMadeUpSlots(dirs);
     const { lineup } = this.shot;
     const stage = this.staging;
@@ -176,12 +196,20 @@ export class ShotRunner {
     const lined = new Set((lineup?.crew ?? [...this.backend.ship.snapshot.crew.filter((c) => c.role === "crew").map((c) => c.handle)]).map(crewId));
     const staged = (d: Direction) => {
       const b = stage?.[d.crewId.replace(/^crew_/, "")];
-      return b && d.activity === "idle" && this.slot(b.slot) ? b : null;
+      return b && d.activity === "idle" && this.place(b.slot) ? b : null;
     };
     const held = new Set(dirs.map((d) => staged(d)?.slot).filter((x): x is string => !!x));
     const targeted = new Set(dirs.map((d) => (d.target.kind === "slot" ? d.target.slotId : "")));
+    // Staged groups: everyone in one, in the order the staging lists them, still off duty.
+    const members = new Map<string, string[]>();
+    for (const [key, b] of Object.entries(stage)) {
+      if (!b.group) continue;
+      const d = dirs.find((x) => x.crewId === crewId(key));
+      if (!d || !staged(d)) continue;
+      members.set(b.group, [...(members.get(b.group) ?? []), crewId(key)]);
+    }
     return dirs.map((d) => {
-      if (lineup && lined.has(d.crewId)) return { ...d, target: { kind: "none" }, act: "stand", props: [], walkAct: null };
+      if (lineup && lined.has(d.crewId)) return { ...d, target: { kind: "none" }, act: "stand", props: [], walkAct: null, group: null };
       const b = staged(d);
       if (!b) {
         // Someone the director sent to a staged seat goes to another of the same kind.
@@ -192,13 +220,43 @@ export class ShotRunner {
         targeted.add(free.id);
         return { ...d, target: { kind: "slot", slotId: free.id } };
       }
-      const fit = SLOT_ACT[this.slot(b.slot)!.kind] ?? { act: d.act, props: d.props, label: "" };
-      const label = fit.label ? `Off duty · ${fit.label}` : d.label;
-      const next = { ...d, target: { kind: "slot" as const, slotId: b.slot }, act: b.act ?? fit.act, props: b.props ?? fit.props, label };
-      // The director's own extras for its choice (a path round the bar, a group) don't fit a staged seat.
-      if ("approach" in next) Object.assign(next, { approach: null });
-      return next;
+      const slot = this.place(b.slot)!;
+      const behind = this.h?.director?.behindTheBar;
+      const bartending = !!behind && behind.slot.id === slot.id;
+      const fit = bartending ? { act: "bartend" as Act, props: [] as Prop[], label: "bartending" } : fitFor(slot);
+      const named = b.act && b.act !== fit.act ? ACT_LABEL[b.act] : undefined;
+      const label = named ?? fit.label ? `Off duty · ${named ?? fit.label}` : d.label;
+      const g = b.group ? this.group(b.group, members.get(b.group) ?? []) : null;
+      // Off the helicopter a while ago (a shot that starts after the landing): already in place, not
+      // walking over from the helipad as if they'd just landed.
+      const landed = this.backend.ship.snapshot.crew.find((c) => c._id === d.crewId)?.arrivesAt ?? 0;
+      const spawnSlot = now - landed > 20_000 ? null : d.spawnSlot;
+      // The director's own extras for its choice (a path round the bar, its groups) don't fit a staged seat.
+      return {
+        // An act asked for by name brings its own props (cards, a rod); the spot's extras (a drink) are for its own act.
+        ...d, spawnSlot, target: { kind: "slot" as const, slotId: slot.id }, act: b.act ?? fit.act, props: b.props ?? (named || (b.act && b.act !== fit.act) ? [] : fit.props), label,
+        approach: bartending ? behind!.approach : null, group: g, company: null,
+      };
     });
+  }
+
+  /** A world slot, or one the director made up (behind the bar). */
+  private place(id: string): Slot | undefined { return this.slot(id) ?? this.h?.director?.slot(id); }
+
+  /**
+   * A staged group, as the game's banter reads it (director.beat → banter.ts): its round `round`
+   * opens `lineAt` seconds into the shot, so the director's own lines land where the shot wants them.
+   */
+  private group(key: string, ids: string[]): Hangout | null {
+    const spec: FilmGroup | undefined = this.shot.groups?.[key];
+    if (!spec || ids.length < 1) return null;
+    const id = spec.id ?? `film-${key}`;
+    const round = spec.round ?? 0;
+    const probe = beatAt(id, ids.length > 1 ? ids : [...ids, ids[0]!], 0, spec.mood, round * roundMs(id) + 1);
+    const lead = probe ? probe.lines[0]!.at - round * roundMs(id) : 600;
+    const formedAt = BASE_EPOCH + Math.round((this.shot.story + spec.lineAt) * 1000) - lead - round * roundMs(id);
+    const centre = this.place(Object.values(this.staging).find((b) => b.group === key)!.slot)!.pos;
+    return { id, mood: spec.mood, members: ids, formedAt, centre };
   }
 
   /**

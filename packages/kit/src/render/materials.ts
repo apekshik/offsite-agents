@@ -263,7 +263,9 @@ export function darkGlass({ color = "#0c141b", glow = "#ffc98a", lit = 0.45, pan
         {
           vec2 cell = floor(vec2(vGlassP.z / ${pane.toFixed(2)}, vGlassP.y / 3.4) + vec2(vGlassP.x > 0.0 ? 17.0 : 0.0, 0.0));
           float on = step(1.0 - ${lit.toFixed(2)}, fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453));
-          totalEmissiveRadiance = emissive * uNight * on * 1.4;
+          // Each lit cabin a little differently: some bright, most a warm glow behind the tint.
+          float shade = fract(sin(dot(cell, vec2(39.3468, 11.135))) * 24634.6345);
+          totalEmissiveRadiance = emissive * uNight * on * (0.35 + 0.75 * shade * shade);
         }`);
   }) as THREE.MeshPhysicalMaterial;
 }

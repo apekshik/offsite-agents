@@ -113,6 +113,8 @@ export class Captain {
   }
 
   get position() { return this.controller.position; }
+  /** Ground speed now (m/s), 0 in the air: for footsteps. */
+  get groundSpeed() { return this.controller.onGround ? this.speed : 0; }
   get facing() { return this.controller.facing; }
 
   teleport(pos: THREE.Vector3 | [number, number, number], facing = this.controller.facing) {

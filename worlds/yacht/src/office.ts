@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { D2, D3, D4, OFFICE, SLAB } from "./dims.ts";
 import { DESK, HAMMOCK, LOUNGER, armchair, coffeeTable, deckChair, desk, hammock, lounger, officeChair, palm, shrub, sideTable, sofa } from "./furniture.ts";
 import { along, band, yawOf, type P2 } from "./kit.ts";
-import { balustrade, type Ship } from "./parts.ts";
+import { balustrade, roomLight, type Ship } from "./parts.ts";
 import { deskScreenTexture, screen, wallScreenTexture } from "./screens.ts";
 
 const CEIL = D4 - SLAB;
@@ -74,6 +74,9 @@ export function buildOffice(s: Ship) {
   // Light: long panels in the ceiling over each line of desks; brighter as the crew gets to work.
   for (const [x] of LINES) pile.box("panel", x - 0.25, CEIL - 0.03, -19.5, x + 0.25, CEIL, 12.5);
   pile.box("panel", -0.25, CEIL - 0.03, -19.5, 0.25, CEIL, 12.5);
+  // After dark the panels light the room for real: the crew at their desks, warm, not silhouettes
+  // against the screens. Brighter with work under way.
+  for (const z of [-15, -4, 7]) roomLight(s, 0, CEIL - 1.2, z, { intensity: 9, distance: 15, color: "#ffe6c8", busy: 0.5 });
 
   // The desks: a desk, a chair and a screen each, and a slot facing the screen.
   const screenMap = deskScreenTexture();

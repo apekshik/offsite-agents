@@ -352,7 +352,11 @@ function screenScale(sprite: THREE.Object3D, camera?: THREE.Camera) {
 export class SleepMarker {
   readonly object = new THREE.Group();
   private letters: THREE.Sprite[] = [];
+  private readonly right = new THREE.Vector3();
+  private readonly inv = new THREE.Matrix4();
   restY = 0;
+  /** How far to the side of the head they start (half the name tag, when it shows). */
+  side = 0;
 
   constructor() {
     const tex = glyph("z", (ctx, n) => {
@@ -382,13 +386,25 @@ export class SleepMarker {
     if (!this.object.visible) return;
     const k = screenScale(this.object, camera);
     this.object.position.y = this.restY;
+    // They drift up and off to the screen's right, clear of the name tag (`side` metres from the
+    // middle at their scale, the tag's half width), whichever way the sleeper lies.
+    const right = this.right.set(1, 0, 0);
+    if (camera && this.object.parent) {
+      right.setFromMatrixColumn(camera.matrixWorld, 0);
+      this.inv.copy(this.object.parent.matrixWorld).invert();
+      right.transformDirection(this.inv).setY(0);
+      if (right.lengthSq() < 1e-6) right.set(1, 0, 0);
+      right.normalize();
+    }
+    const kk = Math.min(k, 2.2);
     this.letters.forEach((s, i) => {
       const u = (time / 2.7 + i / 3) % 1; // each rises over 2.7 s, a third apart
       const fade = Math.min(1, u / 0.15) * (1 - Math.max(0, (u - 0.7) / 0.3));
       s.material.opacity = fade;
-      const size = (0.16 + 0.16 * u) * Math.min(k, 2.2);
+      const size = (0.16 + 0.16 * u) * kk;
       s.scale.set(size, size, 1);
-      s.position.set((0.12 + 0.25 * u + 0.05 * Math.sin(u * 9)) * Math.min(k, 2.2), 0.05 + 0.55 * u * Math.min(k, 2.2), 0);
+      const out = this.side + (0.08 + 0.2 * u + 0.05 * Math.sin(u * 9)) * kk;
+      s.position.set(right.x * out, 0.05 + 0.5 * u * kk, right.z * out);
     });
   }
 

@@ -38,9 +38,14 @@ export class Splash implements Effect {
   private age = 0;
   private readonly life: number;
   private readonly floor: number;
+  /** Where it splashes, and whether it's a cannonball (true) or someone shaking off: for its sound. */
+  readonly at: THREE.Vector3;
+  readonly big: boolean;
 
   constructor(at: THREE.Vector3, seed: number, o: { big?: boolean; count?: number } = {}) {
     const big = o.big ?? true, count = o.count ?? (big ? 90 : 24);
+    this.at = at.clone();
+    this.big = big;
     const r = stream(seed);
     this.life = big ? 1.6 : 0.9;
     this.floor = at.y - 0.05;

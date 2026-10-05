@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ui } from "../bridge.ts";
+import { audio } from "../audio/index.ts";
 import { Hud } from "../hud/Hud.tsx";
 import { Phone } from "../phone/Phone.tsx";
 import { phone, usePhone } from "../phone/state.ts";
@@ -44,6 +45,17 @@ function useKeys() {
     };
     addEventListener("keydown", down);
     return () => removeEventListener("keydown", down);
+  }, []);
+  // The phone's hinge: a click opening it, a softer one closing it. Out of the pocket onto the cover is silent.
+  useEffect(() => {
+    let was = phone.get().fold;
+    return phone.subscribe(() => {
+      const now = phone.get().fold;
+      if (now === was) return;
+      if (now === "open") audio.ui("fold-open");
+      else if (was === "open") audio.ui("fold-close");
+      was = now;
+    });
   }, []);
   // The helm takes over the screen: the phone goes back in the pocket.
   useEffect(() => ui.subscribe(() => { if (ui.get().helm && phone.get().fold !== "away") phone.putAway(); }), []);

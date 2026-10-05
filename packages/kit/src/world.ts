@@ -44,6 +44,11 @@ export interface BuiltWorld {
    * bridge lights, the server room's core, the radar, the wake). Call it whenever it changes.
    */
   setBusy?(level: number): void;
+  /**
+   * Optional: the aircraft in the air or on the pad at `now`, each with its flight's touchdown and
+   * lift-off times (ms) and the object that flies it, so the app can place their sound.
+   */
+  aircraft?(now: number): { object: THREE.Object3D; land: number; leave: number }[];
   /** Called every frame. now is ms since epoch (server-aligned), dt is seconds. */
   update(dt: number, now: number): void;
   dispose(): void;

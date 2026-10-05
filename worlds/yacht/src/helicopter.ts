@@ -287,6 +287,8 @@ export interface Helicopters {
   setArrivals(touchdowns: number[]): void;
   update(dt: number, now: number): void;
   view(now: number): HelicopterView | null;
+  /** Every flight in its window at `now`, with the helicopter flying it (the order update() assigns them). */
+  flying(now: number): { object: THREE.Object3D; land: number; leave: number }[];
   dispose(): void;
 }
 
@@ -370,6 +372,10 @@ export function createHelicopters(ocean?: Ocean): Helicopters {
       if (!f) return null;
       const p = pose(f, now, _v);
       return { position: pad.clone().add(_v), yaw: p.yaw, phase: phaseOf(f, now), touchdown: f.land, object: fleet[0] ?? template };
+    },
+    flying(now) {
+      const live = flights.filter((f) => now >= f.land - ARRIVAL.approachMs && now <= f.leave + ARRIVAL.departMs);
+      return live.map((f, i) => ({ object: heli(i), land: f.land, leave: f.leave }));
     },
     update(_dt, now) {
       const live = flights.filter((f) => now >= f.land - ARRIVAL.approachMs && now <= f.leave + ARRIVAL.departMs);

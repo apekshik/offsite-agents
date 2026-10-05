@@ -9,7 +9,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { CodeScreen } from "./screen.ts";
 import { THEME, drawBrackets } from "./labels.ts";
 
-export type PropKind = "laptop" | "box" | "rod" | "phone" | "drink" | "mug" | "handset" | "cards";
+export type PropKind = "laptop" | "box" | "rod" | "phone" | "drink" | "mug" | "handset" | "cards" | "dumbbell";
 
 export interface Prop {
   readonly kind: PropKind;
@@ -573,6 +573,21 @@ export class Handset implements Prop {
   dispose() { disposeTree(this.object); this.object.removeFromParent(); }
 }
 
+/** A dumbbell from the gym's rack: a knurled bar, a hex plate at each end. Origin: the middle of the bar, which runs along x. */
+export class Dumbbell implements Prop {
+  readonly kind = "dumbbell" as const;
+  readonly object = new THREE.Group();
+  readonly grips: THREE.Object3D[] = [];
+  constructor({ seed = 0 }: { seed?: number } = {}) {
+    const steel = std("#b9bec4", { roughness: 0.35, metalness: 0.7 });
+    const plate = std(["#20252e", "#b8322a", "#2c5a8c"][seed % 3]!, { roughness: 0.55 });
+    mesh(this.object, new THREE.CylinderGeometry(0.016, 0.016, 0.3, 8), steel, 0, 0, 0, 0, 0, Math.PI / 2);
+    for (const x of [-0.12, 0.12]) mesh(this.object, new THREE.CylinderGeometry(0.055, 0.055, 0.07, 6), plate, x, 0, 0, 0, 0, Math.PI / 2);
+  }
+  update() {}
+  dispose() { disposeTree(this.object); this.object.removeFromParent(); }
+}
+
 /** A hand of cards, fanned. Origin: the bottom of the fan, faces to -z (toward whoever holds it). */
 export class Cards implements Prop {
   readonly kind = "cards" as const;
@@ -615,6 +630,7 @@ export function makeProp(kind: PropKind, seed = 0): Prop {
     case "mug": return new Mug({ seed });
     case "handset": return new Handset({ seed });
     case "cards": return new Cards({ seed });
+    case "dumbbell": return new Dumbbell({ seed });
     case "phone": return new FoldPhone({ open: true });
     case "drink": return new Drink({ seed, color: ["#ff8a3d", "#ff5d8f", "#7ee0c6", "#ffd23f"][seed % 4]! });
   }

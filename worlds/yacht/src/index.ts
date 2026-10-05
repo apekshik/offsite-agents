@@ -180,6 +180,7 @@ export async function buildYacht(ctx: WorldContext, { hour = GOLDEN_HOUR, busy: 
     },
     setSwell(k) { swell = Math.max(0, k); },
     helicopter: (now) => helicopters.view(now),
+    aircraft: (now) => helicopters.flying(now),
     update(dt, now) {
       t += dt;
       LIGHT.uTime.value = t;

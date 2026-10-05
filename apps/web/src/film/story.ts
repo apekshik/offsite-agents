@@ -44,7 +44,7 @@ export const T = {
   night: 9000,
   /** Otis's dark-mode sweep lands: he carries a package to the bridge. */
   otisLands: 9012,
-  /** About when he sets it on the counter (the walk from his desk; check with --peek). */
+  /** When he sets it on the counter: the walk from his desk, in at the bridge door at ~9068 (shots.ts "delivery" says how to check). */
   otisDelivers: 9070,
   sableAsks: 9100,
   finished: 9150,

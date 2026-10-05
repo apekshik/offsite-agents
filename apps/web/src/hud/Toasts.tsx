@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { audio } from "../audio/index.ts";
 import { useUi } from "../bridge.ts";
 import { Button, CloseIcon, errorText, Face } from "../ui/index.tsx";
 import { useShip, type QuestionRow } from "../overlay/ship.tsx";
@@ -21,7 +22,7 @@ function QuestionToast({ q, onHide }: { q: QuestionRow; onHide: () => void }) {
   const [err, setErr] = useState<string | null>(null);
   const who = byId.get(q.crewId);
   const opts = (q.options ?? (q.kind === "approval" ? ["allow", "deny"] : [])).filter((o) => o !== "always").slice(0, 3);
-  const go = (a: string) => { setBusy(true); void answer({ questionId: q._id, answer: a }).catch((x) => { setErr(errorText(x)); setBusy(false); }); };
+  const go = (a: string) => { setBusy(true); void answer({ questionId: q._id, answer: a }).then(() => audio.ui("send"), (x) => { setErr(errorText(x)); setBusy(false); }); };
   return (
     <div className="toast amber fade-up">
       <div className="t-head">
@@ -58,6 +59,13 @@ export function Toasts() {
     const keys = new Set<string>();
     const fresh: Note[] = [];
     const now = Date.now();
+    // A question that wasn't waiting before buzzes the phone (not the ones already waiting when the page opened).
+    let buzz = false;
+    for (const q of questions) {
+      const k = `q:${q._id}`;
+      keys.add(k);
+      if (seen.current && !seen.current.has(k)) buzz = true;
+    }
     for (const c of crew) {
       if (c.lastEnded && (c.lastEnded.state === "landed" || c.lastEnded.state === "failed") && c.lastEnded.kind === "task") {
         const k = `end:${c._id}:${c.lastEnded.endedAt}`;
@@ -83,7 +91,10 @@ export function Toasts() {
     if (seen.current) for (const k of seen.current) keys.add(k);
     seen.current = keys;
     if (fresh.length) setNotes((n) => [...n, ...fresh].slice(-4));
-  }, [crew, threads, snap]);
+    // A delivery, or a thread finished with its pull requests: the chime. Someone asking: the buzz.
+    if (fresh.some((n) => n.tone === "green")) audio.ui("landed");
+    if (buzz) audio.ui("phone-buzz");
+  }, [crew, threads, snap, questions]);
 
   useEffect(() => {
     if (!notes.length) return;

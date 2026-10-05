@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { audio } from "../audio/index.ts";
 import { ACTIVITY_LABEL } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -40,7 +41,7 @@ export function QuestionCard({ q, context = true, findLink = true, wide = false,
   const send = async (a: string) => {
     setBusy(a);
     setErr(null);
-    try { await answer({ questionId: q._id, answer: a }); } catch (e) { setErr(errorText(e)); setBusy(null); }
+    try { await answer({ questionId: q._id, answer: a }); audio.ui("send"); } catch (e) { setErr(errorText(e)); setBusy(null); }
   };
   const where = who?.live?.taskTitle ?? null;
   const thread = who?.live?.threadTitle ?? null;
@@ -142,6 +143,7 @@ export function NewThread({ autoFocus, onStarted, placeholder = "Ask the compute
     setErr(null);
     try {
       const id = await create({ officeId, text: t });
+      audio.ui("send");
       setText("");
       ui.set({ threadId: id });
       onStarted?.(id);
@@ -305,7 +307,7 @@ export function ThreadView({ threadId, big }: { threadId: string; big?: boolean 
     if (!body) return;
     setText("");
     setErr(null);
-    try { await send({ threadId: id, text: body }); } catch (x) { setErr(errorText(x)); setText(body); }
+    try { await send({ threadId: id, text: body }); audio.ui("send"); } catch (x) { setErr(errorText(x)); setText(body); }
   };
   const landed = tasks.filter((x) => x.state === "landed").length;
   return (

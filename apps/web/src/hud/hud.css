@@ -17,6 +17,14 @@
 .hud-hints { position: fixed; left: 16px; bottom: 14px; z-index: 20; display: flex; gap: 14px; padding: 6px 12px 6px 7px; background: rgba(5, 7, 11, 0.62); border: 1px solid rgba(238, 243, 247, 0.1); border-radius: var(--radius); backdrop-filter: blur(10px); pointer-events: none; }
 .hud-hint { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-2); }
 .hud-hint.asking .key { border-color: var(--amber); color: var(--amber); }
+.hud-sound { pointer-events: auto; gap: 6px; padding-left: 12px; border-left: 1px solid rgba(238, 243, 247, 0.1); }
+.hud-sound-btn { display: flex; align-items: center; justify-content: center; width: 24px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ink-2); cursor: pointer; }
+.hud-sound-btn:hover { color: var(--ink); background: var(--fill-2); }
+.hud-sound-vol { -webkit-appearance: none; appearance: none; width: 64px; height: 3px; margin: 0; border-radius: 2px; cursor: pointer; outline: none;
+  background: linear-gradient(to right, var(--ink-2) var(--v, 80%), rgba(238, 243, 247, 0.16) var(--v, 80%)); }
+.hud-sound-vol::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--ink); border: 0; }
+.hud-sound-vol::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--ink); border: 0; }
+.hud-sound-vol:hover { background: linear-gradient(to right, var(--accent) var(--v, 80%), rgba(238, 243, 247, 0.22) var(--v, 80%)); }
 .hud-cross { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(238, 243, 247, 0.8); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); z-index: 18; pointer-events: none; }
 
 /* ---- toasts ---- */

@@ -636,6 +636,38 @@ export const ACTS = {
     },
   },
 
+  /** Curls at the rack: a dumbbell in the right hand coming up to the shoulder, the left on the hip, a rest between sets. */
+  lift: {
+    pose(p, t, B) {
+      const c = fr((t + B.seed * 2.3) / 12) * 12; // a set of reps, then a breather
+      const rest = smooth(8.5, 9.2, c) * (1 - smooth(11.3, 12, c));
+      const rep = 0.5 - 0.5 * Math.cos(c * 2.6);
+      const curl = rep * (1 - rest);
+      arm(p, 0, lerp(-0.1, -0.35, curl), 0.1, lerp(-0.25, -2.25, curl));
+      onHip(p, 1);
+      p.chX = -0.04 * curl; p.hdX = 0.12 + 0.1 * curl; p.hdY = -0.25 * (1 - rest) + 0.3 * rest * Math.sin(t * 0.5);
+      bend(p, 0, 0.06); bend(p, 1, 0.06);
+      plant(p);
+    },
+    hold: { prop: "dumbbell", at: "hand_r", pos: [0, -0.06, 0.03], rot: [0, Math.PI / 2, 0] },
+  },
+
+  /** On the weight bench: a concentration curl, elbow on the knee, eyes on the dumbbell. */
+  "lift-bench": {
+    seat: FIT.chair.seat,
+    pose(p, t, B) {
+      seat(p, B.seat, B.hip, 0.3);
+      for (const q of LR) { p.thZ[q] = SIDES[q] * 0.3; p.shX[q] -= 0.1; }
+      const c = fr((t + B.seed * 1.9) / 11) * 11;
+      const rest = smooth(8, 8.6, c) * (1 - smooth(10.3, 11, c));
+      const curl = (0.5 - 0.5 * Math.cos(c * 2.4)) * (1 - rest);
+      arm(p, 0, lerp(-0.55, -0.8, curl), 0.05, lerp(-0.3, -2.1, curl));
+      arm(p, 1, -0.7, 0.15, -0.7);
+      p.chX = 0.25; p.hdX = 0.35 - 0.15 * curl - 0.3 * rest;
+    },
+    hold: { prop: "dumbbell", at: "hand_r", pos: [0, -0.06, 0.03], rot: [0, Math.PI / 2, 0] },
+  },
+
   /** On the sauna bench: leaning back on the wall, hands on the knees, now and then a hand across the brow. */
   sauna: {
     seat: FIT.chair.seat,

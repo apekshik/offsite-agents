@@ -170,6 +170,7 @@ export class CrewFigure {
     // The Z's start just over the head, off to one side.
     this.zzz.visible = this.sleeping && this.inSight;
     this.zzz.restY = top - 0.1;
+    this.zzz.side = this.plate.sprite.visible ? this.plate.sprite.scale.x / 2 : 0.04;
     this.zzz.update(time, m.camera);
     if (this.blob) {
       const seated = m.seat != null;

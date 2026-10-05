@@ -2,8 +2,9 @@
 // geometry in the ship's piles and, where it matters, its walls and floors in the colliders.
 
 import * as THREE from "three";
+import { LIGHT } from "@offsite/kit";
 import { SLAB } from "./dims.ts";
-import type { MatKey, Mats } from "./mats.ts";
+import { BUSY, type MatKey, type Mats } from "./mats.ts";
 import { along, band, cap, Colliders, outline, Pile, Plan, Props, type Outline, type P2 } from "./kit.ts";
 
 export interface Ship {
@@ -221,6 +222,20 @@ export function stairs(s: Ship, o: StairOptions): { low: string; high: string } 
   const high = s.plan.node(`${o.id}:high`, xc, yHigh, zHigh + dir * 0.9);
   s.plan.link(low, high);
   return { low, high };
+}
+
+/**
+ * A real light in a room after dark: warm, no shadows, so the people and the furniture in it are
+ * lit and not just the floor. Off by day; at night `intensity`, or with `busy` (0..1) that share of
+ * it waiting until the crew is at work.
+ */
+export function roomLight(s: Ship, x: number, y: number, z: number, o: { intensity: number; distance: number; color?: THREE.ColorRepresentation; decay?: number; busy?: number }) {
+  const light = new THREE.PointLight(o.color ?? "#ffd6a6", 0, o.distance, o.decay ?? 1.5);
+  light.position.set(x, y, z);
+  light.name = "room-light";
+  s.extra.push(light);
+  const b = o.busy ?? 0;
+  s.tick.push(() => { light.intensity = o.intensity * LIGHT.uNight.value * (1 - b + b * BUSY.value); });
 }
 
 /** Small round lights under a deck's edge, lit at night. */

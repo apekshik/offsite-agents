@@ -1,5 +1,6 @@
 import type { SlotKind } from "@offsite/contracts";
 import type { Act, Prop } from "../game/director.ts";
+import type { GroupMood } from "../game/banter.ts";
 import type { Ease, Orbit, Pose, Vec3 } from "./camera.ts";
 
 // The shot language: each shot is data. The runner (runner.ts) plays one: it starts the ship at a
@@ -67,13 +68,30 @@ export interface CaptainSetup {
   hidden?: boolean;
 }
 
-/** An off-duty crew member's place for a scene: overrides the director while they are idle. */
+/**
+ * An off-duty crew member's place for a scene: overrides the director while they are idle. Any of
+ * the director's acts (director.ts Act): "nap-hammock" sleeps with a Zzz, "bartend" behind the bar
+ * (slot "bartender"), "dance", "cards", "selfie", "lift"… Left out, the act is what the director
+ * does at that kind of spot. Moving someone onto a pool slot mid-shot ({ stage }) is a cannonball.
+ */
 export interface Blocking {
   slot: string;
-  // TODO(social-life): the director's new acts (cheers, nap, cannonball, dance, cards…) slot in here
-  // as they land; until then use the acts the director already knows.
   act?: Act;
   props?: Prop[];
+  /** A conversation they are part of (Shot.groups): the director's own banter, toasts and laughs. */
+  group?: string;
+}
+
+/**
+ * A staged hangout: the game plays its banter (banter.ts) as it would for the director's groups.
+ * `id` picks the exchange (banter.ts is seeded by it: try ids until the lines are the ones you
+ * want); round `round` (0 first, a toast for "cheers") opens at `lineAt` seconds into the shot.
+ */
+export interface FilmGroup {
+  mood: GroupMood;
+  id?: string;
+  round?: number;
+  lineAt: number;
 }
 
 export interface Shot {
@@ -96,6 +114,8 @@ export interface Shot {
   ui?: { at: number; do: Action }[];
   /** Off-duty crew by key. */
   stage?: Record<string, Blocking>;
+  /** Conversations among the staged crew, by the name their Blocking.group uses. */
+  groups?: Record<string, FilmGroup>;
   /** Everyone (or these) standing in a row, for the cast picture. */
   lineup?: { at: Vec3; facing: number; spacing: number; crew?: string[] };
   /**

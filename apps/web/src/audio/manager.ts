@@ -102,6 +102,8 @@ export class AudioManager {
   private disarm: (() => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastSlot = -1;
+  /** Never starts (the film page: its cut uses the soundtrack files). */
+  private off = false;
   private readonly tmp = new THREE.Vector3();
   private readonly ear = new THREE.Vector3();
 
@@ -136,7 +138,7 @@ export class AudioManager {
 
   /** Waits for the first click, tap or key press anywhere, then starts. attach() and every play call arm it. */
   arm(): void {
-    if (this.listener || this.disarm || typeof window === "undefined") return;
+    if (this.off || this.listener || this.disarm || typeof window === "undefined") return;
     const events = ["pointerdown", "keydown", "touchend"] as const;
     const go = () => { off(); void this.start(); };
     const off = () => { for (const e of events) window.removeEventListener(e, go, true); this.disarm = null; };
@@ -149,6 +151,7 @@ export class AudioManager {
    * gesture (arm() does), or the browser keeps it suspended.
    */
   start(): Promise<void> {
+    if (this.off) return Promise.resolve();
     if (this.listener) return this.listener.context.state === "running" ? Promise.resolve() : this.listener.context.resume();
     if (typeof window === "undefined") return Promise.resolve();
     this.disarm?.();
@@ -171,6 +174,13 @@ export class AudioManager {
     });
     this.update({ started: true });
     return resumed.then(() => undefined, () => undefined);
+  }
+
+  /** Silence for good: nothing starts, whatever is asked (the film page, which renders without sound). */
+  disable(): void {
+    if (this.listener) this.dispose();
+    this.disarm?.();
+    this.off = true;
   }
 
   /** Seeded variations for the film rig (null: back to random). */
@@ -397,6 +407,10 @@ export class AudioManager {
    * sounds, following it; on the pad its rotors idle; joining mid-flight, the rotor loop plays.
    */
   helicopter(obj: THREE.Object3D, phase: FlightPhase, msIntoPhase = 0): void {
+    // Before the first gesture nothing is remembered: once sound starts, the phase it's in then
+    // plays (an approach from where it has got to, or the rotor loop).
+    this.arm();
+    if (!this.listener) return;
     const prev = this.helis.get(obj);
     if ((prev?.phase ?? "away") === phase) return;
     prev?.loop?.stop(phase === "away" ? 1.5 : 0.8);

@@ -1,5 +1,6 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { audio } from "../audio/index.ts";
 import { ACTIVITY_LABEL, isWorking, type RunEvent } from "@offsite/contracts";
 import { CREW_PRESETS } from "@offsite/kit";
 import { api } from "../../../../convex/_generated/api";
@@ -161,6 +162,7 @@ function MessageBox({ c, onDone }: { c: CrewRow; onDone: () => void }) {
     if (!t) return;
     try {
       await send({ threadId, text: `@${c.handle} ${t}` });
+      audio.ui("send");
       setSent(t);
       setText("");
       setTimeout(onDone, 2200);
