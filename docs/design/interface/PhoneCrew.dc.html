@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone open: the crew tab</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4fe3ff}a:hover{color:#9ff0ff}
+.ph{font-family:"Saira",system-ui,sans-serif;color:#eef3f7;font-variant-numeric:tabular-nums}
+.br{--bc:rgba(238,243,247,.5);--bg:rgba(255,255,255,.03);background:var(--bg);border:1px solid color-mix(in srgb,var(--bc) 32%,transparent);border-radius:8px}
+.lab{font-weight:500;font-size:12px;letter-spacing:0;text-transform:none}
+.disp{font-weight:650;letter-spacing:-.01em}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.face{position:relative;display:inline-block;width:30px;height:30px;border-radius:7px;flex:none;overflow:hidden}
+.face i{position:absolute;left:0;right:0;top:0;height:9px}
+.face::after{content:"";position:absolute;left:8px;top:16px;width:4px;height:4px;border-radius:50%;background:#1a1410;box-shadow:10px 0 0 #1a1410}
+.bot{position:relative;display:inline-block;width:30px;height:27px;border-radius:8px;background:#e9eef3;flex:none}
+.bot::after{content:"";position:absolute;left:7px;top:9px;width:5px;height:7px;border-radius:2px;background:#4fe3ff;box-shadow:11px 0 0 #4fe3ff}
+.chip{font-size:10px;font-weight:600;padding:2px 6px;border:1px solid rgba(238,243,247,.25);color:#9aa8b6;letter-spacing:.06em}
+button{font:inherit;color:#eef3f7;border:0;cursor:pointer}
+</style>
+</helmet>
+<div class="ph" style="width:1040px;height:780px;box-sizing:border-box;padding:20px;background:#0c1016;display:flex;align-items:center;justify-content:center">
+  <div style="width:1000px;height:740px;box-sizing:border-box;border-radius:34px;background:#05070b;border:7px solid #1c212a;box-shadow:0 0 0 1px #2c323d,0 30px 80px rgba(0,0,0,.55);display:flex;overflow:hidden">
+
+    <div style="width:430px;box-sizing:border-box;padding:16px 14px 14px 16px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="lab" style="color:#4fe3ff">Sea Legs</span>
+        <span style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa8b6"><span style="width:7px;height:7px;border-radius:50%;background:#6dffa8"></span>Apek's Mac · 18:24</span>
+      </div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <span class="disp" style="font-size:22px;line-height:1.1">Crew</span>
+        <button class="lab" style="padding:5px 10px;background:rgba(79,227,255,.14);color:#4fe3ff">+ Hire</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="lab" style="padding:5px 10px;background:transparent;color:#9aa8b6">Threads</button>
+        <button class="lab" style="padding:5px 10px;background:rgba(79,227,255,.14);color:#4fe3ff">Crew · 4</button>
+        <button class="lab" style="padding:5px 10px;background:transparent;color:#9aa8b6">Ship</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="br" style="--bc:rgba(238,243,247,.35);padding:8px 10px;display:flex;align-items:center;gap:11px">
+          <span class="bot"></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600;font-size:15px">Computer <span class="chip">Claude Code</span></span><span style="font-size:12px;color:#9aa8b6">At the helm · planning “Fix the flaky login test”</span></div>
+        </div>
+        <div class="br" style="--bc:#4fe3ff;--bg:rgba(79,227,255,.08);padding:8px 10px;display:flex;align-items:center;gap:11px">
+          <span class="face" style="background:#e2a77f"><i style="background:#5a3a22"></i></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600;font-size:15px">Marlo <span class="chip">Codex</span></span><span style="font-size:12px;color:#4fe3ff">Editing · Settings page with the toggle</span><span class="mono" style="font-size:11px;color:#9aa8b6">Edit src/settings/Toggle.tsx</span></div>
+          <button class="lab" style="padding:5px 8px;background:rgba(79,227,255,.14);color:#4fe3ff">Find</button>
+        </div>
+        <div class="br" style="--bc:#ffc861;--bg:rgba(255,200,97,.08);padding:8px 10px;display:flex;align-items:center;gap:11px">
+          <span class="face" style="background:#f0c8a8"><i style="background:#e8c46a"></i></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600;font-size:15px">Otis <span class="chip">Claude Code</span></span><span style="font-size:12px;color:#ffc861">Needs you · walking to you</span><span class="mono" style="font-size:11px;color:#9aa8b6">Run: rm -rf node_modules/.cache</span></div>
+          <button class="lab" style="padding:5px 8px;background:rgba(255,200,97,.16);color:#ffc861">Answer</button>
+        </div>
+        <div class="br" style="--bc:rgba(238,243,247,.35);padding:8px 10px;display:flex;align-items:center;gap:11px">
+          <span class="face" style="background:#d9a07a"><i style="background:#1e1410"></i></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600;font-size:15px">Coral <span class="chip">Claude Code</span></span><span style="font-size:12px;color:#4fe3ff">Reading · Profile model and API</span><span style="font-size:11px;color:#9aa8b6">On a lounger, sun deck</span></div>
+          <button class="lab" style="padding:5px 8px;background:rgba(238,243,247,.08);color:#eef3f7">Find</button>
+        </div>
+        <div class="br" style="--bc:rgba(238,243,247,.35);padding:8px 10px;display:flex;align-items:center;gap:11px">
+          <span class="face" style="background:#f1c9a5"><i style="background:#c8643b"></i></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600;font-size:15px">Wren <span class="chip">Claude Code</span></span><span style="font-size:12px;color:#9aa8b6">Off duty · in a hammock, port promenade</span></div>
+          <button class="lab" style="padding:5px 8px;background:rgba(238,243,247,.08);color:#eef3f7">Find</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:14px;flex:none;background:#030406;border-left:1px solid #10141b;border-right:1px solid #10141b"></div>
+
+    <div style="flex:1;min-width:0;box-sizing:border-box;padding:16px 16px 14px 14px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:9px;padding-bottom:12px;border-bottom:1px solid rgba(238,243,247,.1)">
+        <span class="face" style="background:#e2a77f;width:44px;height:44px;border-radius:10px"><i style="background:#5a3a22;height:13px"></i></span>
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <span style="font-weight:700;font-size:20px">Marlo</span>
+          <span style="font-size:12px;color:#9aa8b6">Codex · high effort · your ChatGPT Pro · desk 03, office deck</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="lab" style="color:#9aa8b6">Working on</span>
+        <span style="font-size:16px;font-weight:600">Settings page with the toggle</span>
+        <span style="font-size:12px;color:#9aa8b6">Add a settings page with a dark mode toggle · 11 min</span>
+      </div>
+      <div class="br" style="--bc:rgba(238,243,247,.45);flex:1;min-height:0;padding:10px;display:flex;flex-direction:column;gap:9px;overflow:hidden">
+        <span class="lab" style="color:#9aa8b6">Watch</span>
+        <div class="mono" style="display:flex;gap:10px;font-size:12px;color:#9aa8b6"><span style="width:56px;color:#6dffa8">read</span><span style="flex:1">src/theme.ts</span><span>0.2s</span></div>
+        <div class="mono" style="display:flex;gap:10px;font-size:12px;color:#9aa8b6"><span style="width:56px;color:#6dffa8">search</span><span style="flex:1">"ThemeMode" in src</span><span>0.4s</span></div>
+        <div class="mono" style="display:flex;gap:10px;font-size:12px;color:#9aa8b6"><span style="width:56px;color:#6dffa8">write</span><span style="flex:1">src/settings/page.tsx</span><span style="color:#6dffa8">+64</span></div>
+        <div class="mono" style="display:flex;gap:10px;font-size:12px;color:#9aa8b6"><span style="width:56px;color:#6dffa8">edit</span><span style="flex:1">src/nav.tsx</span><span><span style="color:#6dffa8">+3</span> <span style="color:#ff5d6c">−1</span></span></div>
+        <div class="mono" style="display:flex;gap:10px;font-size:12px;color:#9aa8b6"><span style="width:56px;color:#6dffa8">bash</span><span style="flex:1">pnpm test settings</span><span>4.1s</span></div>
+        <div class="mono" style="display:flex;gap:10px;font-size:12px;color:#eef3f7;padding:8px 10px;margin:2px -10px;background:rgba(79,227,255,.08)"><span style="width:56px;color:#4fe3ff">edit</span><span style="flex:1">src/settings/Toggle.tsx</span><span style="color:#4fe3ff">now</span></div>
+        <div style="margin-top:auto;font-size:13px;line-height:1.45;color:#c7d0d9;border-top:1px solid rgba(238,243,247,.1);padding-top:10px">The page reads the saved mode on load. Adding the toggle component next, then a test that flips it.</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button style="padding:7px 13px;background:#4fe3ff;color:#04161b;font-weight:700;font-size:13px">Find Marlo</button>
+        <button style="padding:7px 13px;background:rgba(238,243,247,.08);font-weight:600;font-size:13px">Message</button>
+        <button style="padding:7px 13px;background:transparent;color:#ff5d6c;font-weight:600;font-size:13px;margin-left:auto">Stop</button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":780}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

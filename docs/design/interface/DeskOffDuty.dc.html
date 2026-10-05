@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desk monitor: off duty</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{font-family:"Saira",system-ui,sans-serif;color:#eef3f7;font-variant-numeric:tabular-nums}
+.lab{font-weight:500;letter-spacing:0;text-transform:none}
+.disp{font-weight:600;letter-spacing:-.01em}
+</style>
+</helmet>
+<div class="ph" style="width:960px;height:600px;box-sizing:border-box;background:#081422;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:52px 56px;gap:10px">
+  <div style="position:absolute;left:600px;top:120px;width:180px;height:180px;border-radius:50%;background:#ffb86b"></div>
+  <div style="position:absolute;left:0;right:0;top:300px;height:300px;background:#0b2238"></div>
+  <div style="position:absolute;left:560px;top:322px;width:260px;height:4px;background:#ffb86b;opacity:.7"></div>
+  <div style="position:absolute;left:600px;top:346px;width:180px;height:4px;background:#ffb86b;opacity:.45"></div>
+  <div style="position:absolute;left:640px;top:370px;width:100px;height:4px;background:#ffb86b;opacity:.25"></div>
+  <span class="disp" style="position:relative;font-size:52px;line-height:1">Off duty</span>
+  <span style="position:relative;font-size:22px;color:#a9c4dc">Wren is in a hammock on the port promenade.</span>
+  <span class="lab" style="position:relative;font-size:15px;color:#6f8ba6;margin-top:6px">Desk 21 · back when there's work</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":960,"height":600}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

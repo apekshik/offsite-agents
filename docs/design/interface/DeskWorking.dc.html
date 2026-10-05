@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desk monitor: working</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{font-family:"Saira",system-ui,sans-serif;color:#eef3f7;font-variant-numeric:tabular-nums}
+.lab{font-weight:500;letter-spacing:0;text-transform:none}
+.disp{font-weight:600;letter-spacing:-.01em}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.face{position:relative;display:inline-block;width:44px;height:44px;border-radius:10px;flex:none;overflow:hidden}
+.face i{position:absolute;left:0;right:0;top:0;height:13px}
+.face::after{content:"";position:absolute;left:12px;top:24px;width:6px;height:6px;border-radius:50%;background:#1a1410;box-shadow:14px 0 0 #1a1410}
+.k{color:#c792ea}.s{color:#c3e88d}.f{color:#82aaff}.c{color:#56657a}.t{color:#ffcb6b}
+</style>
+</helmet>
+<div class="ph" style="width:960px;height:600px;box-sizing:border-box;background:#070a10;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:0;background:#0d121a;border-bottom:1px solid #1a212c">
+    <span class="mono" style="font-size:15px;padding:12px 18px;background:#070a10;color:#eef3f7;border-right:1px solid #1a212c">Toggle.tsx</span>
+    <span class="mono" style="font-size:15px;padding:12px 18px;color:#56657a;border-right:1px solid #1a212c">page.tsx</span>
+    <span class="mono" style="font-size:15px;padding:12px 18px;color:#56657a">theme.ts</span>
+  </div>
+  <div class="mono" style="flex:1;padding:16px 22px;font-size:19px;line-height:1.55;color:#c7d0d9;white-space:pre;overflow:hidden"><span class="c"> 1</span>  <span class="k">import</span> { <span class="t">ThemeMode</span> } <span class="k">from</span> <span class="s">"../theme"</span>;
+<span class="c"> 2</span>
+<span class="c"> 3</span>  <span class="k">export function</span> <span class="f">Toggle</span>({ mode, onChange }) {
+<span class="c"> 4</span>    <span class="k">const</span> next = mode === <span class="s">"dark"</span> ? <span class="s">"light"</span> : <span class="s">"dark"</span>;
+<span class="c"> 5</span>    <span class="k">return</span> (
+<span class="c"> 6</span>      &lt;<span class="t">button</span> onClick={() =&gt; <span class="f">onChange</span>(next)}&gt;<span style="display:inline-block;width:11px;height:22px;background:#4fe3ff;vertical-align:-4px"></span></div>
+  <div style="display:flex;align-items:center;gap:20px;padding:12px 22px;background:#0b1118;border-top:2px solid #4fe3ff">
+    <span class="face" style="background:#e2a77f;width:36px;height:36px;border-radius:8px"><i style="background:#5a3a22"></i></span>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;align-items:baseline;gap:14px"><span class="disp" style="font-size:22px;color:#4fe3ff">Editing</span><span style="font-size:20px;font-weight:500;color:#c7d0d9">Settings page with the toggle</span></div>
+      <span class="mono" style="font-size:16px;color:#9aa8b6">Edit src/settings/Toggle.tsx</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="disp" style="font-size:20px">Marlo</span><span class="lab" style="font-size:13px;color:#9aa8b6">11 min</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":960,"height":600}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

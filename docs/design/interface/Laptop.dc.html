@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Laptop on a lounger</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ph{font-family:"Saira",system-ui,sans-serif;color:#eef3f7;font-variant-numeric:tabular-nums}
+.disp{font-weight:600;letter-spacing:-.01em}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.k{color:#c792ea}.s{color:#c3e88d}.f{color:#82aaff}
+</style>
+</helmet>
+<div class="ph" style="width:640px;height:400px;box-sizing:border-box;background:#070a10;display:flex;flex-direction:column">
+  <div class="mono" style="flex:1;padding:22px 26px;font-size:24px;line-height:1.5;white-space:pre;color:#c7d0d9;overflow:hidden"><span class="k">const</span> profile = <span class="k">await</span> <span class="f">load</span>(id);
+<span class="k">if</span> (!profile) <span class="k">return</span> <span class="s">"not found"</span>;<span style="display:inline-block;width:13px;height:26px;background:#4fe3ff;vertical-align:-5px"></span></div>
+  <div style="padding:12px 22px;background:#0b1118;border-top:2px solid #4fe3ff;display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between"><span class="disp" style="font-size:26px;color:#4fe3ff">Reading</span><span class="disp" style="font-size:22px">Coral</span></div>
+    <span class="mono" style="font-size:20px;color:#9aa8b6">Read src/api/profiles.ts</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":640,"height":400}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

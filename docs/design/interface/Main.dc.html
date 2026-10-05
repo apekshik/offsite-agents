@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phone open: a thread with the computer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4fe3ff}a:hover{color:#9ff0ff}
+.ph{font-family:"Saira",system-ui,sans-serif;color:#eef3f7;font-variant-numeric:tabular-nums}
+.br{--bc:rgba(238,243,247,.5);--bg:rgba(255,255,255,.03);background:var(--bg);border:1px solid color-mix(in srgb,var(--bc) 32%,transparent);border-radius:8px}
+.lab{font-weight:500;font-size:12px;letter-spacing:0;text-transform:none}
+.disp{font-weight:650;letter-spacing:-.01em}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.face{position:relative;display:inline-block;width:22px;height:22px;border-radius:5px;flex:none;overflow:hidden}
+.face i{position:absolute;left:0;right:0;top:0;height:7px}
+.face::after{content:"";position:absolute;left:6px;top:12px;width:3px;height:3px;border-radius:50%;background:#1a1410;box-shadow:7px 0 0 #1a1410}
+.bot{position:relative;display:inline-block;width:22px;height:20px;border-radius:6px;background:#e9eef3;flex:none}
+.bot::after{content:"";position:absolute;left:5px;top:7px;width:4px;height:5px;border-radius:2px;background:#4fe3ff;box-shadow:8px 0 0 #4fe3ff}
+button{font:inherit;color:#eef3f7;border:0;cursor:pointer}
+</style>
+</helmet>
+<div class="ph" style="width:1040px;height:780px;box-sizing:border-box;padding:20px;background:#0c1016;display:flex;align-items:center;justify-content:center">
+  <div style="width:1000px;height:740px;box-sizing:border-box;border-radius:34px;background:#05070b;border:7px solid #1c212a;box-shadow:0 0 0 1px #2c323d,0 30px 80px rgba(0,0,0,.55);display:flex;overflow:hidden;position:relative">
+
+    <!-- left pane: threads -->
+    <div style="width:430px;box-sizing:border-box;padding:16px 14px 14px 16px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="lab" style="color:#4fe3ff">Sea Legs</span>
+        <span style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa8b6"><span style="width:7px;height:7px;border-radius:50%;background:#6dffa8"></span>Apek's Mac · 18:24</span>
+      </div>
+      <div class="disp" style="font-size:22px;line-height:1.1">Threads</div>
+      <div class="br" style="display:flex;align-items:center;gap:10px;padding:7px 7px 7px 11px">
+        <label for="new-thread" style="position:absolute;left:-9999px">New thread</label>
+        <input id="new-thread" placeholder="Ask the computer for something…" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#eef3f7;font:500 14px Saira,sans-serif">
+        <button aria-label="Start thread" style="width:28px;height:28px;border-radius:8px;background:#4fe3ff;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#05070b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="lab" style="padding:5px 10px;background:rgba(79,227,255,.14);color:#4fe3ff">Threads</button>
+        <button class="lab" style="padding:5px 10px;background:transparent;color:#9aa8b6">Crew · 4</button>
+        <button class="lab" style="padding:5px 10px;background:transparent;color:#9aa8b6">Ship</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="br" style="--bc:#4fe3ff;--bg:rgba(79,227,255,.08);padding:9px 11px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+            <span style="font-weight:550;font-size:14px;line-height:1.3">Add a settings page with a dark mode toggle</span>
+            <span class="lab" style="flex:none;padding:2px 8px;border-radius:99px;background:rgba(255,200,97,.16);color:#ffc861">1 needs you</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa8b6">
+            <span style="display:flex;gap:3px"><span class="face" style="background:#f1c9a5"><i style="background:#c8643b"></i></span><span class="face" style="background:#e2a77f"><i style="background:#5a3a22"></i></span><span class="face" style="background:#f0c8a8"><i style="background:#e8c46a"></i></span></span>
+            <span class="lab" style="color:#4fe3ff">Working</span> · 2 of 3 landed
+          </div>
+        </div>
+        <div class="br" style="--bc:rgba(238,243,247,.35);padding:9px 11px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-weight:550;font-size:14px;line-height:1.3">Add user profiles</span>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa8b6">
+            <span style="display:flex;gap:3px"><span class="face" style="background:#d9a07a"><i style="background:#1e1410"></i></span></span>
+            <span class="lab" style="color:#4fe3ff">Working</span> · 1 of 3 landed
+          </div>
+        </div>
+        <div class="br" style="--bc:rgba(238,243,247,.35);padding:9px 11px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-weight:550;font-size:14px;line-height:1.3">Build a leaderboard page</span>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa8b6">
+            <span class="lab" style="color:#6dffa8">Done</span> · pull request #14 · checks passing
+          </div>
+        </div>
+        <div class="br" style="--bc:rgba(238,243,247,.35);padding:9px 11px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-weight:550;font-size:14px;line-height:1.3">Fix the flaky login test</span>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9aa8b6">
+            <span class="bot"></span><span class="lab" style="color:#9aa8b6">Open</span> · the computer is reading the repo
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- the hinge -->
+    <div style="width:14px;flex:none;background:#030406;border-left:1px solid #10141b;border-right:1px solid #10141b"></div>
+
+    <!-- right pane: the thread -->
+    <div style="flex:1;min-width:0;box-sizing:border-box;padding:16px 16px 14px 14px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;flex-direction:column;gap:6px;padding-bottom:10px;border-bottom:1px solid rgba(238,243,247,.1)">
+        <span style="font-weight:650;font-size:16px;line-height:1.25">Add a settings page with a dark mode toggle</span>
+        <span style="display:flex;gap:10px;font-size:12px;color:#9aa8b6"><span class="mono" style="font-size:11px">offsite/add-a-settings-page-8fp28r</span>· 3 tasks · 2 landed</span>
+      </div>
+
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+        <div style="align-self:flex-end;max-width:78%;padding:8px 11px;background:#4fe3ff;color:#04161b;font-size:13.5px;line-height:1.4;border-radius:12px 12px 3px 12px">Add a settings page with a dark mode toggle, and a theme type the rest of the app can use, plus tests.</div>
+
+        <div style="display:flex;gap:9px;align-items:flex-start;max-width:88%">
+          <span class="bot"></span>
+          <div style="padding:8px 11px;background:rgba(238,243,247,.07);font-size:13.5px;line-height:1.4;border-radius:3px 12px 12px 12px">Two parts share a type, so the type lands first. Wren takes the theme type; then Marlo builds the page and Otis the tests, side by side.</div>
+        </div>
+
+        <div class="br" style="--bc:rgba(238,243,247,.5);padding:9px 11px;display:flex;flex-direction:column;gap:9px;margin-left:31px">
+          <span class="lab" style="color:#9aa8b6">Plan</span>
+          <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:18px;color:#6dffa8;font-weight:700">✓</span><span style="flex:1">Shared types and interfaces</span><span class="face" style="background:#f1c9a5"><i style="background:#c8643b"></i></span><span class="lab" style="color:#6dffa8;width:84px;text-align:right">Landed</span></div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:18px;color:#4fe3ff">●</span><span style="flex:1">Settings page with the toggle</span><span class="face" style="background:#e2a77f"><i style="background:#5a3a22"></i></span><span class="lab" style="color:#4fe3ff;width:84px;text-align:right">Editing</span></div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:18px;color:#ffc861">!</span><span style="flex:1">Tests for both</span><span class="face" style="background:#f0c8a8"><i style="background:#e8c46a"></i></span><span class="lab" style="color:#ffc861;width:84px;text-align:right">Needs you</span></div>
+        </div>
+
+        <div style="display:flex;gap:9px;align-items:flex-start;max-width:88%">
+          <span class="face" style="background:#f1c9a5"><i style="background:#c8643b"></i></span>
+          <div style="display:flex;flex-direction:column;gap:5px;padding:8px 11px;background:rgba(109,255,168,.07);border-radius:3px 12px 12px 12px">
+            <span class="lab" style="color:#6dffa8">Wren · landed shared types</span>
+            <span style="font-size:13.5px;line-height:1.4">Added Theme and ThemeMode in src/theme.ts and exported them from src/index.ts.</span>
+            <span class="mono" style="font-size:11px;color:#9aa8b6">+38 −2 · 2 files</span>
+          </div>
+        </div>
+
+        <div class="br" style="--bc:#ffc861;--bg:rgba(255,200,97,.09);padding:9px 11px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:9px"><span class="face" style="background:#f0c8a8"><i style="background:#e8c46a"></i></span><span class="lab" style="color:#ffc861">Otis needs you</span><a href="#" style="margin-left:auto;font-size:12px">Find Otis</a></div>
+          <span class="mono" style="font-size:13px">Run: rm -rf node_modules/.cache</span>
+          <div style="display:flex;gap:8px">
+            <button style="padding:6px 12px;background:#ffc861;color:#241a05;font-weight:700;font-size:13px">Allow</button>
+            <button style="padding:6px 12px;background:rgba(255,200,97,.16);color:#ffc861;font-weight:600;font-size:13px">Always allow</button>
+            <button style="padding:6px 12px;background:transparent;color:#9aa8b6;font-weight:600;font-size:13px">Deny</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="br" style="display:flex;align-items:center;gap:10px;padding:7px 7px 7px 11px">
+        <label for="say" style="position:absolute;left:-9999px">Message the computer</label>
+        <input id="say" placeholder="Message the computer…" style="flex:1;min-width:0;background:transparent;border:0;outline:0;color:#eef3f7;font:500 14px Saira,sans-serif">
+        <button aria-label="Send" style="width:28px;height:28px;border-radius:8px;background:#4fe3ff;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#05070b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":780}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
