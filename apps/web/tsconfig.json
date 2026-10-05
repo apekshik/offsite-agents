@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "types": ["vite/client"] },
-  "include": ["src/**/*", "vite.config.ts", "../../convex/_generated/**/*"]
+  "include": ["src/**/*", "dev/**/*", "vite.config.ts", "../../convex/_generated/**/*"]
 }
