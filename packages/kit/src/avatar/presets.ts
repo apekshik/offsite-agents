@@ -40,7 +40,7 @@ const whites = (s: AvatarSpec) => [...crewWhites(s), ...peakedCap(s), ...bareLeg
 
 export const CAPTAIN_PRESET: AvatarPreset = preset(
   "captain", "Captain", "Navy jacket, gold stripes, the white cap.",
-  { hair: "short", hairColor: "#3a2a1e", skin: "#e8b894", top: NAVY, bottom: NAVY, accent: "#e2b64a", face: "smile", height: 0.98 },
+  { hair: "short", hairColor: "#3a2a1e", skin: "#e8b894", top: NAVY, bottom: NAVY, accent: "#e2b64a", face: "smile", height: 0.9 },
   (s) => [...captainJacket(s), ...peakedCap(s, { captain: true }), ...footwear(s, "sneakers", "#f7f7f4")],
 );
 
