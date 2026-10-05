@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { Look } from "@offsite/contracts";
-import { adapters, createSimAdapter, keepBoth, SimSession, type HarnessAdapter, type SimScript } from "@offsite/harness";
+import { Look, type RunEvent } from "@offsite/contracts";
+import { adapters, AsyncQueue, createSimAdapter, keepBoth, SimSession, type HarnessAdapter, type Session, type SimScript, type StartSession } from "@offsite/harness";
 import { FakeShip } from "./fakeShip.ts";
 import { Runner } from "./runs.ts";
 
@@ -72,6 +73,8 @@ describe("a thread from request to pull request, on the sim crew", () => {
     for (const t of ship.tasks) expect(await sh(repo, "show", `${thread.branch}:crew-notes/${t.key}.md`)).toContain("#");
     // Task branches were recorded; every run ended well, and the crew reported.
     expect(ship.tasks.every((t) => t.branch?.startsWith(`${thread.branch}-`))).toBe(true);
+    // Landed task branches aren't left checked out in their worktrees (no "+" in `git branch`).
+    for (const t of ship.tasks) expect(await run("git", ["branch", "--list", t.branch!], { cwd: repo }).then((r) => r.stdout)).toBe(`  ${t.branch}\n`);
     expect(ship.runs.every((r) => r.state === "landed")).toBe(true);
     expect(ship.tasks.every((t) => t.report && /Done/.test(t.report))).toBe(true);
     // Each landed task's size was recorded: its notes file, added.
@@ -273,6 +276,83 @@ describe("the reply", () => {
     const finals = ship.eventLog.get(taskRun.id)!.filter((e) => e.type === "content.final");
     expect(finals).toEqual([{ type: "content.final", text: "Done: one line." }]);
     expect(ship.tasks[0]!.report).toBe("Done: one line.");
+  }, 30_000);
+});
+
+/** Arlo's run from the first real end-to-end run (Codex, dark mode), as the ship got it: three turns, two of them steers. */
+const ARLO = JSON.parse(readFileSync(new URL("./fixtures/arlo-steered.json", import.meta.url), "utf8")) as RunEvent[];
+
+/**
+ * Replays a recorded run the way its harness emits it: one turn per send, a send during a turn queued behind it as a
+ * steer. Codex sends a content.final with the whole turn's text as each message ends; Claude Code one, at the turn's
+ * end. Where the recording received a steer, `steer` sends the same message through the ship.
+ */
+function replay(input: StartSession, recorded: RunEvent[], shape: "codex" | "claude", steer: (text: string) => Promise<unknown>): Session {
+  const events = new AsyncQueue<RunEvent>();
+  const sends: string[] = [];
+  let waiter = () => {};
+  const sent = (n: number) => new Promise<void>((resolve) => { const check = () => { if (sends.length >= n) resolve(); else waiter = check; }; check(); });
+  let stopped = false;
+  void (async () => {
+    await sent(1);
+    await writeFile(join(input.cwd, "theme.js"), "export const theme = 'dark';\n");
+    let turn = 0, text = "";
+    for (const e of recorded) {
+      if (stopped) return;
+      if (e.type === "turn.started") { await sent(++turn); text = ""; }
+      if (e.type === "steer.received") { const before = sends.length; await steer(e.text.replace(/^From the computer: /, "")); await sent(before + 1); continue; }
+      if (e.type === "content.delta") text += e.delta;
+      if (e.type === "content.final") { if (shape === "codex") events.push({ type: "content.final", text }); continue; }
+      if (e.type === "turn.completed" && shape === "claude" && text) events.push({ type: "content.final", text });
+      events.push(e);
+    }
+  })();
+  return {
+    events,
+    async send(text) { if (sends.length) events.push({ type: "steer.received", text }); sends.push(text); waiter(); },
+    async interrupt() {}, async respond() {},
+    async stop() { stopped = true; events.close(); },
+    resumeCursor: () => null,
+  };
+}
+
+describe("a crew member's report", () => {
+  it.each(["codex", "claude"] as const)("keeps the main account from before a steer, with the replies after it (Arlo's run, %s)", async (shape) => {
+    const ship = new FakeShip(repo, { crew: ["Arlo"] });
+    const computer: SimScript = async (ctx) => {
+      const status = JSON.parse(await ctx.tool("crew_status", {})) as { tasks: { key: string; state: string }[] };
+      if (!status.tasks.length) await ctx.tool("plan_tasks", { tasks: [{ key: "dark-mode", title: "Add a site-wide dark mode toggle", brief: "Dark mode" }] });
+      else if (status.tasks.every((t) => t.state === "landed")) {
+        await ctx.tool("finish_thread", { title: "Add dark mode", summary: "## Dark mode\n- A toggle in the header.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n" });
+      }
+    };
+    const runner = start(ship, {
+      kind: "sim",
+      probe: async () => ({ harness: "sim", installed: true, version: null, auth: "authenticated", email: null, plan: null, models: [], message: null }),
+      start: async (input) => input.crew.role === "computer"
+        ? new SimSession(input, computer, { seed: 1, timeScale: 0 })
+        : replay(input, ARLO, shape, (text) => ship.tools.messageCrew("computer-run", "arlo", text)),
+    });
+    const thread = ship.createThread("Add a dark mode toggle for the whole site");
+    await settled(ship, () => thread.state === "done" && ended(ship));
+    await runner.stop(1000);
+
+    const main = "Implemented shared dark mode in `src/theme.js`, `src/style.css`, and `src/main.js`";
+    const accent = "Added `--accent-fg`: white in light mode, navy `#0b1a3a` in dark mode.";
+    const last = "Added the identical no-flash script to counter.html’s head, before the stylesheet.";
+    const report = ship.tasks[0]!.report!;
+    expect(report.startsWith(main)).toBe(true);
+    expect(report.indexOf(accent)).toBeGreaterThan(0);
+    expect(report.indexOf(last)).toBeGreaterThan(report.indexOf(accent));
+    expect(ship.runs.find((r) => r.kind === "task")!.report).toBe(report);
+    // The landed commit carries the whole account too, under the task's title.
+    const message = await sh(repo, "log", "-1", "--format=%B", thread.branch!);
+    expect(message.startsWith(`Add a site-wide dark mode toggle\n\n${main}`)).toBe(true);
+    expect(message).toContain(last);
+    expect(message).toMatch(/\nOffsite-Task: \S+-dark-mode$/);
+    // The steers reached Arlo, and the computer's summary lost Claude Code's footer.
+    expect((ship.eventLog.get(ship.runs.find((r) => r.kind === "task")!.id) ?? []).filter((e) => e.type === "steer.received")).toHaveLength(2);
+    expect(thread.finished?.summary).toBe("## Dark mode\n- A toggle in the header.");
   }, 30_000);
 });
 

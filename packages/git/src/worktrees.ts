@@ -137,6 +137,7 @@ export async function refreshThreadWorktree(path: string, branch: string): Promi
  */
 export async function ensureTaskWorktree(repo: string, path: string, branch: string, from: string): Promise<{ path: string; created: boolean }> {
   if (await ownWorktree(repo, path)) {
+    // Detached when the task last finished (detachWorktree): back onto its branch.
     const current = await git(["rev-parse", "--abbrev-ref", "HEAD"], path).catch(() => "");
     if (current !== branch) await git(["checkout", branch], path);
     return { path, created: false };
@@ -146,6 +147,20 @@ export async function ensureTaskWorktree(repo: string, path: string, branch: str
   if (await revParse(`refs/heads/${branch}`, repo)) await git(["worktree", "add", path, branch], repo);
   else await git(["worktree", "add", "-b", branch, path, from], repo);
   return { path, created: true };
+}
+
+/**
+ * A finished task's worktree, detached at the commit it is on, so the task's branch is no longer checked out there
+ * (`+` in `git branch`) and can be checked out, moved or deleted anywhere. The worktree itself stays, with whatever
+ * the setup command built: a landed task can be sent back for as long as its thread can be talked to, and
+ * ensureTaskWorktree checks its branch out again. Only a clean worktree on its branch is detached; returns whether it was.
+ */
+export async function detachWorktree(path: string): Promise<boolean> {
+  if (!(await exists(join(path, ".git")))) return false;
+  const status = await git(["status", "--porcelain"], path).catch(() => null);
+  if (status === null || status) return false;
+  if ((await git(["rev-parse", "--abbrev-ref", "HEAD"], path).catch(() => "HEAD")) === "HEAD") return false;
+  return gitOk(["checkout", "--detach"], path);
 }
 
 /** Remove a worktree Offsite made (the branch stays). */

@@ -21,6 +21,7 @@ export function computerPrompt(ctx: RunContext, captain: string, place: { thread
       "- Every task is in one repo: set repo to the one it changes. Work that spans repos is a task per repo, ordered with dependsOn so what others call lands first (the API, then the UI that calls it). Say in each brief what the other repos' tasks provide.",
     ] : []),
     "- Each brief stands alone: the crew member sees only their brief and the repo. Say what to build, where it lives, what done looks like, and how to check it.",
+    "- Briefs and messages to the crew never tell them to commit, push, open a pull request, or make or switch branches; crew are told to leave all of that alone. The ship commits each task's work and lands it on the thread's branch when they finish, and finish_thread pushes it and opens the pull request. A brief ends at \"done, checked, reported\".",
     "- Contract first: when parallel tasks share an interface (types, an API, a schema), add a small first task that lands just that, and make the others depend on it.",
     "- Assign \"any\" unless someone's specialty fits; whoever is free takes it, and someone new is flown in when nobody is.",
     "- Keep the captain informed, briefly: after planning, a few lines on who is doing what. Don't narrate your tool calls.",

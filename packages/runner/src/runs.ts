@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import type { Harness, RunEvent } from "@offsite/contracts";
 import { resolveProfile, type HarnessAdapter, type OffsiteTool, type Session } from "@offsite/harness";
 import {
-  allocatePort, commitAll, conflictMarkers, ensureComputerDir, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, expandHome, landTask,
+  allocatePort, commitAll, conflictMarkers, detachWorktree, ensureComputerDir, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, expandHome, landTask,
   openRepo, prepareConflict, releasePort, runSetup, serialized, taskBranchName, taskStats, taskWorktreePath, threadBranchName, threadRepoWorktreePath,
   threadViewRef, threadWorktreePath,
 } from "@offsite/git";
@@ -13,6 +13,7 @@ import { offsiteHome } from "./config.ts";
 import { EventSink } from "./events.ts";
 import { LOOK_SYSTEM_PROMPT, parseLook } from "./lookPrompt.ts";
 import { computerPrompt, conflictSteer, crewPrompt, markersLeftSteer, taskMessage } from "./prompts.ts";
+import { Accounts, stripAttribution } from "./report.ts";
 import { computerTools, crewTools, type AwaitAnswer } from "./tools.ts";
 import { Reviews } from "./reviews.ts";
 
@@ -170,6 +171,8 @@ class HostedRun {
   /** This turn's reply as streamed so far, and the part of it before the latest step (already its own message). */
   private turnText = "";
   private closed = "";
+  /** What the agent said at the end of each turn: a crew member's report. */
+  private readonly accounts = new Accounts();
 
   constructor(ctx: RunContext, opts: RunnerOptions) {
     this.ctx = ctx; this.opts = opts; this.id = ctx.run.id;
@@ -275,6 +278,7 @@ class HostedRun {
           case "turn.completed": this.openTurns = Math.max(0, this.openTurns - 1); break;
           case "error": if (e.fatal) this.stop("failed", e.message); break;
         }
+        this.accounts.push(e);
         // A fatal error is emitted by stop() itself, once.
         if (!(e.type === "error" && e.fatal)) this.emit(e);
         this.wake();
@@ -467,7 +471,7 @@ class HostedRun {
 
   private commitMessage(): string {
     const report = this.report();
-    return `${this.ctx.task!.title}\n\n${report ? report.slice(0, 1500) : ""}`.trim();
+    return stripAttribution(`${this.ctx.task!.title}\n\n${report ? report.slice(0, 1500) : ""}`.trim());
   }
 
   private async land(place: Place): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -511,6 +515,7 @@ class HostedRun {
         await this.opts.backend.lookResult(this.id, parsed.look);
         this.final = parsed.say ?? `Designed ${parsed.look.meta.name ?? "a look"}.`;
         this.tail = "";
+        this.accounts.replace(this.final);
         return;
       }
       if (attempt === 0) await this.send(`That look didn't fit the format: ${parsed.error}. Send the whole look again as JSON Lines: the meta line, every piece, then {"t":"done"}.`);
@@ -518,8 +523,11 @@ class HostedRun {
     }
   }
 
-  /** What the agent said after its last step, else its last reply: a crew member's report. */
-  private report(): string { return (this.tail.trim() || this.final.trim()).slice(0, 8000); }
+  /**
+   * A crew member's report: what they said at the end of each turn, the reply to the brief first, then their replies
+   * to steers. A short answer to a late message never replaces the main account.
+   */
+  private report(): string { return this.accounts.report(8000); }
 
   private async finish(place: Place | null, landed: boolean) {
     this.phase = "finishing";
@@ -531,6 +539,11 @@ class HostedRun {
       await commitAll(place.cwd, `${ctx.task!.title} (work in progress)`, ctx.crew.name)
         .then((c) => c.committed && this.log(`committed work in progress on ${place.taskBranch}`))
         .catch((e) => this.log(`could not commit: ${(e as Error).message}`));
+    }
+    // Done with the branch here: leave the worktree detached, so the branch isn't held checked out. The worktree stays
+    // for a send-back, which checks the branch out again.
+    if (ctx.run.kind === "task" && place?.taskBranch) {
+      await detachWorktree(place.cwd).catch(() => false);
     }
     if (place?.port) releasePort(place.port);
     await this.sink.flush();

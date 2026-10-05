@@ -4,7 +4,8 @@ import { LIMITS, type RunEvent } from "@offsite/contracts";
  * A run's events on their way to the ship. Content deltas that arrive within one window (100 ms) are joined into
  * one, so a streaming reply is a handful of writes rather than one per token; everything goes in order, at most 200
  * events per call, one call at a time. A failed write is retried a few times, then dropped with a log line: an
- * agent never stops because the network hiccupped.
+ * agent never stops because the network hiccupped. Plan usage that hasn't changed since it was last sent is dropped:
+ * Codex reports its limits after nearly every step.
  */
 export class EventSink {
   private pending: RunEvent[] = [];
@@ -14,6 +15,8 @@ export class EventSink {
   private readonly windowMs: number;
   private readonly log: (m: string) => void;
   private readonly retryMs: number[];
+  /** The last usage sent, per window kind. */
+  private readonly usage = new Map<string, string>();
 
   constructor(send: (events: RunEvent[]) => Promise<void>, opts: { windowMs?: number; log?: (m: string) => void; retryMs?: number[] } = {}) {
     this.send = send;
@@ -23,6 +26,11 @@ export class EventSink {
   }
 
   push(e: RunEvent): void {
+    if (e.type === "usage.updated") {
+      const changed = e.windows.filter((w) => this.usage.get(w.kind) !== JSON.stringify(w));
+      if (!changed.length) return;
+      for (const w of changed) this.usage.set(w.kind, JSON.stringify(w));
+    }
     const last = this.pending.at(-1);
     if (e.type === "content.delta" && last?.type === "content.delta") last.delta += e.delta;
     else this.pending.push(e.type === "content.delta" ? { ...e } : e);

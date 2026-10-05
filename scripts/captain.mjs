@@ -2,7 +2,8 @@
 // "runner-test"), a throwaway office, pairing a runner, threads. For testing the runner without the app.
 //   (needs `node scripts/devauth.mjs` once)
 //   node scripts/captain.mjs offices                    → your offices
-//   node scripts/captain.mjs setup <repoPath>          → prints { officeId }
+//   node scripts/captain.mjs setup <repoPath> [--harness claude|codex|sim]   → prints { officeId } (default: sim, so nothing is spent)
+//   node scripts/captain.mjs harness <crew> <claude|codex|sim> [--office <officeId>]   → switch a crew member (handle, name or id; "computer" too)
 //   node scripts/captain.mjs approve <userCode>        → approves the runner's device code, prints machineId
 //   node scripts/captain.mjs repo <officeId> <machineId> <repoPath> [setupCommand]   (adds or updates the repo on that path)
 //   node scripts/captain.mjs addrepo <officeId> <machineId> <repoPath> [name] [setupCommand]
@@ -20,15 +21,49 @@ const { devToken } = await import(`${ROOT}/scripts/devauth.mjs`);
 const env = Object.fromEntries(readFileSync(`${ROOT}/.env.local`, "utf8").split("\n").map((l) => /^([A-Z_]+)=([^\s#]*)/.exec(l)).filter(Boolean).map((m) => [m[1], m[2]]));
 const client = new ConvexHttpClient(env.CONVEX_URL);
 client.setAuth(devToken(env.DEV_AUTH_PRIVATE_KEY, process.env.OFFSITE_DEV_USER ?? "runner-test"));
-const [cmd, ...args] = process.argv.slice(2);
+// Flags (--harness x, --office y) anywhere on the line; the rest are positional.
+const flags = {};
+const [cmd, ...args] = process.argv.slice(2).filter((a, i, all) => {
+  if (a.startsWith("--")) { flags[a.slice(2)] = all[i + 1]; return false; }
+  return !(i > 0 && all[i - 1].startsWith("--"));
+});
+const HARNESSES = ["claude", "codex", "sim"];
+const harnessArg = (h, usage) => {
+  if (HARNESSES.includes(h)) return h;
+  console.error(`${h === undefined ? "Which harness?" : `No harness called "${h}".`} One of ${HARNESSES.join(", ")}.\n  ${usage}`);
+  process.exit(1);
+};
 
 if (cmd === "offices") {
   await client.mutation(api.users.ensure, {});
   console.log(JSON.stringify((await client.query(api.offices.mine, {})).map((o) => ({ officeId: o._id, name: o.name, repos: o.repoCount }))));
 } else if (cmd === "setup") {
+  const defaultHarness = harnessArg("harness" in flags ? flags.harness : "sim", "setup <repoPath> [--harness claude|codex|sim]");
   await client.mutation(api.users.ensure, {});
-  const officeId = await client.mutation(api.offices.create, { name: "Runner Test", world: "yacht", defaultHarness: "sim" });
-  console.log(JSON.stringify({ officeId }));
+  const officeId = await client.mutation(api.offices.create, { name: "Runner Test", world: "yacht", defaultHarness });
+  console.log(JSON.stringify({ officeId, defaultHarness }));
+} else if (cmd === "harness") {
+  const usage = "harness <crew> <claude|codex|sim> [--office <officeId>]";
+  const [who, h] = args;
+  if (!who) { console.error(`Usage: ${usage}`); process.exit(1); }
+  const harness = harnessArg(h, usage);
+  await client.mutation(api.users.ensure, {});
+  const offices = flags.office ? [{ _id: flags.office }] : await client.query(api.offices.mine, {});
+  const want = who.replace(/^@/, "").toLowerCase();
+  const found = [];
+  for (const o of offices) {
+    for (const c of await client.query(api.crew.list, { officeId: o._id })) {
+      if (c._id === who || c.handle.toLowerCase() === want || c.name.toLowerCase() === want) found.push({ ...c, officeId: o._id });
+    }
+  }
+  if (!found.length) { console.error(`Nobody called "${who}" aboard${flags.office ? " that ship" : " your ships"}.`); process.exit(1); }
+  if (found.length > 1) {
+    console.error(`"${who}" is on more than one ship; pick one with --office:\n${found.map((c) => `  --office ${c.officeId}  (${c.name}, @${c.handle}, ${c.harness})`).join("\n")}`);
+    process.exit(1);
+  }
+  const [crew] = found;
+  await client.mutation(api.crew.update, { crewId: crew._id, harness });
+  console.log(JSON.stringify({ crewId: crew._id, name: crew.name, handle: crew.handle, from: crew.harness, harness }));
 } else if (cmd === "approve") {
   console.log(JSON.stringify(await client.mutation(api.machines.approve, { userCode: args[0] })));
 } else if (cmd === "repo") {

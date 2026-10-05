@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
-  allocatePort, commitAll, commitsAhead, conflictMarkers, ensureComputerDir, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, finishThread,
+  allocatePort, commitAll, commitsAhead, conflictMarkers, detachWorktree, ensureComputerDir, ensureTaskWorktree, ensureThreadBranch, ensureThreadWorktree, finishThread,
   landTask, prepareConflict, releasePort, runSetup, syncTask, taskBranchName, taskDiff, taskWorktreePath, threadBranchName, threadRepoWorktreePath,
   threadViewRef, threadWorktreePath,
 } from "./index.ts";
@@ -132,6 +132,41 @@ describe("landing", () => {
     expect(await land(t, "theme")).toMatchObject({ ok: true });
     expect(await readFile(join(repo, "theme.ts"), "utf8")).toBe("x\n");
     expect(await sh(repo, "status", "--porcelain")).toBe("");
+  });
+});
+
+describe("after a task lands", () => {
+  it("frees its branch from the worktree, and a send-back checks it out again and lands on top", async () => {
+    const t = await thread(["theme"]);
+    const { wt, branch } = t.tasks["theme"]!;
+    const marked = async () => (await sh(repo, "branch", "--list", branch)).startsWith("+");
+    await writeFile(join(wt, "theme.ts"), "export const dark = true;\n");
+    expect(await land(t, "theme")).toMatchObject({ ok: true, empty: false });
+    expect(await marked()).toBe(true);
+
+    expect(await detachWorktree(wt)).toBe(true);
+    expect(await marked()).toBe(false);
+    expect(await sh(wt, "rev-parse", "--abbrev-ref", "HEAD")).toBe("HEAD");
+    expect(await sh(wt, "rev-parse", "HEAD")).toBe(await sh(repo, "rev-parse", branch));
+    expect(await readFile(join(wt, "theme.ts"), "utf8")).toBe("export const dark = true;\n");
+    expect(await detachWorktree(wt)).toBe(false);
+
+    // send_back: the same worktree, back on its branch, and the new work lands as a second commit.
+    expect((await ensureTaskWorktree(repo, wt, branch, t.threadBranch)).created).toBe(false);
+    expect(await sh(wt, "rev-parse", "--abbrev-ref", "HEAD")).toBe(branch);
+    await writeFile(join(wt, "theme.ts"), "export const dark = false;\n");
+    expect(await land(t, "theme")).toMatchObject({ ok: true, empty: false });
+    expect((await sh(repo, "log", "--format=%s", t.threadBranch)).split("\n")).toEqual(["Do theme", "Do theme", "seed"]);
+    expect(await sh(repo, "show", `${t.threadBranch}:theme.ts`)).toBe("export const dark = false;");
+  });
+
+  it("leaves a worktree with uncommitted work on its branch", async () => {
+    const t = await thread(["theme"]);
+    const { wt, branch } = t.tasks["theme"]!;
+    await writeFile(join(wt, "half.txt"), "x");
+    expect(await detachWorktree(wt)).toBe(false);
+    expect(await sh(wt, "rev-parse", "--abbrev-ref", "HEAD")).toBe(branch);
+    expect(await detachWorktree(join(root, "nowhere"))).toBe(false);
   });
 });
 

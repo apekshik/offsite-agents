@@ -2,6 +2,7 @@ import { COMPUTER_TOOLS, CREW_TOOLS, type ToolSpec } from "@offsite/contracts";
 import type { OffsiteTool } from "@offsite/harness";
 import { commitsAhead, finishThread, syncTask, taskDiff } from "@offsite/git";
 import { readable, type Backend, type ThreadPr } from "./backend.ts";
+import { stripAttribution } from "./report.ts";
 
 // Offsite's tools, implemented: the computer's call the ship (and git, for review and the pull request); a crew
 // member's sync with the team in git and ask the captain through the ship. Results are text the model reads: JSON
@@ -33,7 +34,9 @@ export interface ComputerPlace { repos: { name: string; path: string; defaultBra
  * finish_thread: push the thread's branch and open a pull request in every repo with landed work, then tell the ship.
  * A repo on another machine can't be pushed from here; its work stays on the branch there.
  */
-async function finishAll(backend: Backend, runId: string, place: ComputerPlace, title: string, summary: string): Promise<string> {
+async function finishAll(backend: Backend, runId: string, place: ComputerPlace, title: string, written: string): Promise<string> {
+  // The pull request and the thread's summary are the ship's: no "Generated with" footer a harness likes to add.
+  const summary = stripAttribution(written);
   const status = await backend.tools.crewStatus(runId);
   const tasks = status.tasks ?? [];
   const open = tasks.filter((t) => ["todo", "doing", "review"].includes(t.state));
@@ -43,7 +46,7 @@ async function finishAll(backend: Backend, runId: string, place: ComputerPlace, 
   const order = [...place.repos.map((r) => r.name).filter((n) => named.includes(n)), ...named.filter((n) => !place.repos.some((r) => r.name === n))];
   const branch = place.threadBranch;
   const many = order.length > 1;
-  const body = `${summary}${many ? `\n\nThis change spans ${order.length} repos (${order.join(", ")}), each with its own pull request from the branch ${branch}.` : ""}\n\n— Planned by the ship's computer, built by the crew on Offsite.`;
+  const body = `${summary}${many ? `\n\nThis change spans ${order.length} repos (${order.join(", ")}), each with its own pull request from the branch ${branch}.` : ""}`;
   const prs: ThreadPr[] = [];
   const said: string[] = [];
   for (const name of order) {

@@ -39,3 +39,20 @@ it("retries a failed write, then drops it without stopping later ones", async ()
   expect(calls).toBe(4);
   expect(logs).toEqual(["dropped 1 event(s): offline"]);
 });
+
+it("sends plan usage only when it changed", async () => {
+  const sent: RunEvent[][] = [];
+  const sink = new EventSink(async (e) => { sent.push(e); });
+  const weekly = (usedPercent: number) => ({ kind: "weekly", usedPercent, resetsAt: 1_791_601_669_000 });
+  // Codex reports its limits after nearly every step, unchanged: 22 copies of "weekly 2%" in one real run.
+  for (let i = 0; i < 22; i++) sink.push({ type: "usage.updated", windows: [weekly(2)] });
+  sink.push({ type: "usage.updated", windows: [{ kind: "session", usedPercent: 10, resetsAt: null }] });
+  sink.push({ type: "usage.updated", windows: [weekly(2), { kind: "session", usedPercent: 10, resetsAt: null }] });
+  sink.push({ type: "usage.updated", windows: [weekly(3)] });
+  await sink.flush();
+  expect(sent.flat()).toEqual([
+    { type: "usage.updated", windows: [weekly(2)] },
+    { type: "usage.updated", windows: [{ kind: "session", usedPercent: 10, resetsAt: null }] },
+    { type: "usage.updated", windows: [weekly(3)] },
+  ]);
+});

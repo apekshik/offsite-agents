@@ -21,7 +21,12 @@ async function post(url: string, body: unknown): Promise<unknown> {
  * Device-code pairing. The runner never opens a browser and never sees the captain's sign-in: it prints a code, the
  * captain approves it in the app, and the next poll hands over this machine's token (once).
  */
-export async function login(opts: { convexUrl: string; siteUrl: string; name: string; log?: (s: string) => void; sleep?: (ms: number) => Promise<void> }): Promise<RunnerConfig> {
+export async function login(opts: {
+  convexUrl: string; siteUrl: string; name: string;
+  /** Pairing as part of `offsite start`, which carries straight on: don't tell them to run it. */
+  starting?: boolean;
+  log?: (s: string) => void; sleep?: (ms: number) => Promise<void>;
+}): Promise<RunnerConfig> {
   const log = opts.log ?? ((s: string) => console.log(s));
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const start = Start.parse(await post(`${opts.siteUrl}/device/start`, { name: opts.name, hostname: hostname() }));
@@ -33,7 +38,7 @@ export async function login(opts: { convexUrl: string; siteUrl: string; name: st
     if (r.status === "approved" && r.token) {
       const config = { convexUrl: opts.convexUrl, siteUrl: opts.siteUrl, token: r.token, name: opts.name };
       await writeConfig(config);
-      log(`Paired as "${opts.name}". Run \`offsite start\` to take on work.`);
+      log(opts.starting ? `Paired as "${opts.name}".` : `Paired as "${opts.name}". Run \`offsite start\` to take on work.`);
       return config;
     }
     if (r.status === "denied") throw new Error("The captain declined this machine.");

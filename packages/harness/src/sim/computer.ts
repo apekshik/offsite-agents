@@ -138,7 +138,7 @@ export async function computerScript(ctx: SimContext): Promise<void> {
       await ctx.think(0.5, 2);
     }
     const main = landed.find((t) => !/^shared/i.test(t.key)) ?? landed[0]!;
-    const out = await ctx.tool("finish_thread", { title: clip(cap(main.title), 120), summary: `${notes.join("\n")}\n\nPlanned by the ship's computer, built by the crew.` });
+    const out = await ctx.tool("finish_thread", { title: clip(cap(main.title), 120), summary: notes.join("\n") });
     await ctx.say(`Looks right. ${out}`);
     return;
   }

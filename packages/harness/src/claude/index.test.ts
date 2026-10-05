@@ -44,6 +44,9 @@ describe("Claude Code sessions", () => {
     expect(options.env?.["PORT"]).toBe("4110");
     expect(Object.keys(options.mcpServers ?? {})).toEqual(["offsite"]);
     expect(options.disallowedTools).toEqual(["AskUserQuestion"]);
+    // The captain's own settings load, with Claude Code's attribution footers turned off over them.
+    expect(options.settingSources).toEqual(["user", "project"]);
+    expect(options.settings).toEqual({ attribution: { commit: "", pr: "", sessionUrl: false }, includeCoAuthoredBy: false });
   });
 
   it("keeps the computer from editing", async () => {

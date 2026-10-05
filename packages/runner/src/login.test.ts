@@ -33,11 +33,32 @@ it("pairs by device code and saves the token for this user only", async () => {
   const config = await login({ convexUrl: "https://x.convex.cloud", siteUrl: `http://127.0.0.1:${port}`, name: "Mac", log: (s) => out.push(s), sleep: async () => {} });
   expect(config).toEqual({ convexUrl: "https://x.convex.cloud", siteUrl: `http://127.0.0.1:${port}`, token: "ofr_secret", name: "Mac" });
   expect(out.join("\n")).toContain("ABCD-EFGH");
+  expect(out.at(-1)).toBe('Paired as "Mac". Run `offsite start` to take on work.');
   expect(seen[0]).toEqual(["/device/start", { name: "Mac", hostname: expect.any(String) }]);
   expect(seen[1]).toEqual(["/device/poll", { deviceCode: "dc" }]);
   expect(await readConfig()).toEqual(config);
   expect((await stat(join(home, "runner.json"))).mode & 0o777).toBe(0o600);
   expect(JSON.parse(await readFile(join(home, "runner.json"), "utf8")).token).toBe("ofr_secret");
+});
+
+it("doesn't tell `offsite start` to run itself when it pairs on the way up", async () => {
+  home = await mkdtemp(join(tmpdir(), "offsite-login-"));
+  process.env["OFFSITE_HOME"] = home;
+  server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify(req.url === "/device/start"
+        ? { deviceCode: "dc", userCode: "ABCD-EFGH", verifyUrl: "http://app/?connect=ABCD-EFGH", interval: 0.001, expiresIn: 60 }
+        : { status: "approved", token: "ofr_secret" }));
+    });
+  });
+  await new Promise<void>((r) => server!.listen(0, "127.0.0.1", r));
+  const port = (server.address() as { port: number }).port;
+  const out: string[] = [];
+  await login({ convexUrl: "https://x.convex.cloud", siteUrl: `http://127.0.0.1:${port}`, name: "Mac", starting: true, log: (s) => out.push(s), sleep: async () => {} });
+  expect(out.at(-1)).toBe('Paired as "Mac".');
+  expect(out.join("\n")).not.toContain("offsite start");
 });
 
 it("reads a designed look from JSON Lines, and says what is wrong with a bad one", () => {

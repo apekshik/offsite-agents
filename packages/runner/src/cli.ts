@@ -31,9 +31,9 @@ const die = (message: string): never => { console.error(message); process.exit(1
 const line = (s: ProfileStatus) =>
   `${(s.harness + (s.profile ? `:${s.profile}` : "")).padEnd(14)} ${(s.installed ? `v${s.version ?? "?"}` : "missing").padEnd(10)} ${s.auth.padEnd(16)} ${[s.plan, s.email].filter(Boolean).join(" · ")}${s.message ? `  (${s.message})` : ""}`;
 
-async function pair(): Promise<RunnerConfig> {
+async function pair(starting = false): Promise<RunnerConfig> {
   const where = deployment(opt("--url")) ?? die("Which ship? Pass --url https://<deployment>.convex.cloud, set OFFSITE_CONVEX_URL, or run from the Offsite repo (its .env.local has CONVEX_URL).");
-  return login({ ...where, name: opt("--name") ?? defaultName() });
+  return login({ ...where, name: opt("--name") ?? defaultName(), starting });
 }
 
 if (cmd === "help" || cmd === "--help" || cmd === "-h") { console.log(HELP); process.exit(0); }
@@ -75,7 +75,7 @@ if (cmd === "start") {
   const wanted = deployment(opt("--url"));
   if (!config || (opt("--url") && wanted && wanted.convexUrl !== config.convexUrl)) {
     console.log(config ? "That's a different ship; pairing again." : "This machine isn't paired yet.");
-    config = await pair().catch((e: Error) => die(e.message));
+    config = await pair(true).catch((e: Error) => die(e.message));
   }
   const backend = convexBackend(config.convexUrl, config.token);
   const speed = Number(opt("--speed") ?? process.env["OFFSITE_SIM_SPEED"] ?? 1) || 1;

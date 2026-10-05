@@ -28,6 +28,14 @@ const baseEnv = (profile?: HarnessProfile, extra?: Record<string, string>) =>
 
 async function* never(): AsyncGenerator<never> { await new Promise(() => {}); }
 
+/**
+ * Settings Offsite lays over the captain's own (the flag layer: their other settings still apply). The ship commits,
+ * writes pull requests and summaries, so Claude Code's "Generated with Claude Code" footer and co-author trailer stay
+ * out of them. The object form of `attribution`, because older CLIs reject a boolean there; `includeCoAuthoredBy`
+ * for CLIs from before `attribution`.
+ */
+export const OFFSITE_SETTINGS = { attribution: { commit: "", pr: "", sessionUrl: false }, includeCoAuthoredBy: false };
+
 export async function probeClaude(profile?: HarnessProfile, cwd?: string): Promise<HarnessStatus> {
   const base = { harness: "claude" as const, plan: null, email: null, models: [] as HarnessStatus["models"] };
   const bin = await which("claude");
@@ -107,6 +115,7 @@ class ClaudeSession implements Session {
         includePartialMessages: true,
         persistSession: true,
         settingSources: ["user", "project"],
+        settings: OFFSITE_SETTINGS,
         mcpServers: input.tools.length ? { [OFFSITE_MCP]: offsite } : {},
         env: baseEnv(input.profile, input.env),
         pathToClaudeCodeExecutable: bin,
