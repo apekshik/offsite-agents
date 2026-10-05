@@ -1,0 +1,14 @@
+{
+  "name": "@offsite/world-moon-base",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": { "three": "^0.186.1", "@offsite/kit": "workspace:*", "@offsite/contracts": "workspace:*" },
+  "devDependencies": { "@types/three": "^0.186.0" }
+}
