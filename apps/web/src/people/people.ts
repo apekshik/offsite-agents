@@ -19,7 +19,7 @@ export interface Person extends PersonLook {
   me: boolean;
   /** Walking the decks right now. */
   onDeck: boolean;
-  /** What they're doing on deck ("walk", "helm", "phone", "phone-open"), when they are. */
+  /** What they're doing on deck ("walk", "helm", "phone", "phone-open", "hammock"…: PersonAct), when they are. */
   act: string | null;
 }
 

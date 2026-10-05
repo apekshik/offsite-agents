@@ -101,6 +101,35 @@ describe("the director", () => {
     expect(desks).toBeLessThan(150);
   });
 
+  it("never sends anyone to a slot someone on deck is using", () => {
+    const d = new Director(SLOTS);
+    d.reserve(["hammock-1"]);
+    const crew = ["a", "b", "c", "d", "e", "f"].map((id) => person(id, { live: working("edit") }));
+    const ids = d.plan(crew, T0).flatMap((p) => (p.target.kind === "slot" ? [p.target.slotId] : []));
+    expect(ids).not.toContain("hammock-1");
+    expect(ids.length).toBe(4);
+    // Off duty too, whoever's turn it is to swing in a hammock.
+    for (let t = 0; t < 20; t++) {
+      const idle = d.plan(["g", "h", "i", "j"].map((id) => person(id)), T0 + t * 240_000);
+      expect(idle.some((p) => p.target.kind === "slot" && p.target.slotId === "hammock-1")).toBe(false);
+    }
+  });
+
+  it("moves someone on when the captain takes their slot", () => {
+    const fan = Array.from({ length: 400 }, (_, i) => `h${i}`).find((h) => workHabit(h)[0] === "hammock")!;
+    const d = new Director(SLOTS);
+    const reader = person(fan, { live: working("read") });
+    expect(d.plan([reader], T0)[0]!.target).toEqual({ kind: "slot", slotId: "hammock-1" });
+    // They went to ask the captain something; meanwhile the captain lay down in their hammock.
+    d.reserve(["hammock-1"]);
+    const moved = d.plan([reader], T0 + 5000)[0]!;
+    expect(moved.target.kind).toBe("slot");
+    expect(moved.target).not.toEqual({ kind: "slot", slotId: "hammock-1" });
+    // ...and stay there for the rest of the task once the captain is up again.
+    d.reserve([]);
+    expect(d.plan([reader], T0 + 10_000)[0]!.target).toEqual(moved.target);
+  });
+
   it("reads the computer's mood from its run", () => {
     const d = new Director(SLOTS);
     const bot = person("computer", { role: "computer" });

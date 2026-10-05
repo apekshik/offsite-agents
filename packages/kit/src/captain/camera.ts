@@ -109,9 +109,10 @@ export class CameraRig {
 
   /**
    * feet: where the captain stands. eye: eye height above the feet. speed: ground speed (for the
-   * first-person bob). Places the camera.
+   * first-person bob). eyes: where the eyes are, when not eye above the feet (lying in a hammock).
+   * Places the camera.
    */
-  update(dt: number, feet: THREE.Vector3, eye: number, speed = 0) {
+  update(dt: number, feet: THREE.Vector3, eye: number, speed = 0, eyes: THREE.Vector3 | null = null) {
     const cam = this.camera;
     const cp = Math.cos(this.pitch);
     const dir = this._dir.set(Math.sin(this.yaw) * cp, -Math.sin(this.pitch), Math.cos(this.yaw) * cp);
@@ -120,14 +121,15 @@ export class CameraRig {
       this.bobAmt += ((speed > 0.3 ? Math.min(1, speed / 3) : 0) - this.bobAmt) * Math.min(1, dt * 8);
       this.bobPhase += dt * (4 + speed * 1.4);
       const bob = Math.sin(this.bobPhase * 2) * 0.028 * this.bobAmt;
-      cam.position.set(feet.x, feet.y + eye + bob, feet.z);
+      if (eyes) cam.position.set(eyes.x, eyes.y + bob, eyes.z);
+      else cam.position.set(feet.x, feet.y + eye + bob, feet.z);
       cam.rotation.order = "YXZ";
       cam.rotation.set(-this.pitch, this.yaw + Math.PI, Math.sin(this.bobPhase) * 0.006 * this.bobAmt);
       this.camPos.copy(cam.position);
     } else {
       // Orbit a point at the shoulders, a little above the eyes when looking down, and off to the
       // right so the middle of the screen (the crosshair) looks past you, not at the back of your head.
-      const focus = this._focus.set(feet.x, feet.y + eye * 0.9, feet.z);
+      const focus = eyes ? this._focus.set(eyes.x, eyes.y - eye * 0.1, eyes.z) : this._focus.set(feet.x, feet.y + eye * 0.9, feet.z);
       if (this.shoulder > 0) {
         const right = this._right.set(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
         const room = this.collision.raycast(focus, right, this.shoulder + 0.3);

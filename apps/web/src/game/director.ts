@@ -335,6 +335,8 @@ export class Director {
   private readonly doneAt = new Map<string, number>();
   private readonly cooling = new Map<string, number>();
   private readonly groups = new Map<string, Group>();
+  /** Slots people on deck are using (the captain in a hammock): no crew member is sent there. */
+  private reserved = new Set<string>();
   private bartender: { crewId: string; until: number } | null = null;
   private bucket = -1;
   private planned = false;
@@ -378,6 +380,14 @@ export class Director {
     for (const s of slots) if (!this.byId.has(s.id)) this.made.set(s.id, s);
   }
 
+  /**
+   * The slots people on deck are in (the captain lying in a hammock, a friend in a deck chair), replacing the last
+   * list. Crew don't pick them, and anyone holding one moves on.
+   */
+  reserve(slotIds: Iterable<string>) {
+    this.reserved = new Set(slotIds);
+  }
+
   /** The game says they reached the drop-off with their package. */
   delivered(crewId: string, now: number) {
     const e = this.errands.get(crewId);
@@ -393,6 +403,7 @@ export class Director {
     const t = new Set<string>();
     for (const [crewId, seat] of this.seats) if (crewId !== except) t.add(seat.slotId);
     for (const g of this.groups.values()) for (const id of g.reserves) t.add(id);
+    for (const id of this.reserved) t.add(id);
     if (this.bartender) t.add(this.bar!.bartender.id);
     return t;
   }
@@ -612,7 +623,7 @@ export class Director {
 
   /** A group of these crew at the first kind of spot that has room. */
   private makeGroup(who: string[], now: number, kinds: SpotKind[], mood: GroupMood | null): Group | null {
-    const taken = new Set<string>();
+    const taken = new Set<string>(this.reserved);
     for (const [crewId, seat] of this.seats) if (!who.includes(crewId)) taken.add(seat.slotId);
     for (const g of this.groups.values()) for (const id of g.reserves) taken.add(id);
     const id = `g${++this.groupSeq}`;
@@ -760,7 +771,8 @@ export class Director {
       scramble, approach: null, group: null, company: null,
     } as const;
     const seat = this.seats.get(c._id);
-    const current = seat ? this.slot(seat.slotId) : undefined;
+    // Someone on deck got into it meanwhile (the captain, back from a question): find another.
+    const current = seat && !this.reserved.has(seat.slotId) ? this.slot(seat.slotId) : undefined;
 
     if (activity === "arriving") {
       return { ...base, target: { kind: "none" }, act: "stand", props: [], screen: null };

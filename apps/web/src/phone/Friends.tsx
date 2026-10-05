@@ -18,7 +18,8 @@ const DAY = 24 * 60 * 60_000;
 /** "Maya · on deck, at the helm" and the like. */
 export function personLine(p: Person): string {
   if (!p.onDeck) return p.owner ? "Captain · not on deck" : "Not on deck";
-  const doing = p.act === "helm" ? "at the helm" : p.act === "phone" || p.act === "phone-open" ? "on the phone" : "on deck";
+  const doing = p.act === "helm" ? "at the helm" : p.act === "phone" || p.act === "phone-open" ? "on the phone"
+    : p.act === "hammock" ? "in a hammock" : p.act === "lounger" ? "on a lounger" : "on deck";
   return p.owner ? `Captain · ${doing}` : doing.charAt(0).toUpperCase() + doing.slice(1);
 }
 

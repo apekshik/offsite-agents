@@ -1,6 +1,6 @@
 import type { ConvexReactClient } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { MotionSample, PRESENCE, type PersonAct } from "@offsite/contracts";
+import { MotionSample, PRESENCE, PersonAct } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { voice } from "../voice/index.ts";
@@ -174,7 +174,7 @@ export class Deck {
       const dt = prev ? (x.at - prev.at) / 1000 : 0;
       const dist = prev ? Math.hypot(x.pos[0]! - prev.pos[0]!, x.pos[2]! - prev.pos[2]!) : 0;
       this.lastRow.set(x.userId, { at: x.at, pos: x.pos });
-      const act = (["walk", "helm", "phone", "phone-open"] as const).find((a) => a === x.act) ?? "walk";
+      const act = PersonAct.catch("walk").parse(x.act);
       this.o.onSample(x.userId, { p: [x.pos[0]!, x.pos[1]!, x.pos[2]!], r: x.facing, v: dt > 0 && dt < 3 ? Math.min(8, dist / dt) : 0, a: act }, "relayed");
     }
     this.refreshLinks();
