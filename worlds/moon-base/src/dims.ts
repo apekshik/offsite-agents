@@ -39,7 +39,7 @@ export const RAMP = { w: 4.5, len: RISE * 6 };
 
 // ---------- where things are ----------
 
-export const HUB = { x: 0, z: 4, r: 12, sill: 0.55, h: 9.2 };
+export const HUB = { x: 0, z: 4, r: 12, sill: 1.15, h: 8.8 };
 /** The pads: the active one (new crew land here), and two with landers parked. */
 export const PAD = { x: polar(deg(18), 36)[0], z: polar(deg(18), 36)[1], r: 8.5 };
 export const PAD_W = { x: polar(deg(-92), 40)[0], z: polar(deg(-92), 40)[1], r: 9 };
@@ -125,7 +125,7 @@ export function wrap(a: number): number {
 
 // Buildings standing on the terraces and the rim.
 /** The greenhouse: a long glass tunnel curving along T3, north. */
-export const GREENHOUSE = { r: 92.4, a0: deg(-12), a1: deg(9), half: 3.3, h: 5.0 };
+export const GREENHOUSE = { r: 92.5, a0: deg(-12), a1: deg(9), half: 3.5, h: 6.2 };
 /** The sports dome: a glass capsule on T3, north-east. */
 export const SPORTS = { a: deg(35), r: 90.5, len: 30, half: 5.1, h: 6.8 };
 /** The lookout pavilion on the rim, north-west, facing Earth across the crater. */

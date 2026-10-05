@@ -16,7 +16,7 @@ import { deg } from "./kit.ts";
 /** The light the base is usually seen in: a low sun in the east-south-east, long shadows across the crater. */
 export const MOON_HOUR = 11.9;
 
-const SUNRISE = 6, SUNSET = 20, PEAK = deg(22);
+const SUNRISE = 6, SUNSET = 20, PEAK = deg(30);
 
 /** Map direction (unit vector) from an azimuth (clockwise from north, -z) and an elevation. */
 export function skyDir(az: number, el: number, out = new THREE.Vector3()): THREE.Vector3 {

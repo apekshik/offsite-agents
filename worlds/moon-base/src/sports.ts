@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import { SPORTS, TIER_Y } from "./dims.ts";
 import { HOOP, bench, hoop } from "./furniture.ts";
-import { Frame, polar, type P2 } from "./kit.ts";
+import { Frame, faceOut, polar, type P2 } from "./kit.ts";
 import type { Base } from "./parts.ts";
 
 /** The court, in the dome's frame (x along the dome, z out from the crater). */
@@ -65,7 +65,8 @@ export function buildSports(s: Base) {
   const shell = new THREE.BufferGeometry();
   shell.setAttribute("position", new THREE.Float32BufferAttribute(gp, 3));
   shell.setIndex(gi);
-  shell.computeVertexNormals();
+  // Out from the spine down the middle of the dome (in its frame: x along it, clamped to the straight part).
+  faceOut(shell, (m) => { const dx = m.x - f.cx, dz = m.z - f.cz; const along = Math.max(-MID, Math.min(MID, dx * f.right[0] + dz * f.right[1])); return f.v(along, Y, 0); });
   pile.add("sportsGlass", shell);
   // Its frame: ribs over the top every few metres of rim, a ring at the springing.
   for (let i = 0; i < NU; i += 3) for (let j = 0; j < NV; j++) {
@@ -146,10 +147,9 @@ export function buildSports(s: Base) {
   line(COURT.half, COURT.z0, COURT.half, COURT.z1);
   line(0, COURT.z0, 0, COURT.z1);
   const zc = (COURT.z0 + COURT.z1) / 2;
-  for (let i = 0; i < 24; i++) {
-    const a = (i / 24) * Math.PI * 2, b = ((i + 1) / 24) * Math.PI * 2;
-    line(Math.cos(a) * 1.6, zc + Math.sin(a) * 1.6, Math.cos(b) * 1.6, zc + Math.sin(b) * 1.6);
-  }
+  const circle = new THREE.RingGeometry(1.52, 1.62, 48).rotateX(-Math.PI / 2).translate(0, Y + 0.068, zc);
+  circle.deleteAttribute("uv");
+  inner.add("courtLine", f.geom(circle));
   for (const sx of [-1, 1]) {
     line(sx * COURT.half, zc - 1.8, sx * (COURT.half - 4.2), zc - 1.8);
     line(sx * COURT.half, zc + 1.8, sx * (COURT.half - 4.2), zc + 1.8);

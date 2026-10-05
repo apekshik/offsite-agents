@@ -177,6 +177,23 @@ export function cap(points: P2[], y: number, down = false, holes: P2[][] = []): 
   return down ? flip(g) : g;
 }
 
+/**
+ * Winds every triangle of an indexed geometry to face away from `inside(centroid)` (the middle of
+ * a dome, the spine of a tunnel), then recomputes its normals.
+ */
+export function faceOut(g: THREE.BufferGeometry, inside: (c: THREE.Vector3) => THREE.Vector3): THREE.BufferGeometry {
+  const p = g.attributes.position!, I = g.index!;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), m = new THREE.Vector3();
+  for (let i = 0; i < I.count; i += 3) {
+    a.fromBufferAttribute(p, I.getX(i)); b.fromBufferAttribute(p, I.getX(i + 1)); c.fromBufferAttribute(p, I.getX(i + 2));
+    m.copy(a).add(b).add(c).divideScalar(3);
+    n.subVectors(b, a).cross(c.clone().sub(a));
+    if (n.dot(m.clone().sub(inside(m))) < 0) { const t = I.getX(i + 1); I.setX(i + 1, I.getX(i + 2)); I.setX(i + 2, t); }
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
 /** Turns a geometry inside out: reversed winding and normals. */
 export function flip(g: THREE.BufferGeometry): THREE.BufferGeometry {
   if (g.index) {

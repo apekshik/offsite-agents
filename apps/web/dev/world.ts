@@ -86,7 +86,7 @@ const MOON_VIEWS: Record<string, View> = {
   garage: { pos: [36, 2.6, 30], at: [50, 2.4, 24], fov: 60 },
   pad: { pos: [8, 2.2, -14], at: [11.5, 6, -36], fov: 56 },
   rig: { pos: [-40, 7, 42], at: [-18, -2, 18], fov: 58 },
-  sports: { pos: [44, 19.8, -79], at: [60, 20.4, -70], fov: 70 },
+  sports: { pos: [45.3, 19.9, -78.7], at: [60.2, 20.3, -77.4], fov: 70 },
   lookout: { pos: [-93, 26.2, -55.5], at: [-80, 26, -66], fov: 64 },
   quarters: { pos: [-43.5, 7.9, -53.5], at: [-52, 6.2, -63], fov: 70 },
   crater: { pos: [-60, 40, 90], at: [0, 8, -10], fov: 50 },

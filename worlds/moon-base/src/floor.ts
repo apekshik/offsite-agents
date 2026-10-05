@@ -71,10 +71,27 @@ export function buildFloor(s: Base) {
     props.put(rover, x, 0, z, yaw);
     col.obox(x, 1.4, z, 2.6, 2.8, 5.4, yaw);
   }
-  const yard: [number, number, number, number][] = [[-20, -12, 0, 0], [-18.8, -12.4, 1, 1], [-19.5, -10.8, 0, 2], [24, -14, 2, 0], [25.2, -14.6, 0, 1], [10, 22, 1, 2], [11.3, 21.6, 0, 0], [-34, -20, 0, 1], [-33, -21.5, 1, 0], [38, 2, 2, 0]];
-  for (const [x, z, kind, turn] of yard) {
-    props.put(kind === 1 ? bigCrate : kind === 2 ? greyBox : crate, x, 0, z, turn * 0.7);
-    col.box(x - 0.7, 0, z - 0.6, x + 0.7, kind === 2 ? 0.9 : 0.86, z + 0.6);
+  // Yards of cases about the floor, as the masterplan has them everywhere: a few each, some stacked.
+  const r = (() => { let sd = 23; return () => ((sd = (sd * 16807) % 2147483647) / 2147483647); })();
+  const yards: [number, number][] = [[-20, -12], [24, -14], [10, 22], [-34, -20], [38, 2], [-6, -24], [30, -28], [44, 16], [-44, 14], [-4, 50], [20, 50], [-30, -36], [6, -48], [36, 32]];
+  for (const [cx, cz] of yards) {
+    const n = 3 + Math.floor(r() * 4);
+    for (let i = 0; i < n; i++) {
+      const x = cx + (r() - 0.5) * 4, z = cz + (r() - 0.5) * 3, kind = r() < 0.3 ? 1 : r() < 0.25 ? 2 : 0, turn = r() * 3;
+      props.put(kind === 1 ? bigCrate : kind === 2 ? greyBox : crate, x, 0, z, turn);
+      if (kind === 0 && r() < 0.4) props.put(crate, x, 0.62, z, turn + 0.3);
+      col.obox(x, 0.6, z, kind === 1 ? 1.3 : 1.0, 1.2, kind === 1 ? 0.85 : 1.0, turn);
+    }
+  }
+  // Floodlights on tall poles about the floor.
+  for (const [x, z] of [[-18, -24], [22, -22], [-34, 4], [34, 6], [16, 30], [-6, 36], [-40, -12], [42, -8]] as const) {
+    s.pile.cyl("steel", x, 0, z, 0.1, 7.4, 8);
+    s.pile.box("dark", x - 0.5, 7.3, z - 0.18, x + 0.5, 7.7, z + 0.18);
+    s.pile.box("lamp", x - 0.42, 7.28, z - 0.12, x + 0.42, 7.32, z + 0.12);
+    s.pile.box("printed", x - 0.5, 0, z - 0.5, x + 0.5, 0.35, z + 0.5);
+    col.box(x - 0.5, 0, z - 0.5, x + 0.5, 2.0, z + 0.5);
+    s.halos.push({ x, y: 7.2, z, color: "#ffe2b8", size: 1.6, mode: "night" });
+    s.pools.push({ x, y: 0, z, r: 5.5, k: 0.5 });
   }
   // Path lights along the ways from the hub's doors to the pads and ramps.
   const ways: [number, number, number, number][] = [

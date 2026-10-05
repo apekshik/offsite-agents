@@ -5,7 +5,7 @@
 import * as THREE from "three";
 import { EARTH, LOOKOUT, TIER_Y } from "./dims.ts";
 import { bigPlant, lookChair, lowTable } from "./furniture.ts";
-import { angleOf, arc, cap, deg, polar, yawOf, type P2 } from "./kit.ts";
+import { angleOf, arc, cap, deg, faceOut, polar, yawOf, type P2 } from "./kit.ts";
 import { joinRoad, type Base } from "./parts.ts";
 
 export function buildLookout(s: Base) {
@@ -39,7 +39,7 @@ export function buildLookout(s: Base) {
   const glassG = new THREE.BufferGeometry();
   glassG.setAttribute("position", new THREE.Float32BufferAttribute(gp, 3));
   glassG.setIndex(gi);
-  glassG.computeVertexNormals();
+  faceOut(glassG, (m) => new THREE.Vector3(cx, m.y, cz));
   pile.add("lookGlass", glassG);
   for (let i = 0; i < 20; i++) {
     const a = (i / 20) * Math.PI * 2;

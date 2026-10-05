@@ -5,7 +5,7 @@
 import * as THREE from "three";
 import { GREENHOUSE, TIER_Y } from "./dims.ts";
 import { bigCrate, growShelf } from "./furniture.ts";
-import { deg, inward, polar, type P2 } from "./kit.ts";
+import { deg, faceOut, inward, polar, type P2 } from "./kit.ts";
 import type { Base } from "./parts.ts";
 
 const SPRING = 1.3;
@@ -48,7 +48,7 @@ export function buildGreenhouse(s: Base) {
   const glass = new THREE.BufferGeometry();
   glass.setAttribute("position", new THREE.Float32BufferAttribute(gp, 3));
   glass.setIndex(gi);
-  glass.computeVertexNormals();
+  faceOut(glass, (m) => { const r = Math.hypot(m.x, m.z); return new THREE.Vector3(m.x * (GREENHOUSE.r / r), Y, m.z * (GREENHOUSE.r / r)); });
   pile.add("greenGlass", glass);
   // A printed plinth along both sides, up to the springing.
   for (const side of [-1, 1]) {

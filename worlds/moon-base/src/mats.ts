@@ -46,11 +46,12 @@ function regolith(color: string, { layer = 0.32, bands = 1, rough = 0.96, mottle
       .replace("#include <common>", `#include <common>
         varying vec3 vRgP; varying vec3 vRgN;
         ${NOISE}
-        float rgUp = 0.0, rgRidge = 1.0;
+        float rgUp = 0.0, rgRidge = 1.0, rgNear = 1.0;
         float rgHeight(vec3 p) {
           float layer = fract(p.y / ${layer.toFixed(3)});
           float bead = smoothstep(0.0, 0.3, layer) * smoothstep(1.0, 0.7, layer);
-          return (1.0 - rgUp) * ${bands.toFixed(2)} * bead * 0.05 + rgN(p * 1.7) * 0.03 + rgN(p * 7.3) * 0.008;
+          // The beads fade out where they'd be finer than a few pixels, so far walls don't shimmer.
+          return (1.0 - rgUp) * ${bands.toFixed(2)} * bead * 0.05 * rgNear + rgN(p * 1.7) * 0.03 + rgN(p * 7.3) * 0.008 * rgNear;
         }`)
       .replace("#include <color_fragment>", `#include <color_fragment>
         {
@@ -59,7 +60,8 @@ function regolith(color: string, { layer = 0.32, bands = 1, rough = 0.96, mottle
           float layer = fract(vRgP.y / ${layer.toFixed(3)});
           float dl = fwidth(vRgP.y / ${layer.toFixed(3)});
           float groove = 1.0 - smoothstep(0.0, 0.12 + dl, min(layer, 1.0 - layer));
-          groove *= 1.0 - smoothstep(0.25, 0.6, dl);
+          rgNear = 1.0 - smoothstep(0.08, 0.25, dl);
+          groove *= 1.0 - smoothstep(0.12, 0.35, dl);
           rgRidge = 1.0 - groove * (1.0 - rgUp) * ${bands.toFixed(2)};
           float big = rgN(vRgP * 0.045), mid = rgN(vRgP * 0.37), fine = rgN(vRgP * 3.1);
           float tone = 0.84 + 0.22 * big + ${(0.18 * mottle).toFixed(3)} * (mid - 0.5) + 0.1 * (fine - 0.5);
@@ -104,19 +106,22 @@ function busyGlow(m: THREE.MeshStandardMaterial, key: string, rest: number, full
   }) as THREE.MeshStandardMaterial;
 }
 
-/** Glass that glows from inside after dark: the domes lit up in the night overview. */
+/**
+ * Glass that glows from inside after dark: the domes lit up in the night overview. The glow is
+ * for whoever looks at it from outside (its front faces); from inside, it stays clear glass.
+ */
 function litGlass(color: string, opacity: number, glow: string, amount: number, day = 0.12): THREE.MeshPhysicalMaterial {
   const m = glass({ color, opacity });
   // Big curved panes catch the sun: a softer glint than a yacht's windows, so it doesn't blind.
-  m.specularIntensity = 0.45;
-  m.roughness = 0.1;
+  m.specularIntensity = 0.22;
+  m.roughness = 0.22;
   m.emissive.set(glow);
   m.emissiveIntensity = amount;
   return patch(m, `litglass:${glow}:${day}`, (sh) => {
     sh.uniforms.uNight = LIGHT.uNight;
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", "#include <common>\nuniform float uNight;")
-      .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>\ntotalEmissiveRadiance *= ${day.toFixed(3)} + ${(1 - day).toFixed(3)} * uNight;`);
+      .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>\ntotalEmissiveRadiance *= (${day.toFixed(3)} + ${(1 - day).toFixed(3)} * uNight) * (gl_FrontFacing ? 1.0 : 0.12);`);
   }) as THREE.MeshPhysicalMaterial;
 }
 
@@ -142,7 +147,7 @@ function solar(): THREE.MeshStandardMaterial {
 
 /** The pit's floor: dark wet rock with veins of blue ice glowing through it. */
 function iceFloor(): THREE.MeshStandardMaterial {
-  const m = new THREE.MeshStandardMaterial({ color: "#2c3a44", roughness: 0.35, metalness: 0.05, emissive: "#2a8cff", emissiveIntensity: 1.4 });
+  const m = new THREE.MeshStandardMaterial({ color: "#2b3036", roughness: 0.45, metalness: 0.05, emissive: "#2a8cff", emissiveIntensity: 1.2 });
   return patch(m, "icefloor", (sh) => {
     sh.uniforms.uNight = LIGHT.uNight;
     sh.vertexShader = sh.vertexShader
@@ -153,9 +158,9 @@ function iceFloor(): THREE.MeshStandardMaterial {
       .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
         {
           float n = rgN(vIfP * 0.35) * 0.6 + rgN(vIfP * 1.3) * 0.4;
-          float vein = smoothstep(0.42, 0.5, n) * (1.0 - smoothstep(0.5, 0.62, n));
-          float pool = smoothstep(0.62, 0.75, n);
-          totalEmissiveRadiance *= (vein * 0.9 + pool * 0.6) * (0.45 + 0.55 * uNight);
+          float vein = smoothstep(0.485, 0.5, n) * (1.0 - smoothstep(0.5, 0.515, n));
+          float pool = smoothstep(0.66, 0.8, n);
+          totalEmissiveRadiance *= (vein * 0.35 + pool * 0.7) * (0.45 + 0.55 * uNight);
         }`);
   }) as THREE.MeshStandardMaterial;
 }
@@ -183,7 +188,7 @@ export function makeMaterials() {
     // The printed walls of the habs and buildings, a touch lighter than the ground.
     printed: skin(regolith("#aaa8a2", { layer: 0.3 })),
     // Inside: the same printed walls, warmed by the rooms' own lights.
-    inWall: regolith("#b3afa8", { layer: 0.28, warm: 0.16 }),
+    inWall: regolith("#bdbcb8", { layer: 0.28, warm: 0.1 }),
     rock: skin(regolith("#7d7a75", { bands: 0, mottle: 1.6 })),
     white,
     whiteIn: new THREE.MeshStandardMaterial({ color: "#efece6", roughness: 0.6, emissive: "#fff1de", emissiveIntensity: 0.2 }),
@@ -197,7 +202,7 @@ export function makeMaterials() {
     // Pads, roads and the court: smooth sintered regolith.
     pad: skin(regolith("#6f6c69", { bands: 0, mottle: 0.4, rough: 0.85 })),
     hubGlass: litGlass("#a9c6d8", 0.12, "#ffcf8f", 0.18),
-    greenGlass: litGlass("#c4dccf", 0.16, "#d8f59a", 0.6, 0.15),
+    greenGlass: litGlass("#c4dccf", 0.12, "#d8f59a", 0.6, 0.03),
     sportsGlass: litGlass("#b7cce0", 0.14, "#bfe2ff", 0.22),
     lookGlass: litGlass("#a9c6d8", 0.12, "#ffcf8f", 0.15),
     // Small round viewports: warm light behind thick glass, brighter after dark.
@@ -217,7 +222,7 @@ export function makeMaterials() {
     soil: new THREE.MeshStandardMaterial({ color: "#3b2c20", roughness: 1 }),
     tank: new THREE.MeshStandardMaterial({ color: "#7cc79a", roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.8, emissive: "#2f8a52", emissiveIntensity: 0.4 }),
     solar: solar(),
-    court: new THREE.MeshStandardMaterial({ color: "#3f7fd0", roughness: 0.35, metalness: 0.1, emissive: "#2a5fae", emissiveIntensity: 0.35 }),
+    court: new THREE.MeshStandardMaterial({ color: "#3f7fd0", roughness: 0.7, metalness: 0.0, emissive: "#2a5fae", emissiveIntensity: 0.35 }),
     courtLine: nightBoost(new THREE.MeshStandardMaterial({ color: "#ffd9b0", emissive: "#ff9a3c", emissiveIntensity: 2.4, roughness: 0.4 }), "courtline", 0.7),
     // Red beacons on the masts, ring lights round the pads.
     red: nightBoost(new THREE.MeshStandardMaterial({ color: "#5a0d0a", emissive: "#ff2a1a", emissiveIntensity: 4, roughness: 0.4 }), "red", 0.6),

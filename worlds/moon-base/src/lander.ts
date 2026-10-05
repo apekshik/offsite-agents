@@ -51,11 +51,14 @@ export function landerBody(p: Pile<MatKey>) {
   const capsule = new THREE.LatheGeometry(prof, 24);
   capsule.deleteAttribute("uv");
   p.add("white", capsule);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-    p.obox("dark", Math.sin(a) * 1.92, 5.7, Math.cos(a) * 1.92, 0.75, 0.8, 0.06, a, 0.18);
+  // A band of windows round the crew cabin, mullioned white.
+  const band = new THREE.CylinderGeometry(1.84, 2.0, 0.62, 24, 1, true).translate(0, 5.55, 0);
+  band.deleteAttribute("uv");
+  p.add("dark", band);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    p.obox("white", Math.sin(a) * 1.93, 5.55, Math.cos(a) * 1.93, 0.12, 0.66, 0.08, a, 0.12);
   }
-  p.obox("dark", 0, 4.6, 2.1, 0.9, 0.55, 0.06, 0, 0.12);
   // Orange thruster pods on the flanks, with their nozzles.
   for (const sx of [-1, 1]) {
     soft(p, "orange", sx * 2.75, 3.6, 0, 0.9, 2.6, 1.2, 0, 0, 0.14);
@@ -335,8 +338,10 @@ export function createLanders(mats: Mats, pad: THREE.Vector3, yaw: number, toEar
         g.position.copy(pad).add(_p);
         g.rotation.y = yaw;
         g.rotation.x = p.tilt;
+        // The ramp swings down from upright against the hatch; stowed, it's folded away inside.
         const rampObj = g.getObjectByName("lander-ramp")!;
-        rampObj.rotation.x = RAMP_DOWN * p.ramp - 1.25 * (1 - p.ramp);
+        rampObj.visible = p.ramp > 0.02;
+        rampObj.rotation.x = RAMP_DOWN * p.ramp - (Math.PI / 2) * (1 - p.ramp);
         const fl = g.getObjectByName("lander-flame") as THREE.Mesh;
         (fl.material as THREE.ShaderMaterial).uniforms.uOn!.value = p.burn;
         fl.visible = p.burn > 0.01;

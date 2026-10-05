@@ -13,7 +13,7 @@ import * as THREE from "three";
 import type { Interactable } from "@offsite/kit";
 import { HUB } from "./dims.ts";
 import { DESK, PORCH, barStool, bigPlant, chessTable, coffeeMachine, loungeEnd, loungeSeat, lowTable, planter, porch, ring, soft, stool } from "./furniture.ts";
-import { arc, band, cap, deg, polar, yawOf, type P2 } from "./kit.ts";
+import { arc, band, cap, deg, faceOut, polar, yawOf, type P2 } from "./kit.ts";
 import type { Base } from "./parts.ts";
 
 /** The floor inside, a step up from the crater floor. */
@@ -63,7 +63,7 @@ export function buildHub(s: Base): Interactable[] {
   const glassG = new THREE.BufferGeometry();
   glassG.setAttribute("position", new THREE.Float32BufferAttribute(gp, 3));
   glassG.setIndex(gi);
-  glassG.computeVertexNormals();
+  faceOut(glassG, () => new THREE.Vector3(HUB.x, 0, HUB.z));
   pile.add("hubGlass", glassG);
   // Its frame: meridians and three rings, a crown at the top.
   const RIBS = 24;
@@ -88,7 +88,7 @@ export function buildHub(s: Base): Interactable[] {
   }
   const crown = domeAt(0.93);
   pile.cyl("white", HUB.x, crown.y - 0.2, HUB.z, crown.r + 0.3, 0.5, 24);
-  pile.cyl("amber", HUB.x, crown.y - 0.24, HUB.z, crown.r + 0.1, 0.04, 24);
+  pile.cyl("lamp", HUB.x, crown.y - 0.24, HUB.z, crown.r + 0.1, 0.04, 24);
   // The dome as a collider (coarse), and the sill all round.
   {
     const cp: number[] = [], ci: number[] = [];
@@ -127,6 +127,23 @@ export function buildHub(s: Base): Interactable[] {
       pile.add("printed", cap([[x0, z0], [x1, z1], [ix1, iz1], [ix0, iz0]], HUB.sill + 0.05));
     }
     s.col.wall(r, 0, 1.2, 0.5);
+  }
+  // Round viewports all round the drum, and a band of warm light along its top.
+  for (let d = 3.75; d < 360; d += 7.5) {
+    const a = deg(d);
+    if (inDoor(a, 0, 0.6)) continue;
+    const [x, z] = H(...polar(a, HUB.r + 0.14));
+    const yaw = Math.PI - a;
+    const port = new THREE.CircleGeometry(0.24, 14).rotateY(yaw).translate(x, 0.62, z);
+    port.deleteAttribute("uv");
+    pile.add("viewport", port);
+    const rim = new THREE.TorusGeometry(0.29, 0.05, 5, 14).rotateY(yaw).translate(x, 0.62, z);
+    rim.deleteAttribute("uv");
+    pile.add("dark", rim);
+  }
+  for (const r of sill) for (let i = 0; i + 1 < r.length; i++) {
+    const [x0, z0] = r[i]!, [x1, z1] = r[i + 1]!;
+    pile.rod("amber", new THREE.Vector3(x0, HUB.sill + 0.02, z0), new THREE.Vector3(x1, HUB.sill + 0.02, z1), 0.035, 4);
   }
   // The porches at the doors; the west and east ones lead into the tubes.
   for (const a of DOORS) {
