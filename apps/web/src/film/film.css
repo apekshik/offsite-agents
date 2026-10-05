@@ -4,6 +4,8 @@
 
 /* Keyboard hints are for players, not viewers. */
 .device-hint, .hm-close .key, .hud-look { display: none !important; }
+/* A shot can draw the phone larger than the game would (Shot.phoneScale), so it reads in the cut. */
+.film-phone-scaled .phone-wrap { transform: translate(-50%, calc(-50% + 10px)) scale(var(--film-phone, 1)) !important; }
 .film-nophone .phone-wrap, .film-nophone .phone-backdrop { display: none !important; }
 
 /* No text caret or hover states in a capture. */

@@ -123,6 +123,10 @@ export interface Shot {
    * how many of the crew are at work, so the office lights up as they sit down.
    */
   busy?: number | [number, number];
+  /** The phone drawn this much larger than the game fits it to the window, so its text reads in a cut (film only). */
+  phoneScale?: number;
+  /** Speech bubbles this much larger than in the game, so a line reads at a glance (film only). Default 1. */
+  bubbles?: number;
   /** Crew (by key) whose bubbles and name tags show whatever the distance (the game's focus). */
   focus?: string[];
   /** Where the captain is; needed for { captain: true }, and to keep him out of (or in) other shots. */

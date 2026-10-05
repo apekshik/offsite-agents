@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { setBubbleScale } from "@offsite/kit";
 import type { Slot } from "@offsite/contracts";
 import { ui } from "../bridge.ts";
 import { phone } from "../phone/state.ts";
@@ -135,6 +136,9 @@ export class ShotRunner {
       h.captain.object.visible = !c.hidden;
     }
     this.sky(-(shot.warmup ?? 2));
+    setBubbleScale(shot.bubbles ?? 1);
+    document.body.classList.toggle("film-phone-scaled", !!shot.phoneScale);
+    if (shot.phoneScale) document.body.style.setProperty("--film-phone", String(shot.phoneScale));
     if (shot.focus) h.game.focus?.(shot.focus.map(crewId));
     document.body.classList.toggle("film-nohud", !shot.hud);
     document.body.classList.toggle("film-nophone", shot.phoneUi === false);

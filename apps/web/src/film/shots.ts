@@ -19,6 +19,10 @@ import { T } from "./story.ts";
 const SUNSET = 19.0;
 const NIGHT = 21.5;
 const GOLDEN = 18.4;
+/** Speech bubbles in the close off-duty shots: big enough to read at a glance on a phone. */
+const BIG = 1.7;
+/** The phone in the shots that are about what's on it: as large as the frame allows. */
+const PHONE = 1.3;
 
 // ---- who is where in the evening, off duty (the same in every shot, for continuity) ----
 
@@ -57,34 +61,36 @@ export const SHOTS: Shot[] = [
   // ---------------- 0–5 s: the arrival ----------------
   {
     name: "arrival", note: "0–5 s · Mira's helicopter comes in out of the sunset toward the bow; sky for a title",
-    // From the starboard bow, looking aft into the sun over the helipad: the helicopter is a speck
-    // in the glow at first and grows as it comes in up the port side.
-    story: 5.0, duration: 9, hour: SUNSET - 0.1, stage: EVENING, captain: CAPTAIN_AWAY,
+    // A long lens high off the starboard bow follows the helicopter in out of the sunset, zooming
+    // out as it comes: from above, it stays below the horizon (never across the sun's disc), and the
+    // yacht slides into frame under it as it swings in to the pad.
+    story: 9.5, duration: 7.5, hour: SUNSET - 0.1, stage: EVENING, captain: CAPTAIN_AWAY,
     camera: {
       dolly: [
-        { pos: [25, 26, -95], at: [-40, 22, 60], fov: 45 },
-        { pos: [20.2, 24.0, -87], at: [-42, 21.0, 60], fov: 45 },
+        { pos: [14, 44, -112], at: [-30, 18, 40], fov: 22 },
+        { pos: [8, 40, -104], at: [-30, 17, 40], fov: 36 },
       ],
+      track: { object: "helicopter", up: 6 }, trackLag: 0.5,
     },
   },
 
   // ---------------- 5–20 s: off duty ----------------
   {
     name: "bar", note: "off duty · Pike tends the bar: \"what'll it be?\" \"something with no merge conflicts\"",
-    story: 30, duration: 5.2, hour: SUNSET, stage: EVENING, groups: { bar: BAR }, captain: CAPTAIN_AWAY,
+    bubbles: BIG, story: 30, duration: 5.2, hour: SUNSET, stage: EVENING, groups: { bar: BAR }, captain: CAPTAIN_AWAY,
     // From beside the stools, side on to Pike and Wren across the counter, the sun behind the camera.
-    camera: { dolly: [{ pos: [-3.5, 15.5, 44.6], at: [-0.2, 15.42, 41.7], fov: 42 }, { pos: [-3.2, 15.48, 44.35], at: [-0.2, 15.42, 41.7], fov: 42 }] },
+    camera: { dolly: [{ pos: [-3.7, 15.55, 44.8], at: [-0.2, 15.8, 41.7], fov: 44 }, { pos: [-3.4, 15.53, 44.55], at: [-0.2, 15.8, 41.7], fov: 44 }] },
   },
   {
     name: "hottub", note: "off duty · the hot tub: \"this is nice\" \"warmer than prod\"",
-    story: 36, duration: 4.6, hour: SUNSET, stage: EVENING, groups: { tub: TUB }, captain: CAPTAIN_AWAY,
+    bubbles: BIG, story: 36, duration: 4.6, hour: SUNSET, stage: EVENING, groups: { tub: TUB }, captain: CAPTAIN_AWAY,
     // From forward of the tub, a little above: Kofi faces us, Marlo and Ines either side.
-    camera: { dolly: [{ pos: [-6.2, 15.9, 39.0], at: [-6.0, 14.55, 42.7], fov: 46 }, { pos: [-6.15, 15.8, 39.4], at: [-6.0, 14.55, 42.7], fov: 46 }] },
+    camera: { dolly: [{ pos: [-6.2, 15.9, 38.7], at: [-6.0, 14.95, 42.7], fov: 48 }, { pos: [-6.15, 15.8, 39.1], at: [-6.0, 14.95, 42.7], fov: 48 }] },
   },
   {
     name: "pool", note: "off duty · Bodhi's cannonball into the pool; Teo and Coral get soaked",
     // Bodhi gets off his stool in the warm-up and goes for the pool: crew.ts's run-up, tuck and splash.
-    story: 58, duration: 5, warmup: 3, hour: SUNSET, captain: CAPTAIN_AWAY, focus: ["teo", "coral", "bodhi"],
+    bubbles: BIG, story: 58, duration: 5, warmup: 3, hour: SUNSET, captain: CAPTAIN_AWAY, focus: ["teo", "coral", "bodhi"],
     stage: { ...EVENING, bodhi: { slot: "deck-chair-sun-2" } },
     // From the pool's forward port corner, across the water to the deck chairs: he runs at us and jumps.
     camera: { dolly: [{ pos: [-6.6, 16.1, 25.4], at: [-0.4, 14.5, 30.6], fov: 46 }, { pos: [-6.4, 16.0, 25.9], at: [-0.4, 14.5, 30.6], fov: 46 }] },
@@ -96,14 +102,14 @@ export const SHOTS: Shot[] = [
   },
   {
     name: "hammock", note: "off duty · Juniper asleep in a hammock, talking in her sleep",
-    story: 52, duration: 3.6, hour: SUNSET, stage: EVENING, captain: CAPTAIN_AWAY, focus: ["juniper"],
+    bubbles: BIG, story: 52, duration: 3.6, hour: SUNSET, stage: EVENING, captain: CAPTAIN_AWAY, focus: ["juniper"],
     camera: { orbit: { slot: "hammock-d2s35" }, radius: 3.3, height: 1.7, from: 138, to: 120, lookUp: 1.0, fov: 46 },
     ui: [{ at: 1.0, do: { say: "juniper", text: "…just ship it…", ms: 2300 } }],
   },
   {
     name: "fishing", note: "off duty · Otis reels one in off the stern: a boot. again.",
     // fishCycle (kit props.ts) for Otis: the reel in starts ~0.5 s in, the boot comes up at ~1.8 s.
-    story: 64, duration: 4.8, warmup: 34.2, hour: SUNSET, stage: EVENING, captain: CAPTAIN_AWAY, focus: ["otis"],
+    bubbles: BIG, story: 64, duration: 4.8, warmup: 34.2, hour: SUNSET, stage: EVENING, captain: CAPTAIN_AWAY, focus: ["otis"],
     // Off the starboard quarter, close: the rod, the line, and what comes up on it.
     camera: { dolly: [{ pos: [7.4, 2.45, 71.4], at: [4.4, 2.45, 68.2], fov: 42 }, { pos: [7.1, 2.5, 71.6], at: [4.4, 2.45, 68.2], fov: 42 }] },
   },
@@ -115,7 +121,7 @@ export const SHOTS: Shot[] = [
   },
   {
     name: "gym", note: "off duty · below decks in the gym: a treadmill and curls, \"is it DNS?\" \"it's always DNS\"",
-    story: 75, duration: 4.4, hour: SUNSET, captain: CAPTAIN_AWAY,
+    bubbles: BIG, story: 75, duration: 4.4, hour: SUNSET, captain: CAPTAIN_AWAY,
     stage: { ...EVENING, lumi: { slot: "treadmill-2", group: "gym" }, bodhi: { slot: "weight-bench", group: "gym" } },
     groups: { gym: { mood: "chat", id: "film-chat-116", lineAt: 0.3 } },
     // From aft in the gym: Bodhi faces us on the bench, Lumi runs side on at the window.
@@ -123,15 +129,15 @@ export const SHOTS: Shot[] = [
   },
   {
     name: "cards", note: "off duty · cards in the beach club: \"did you write tests?\" \"I wrote a test\" \"singular?\"",
-    story: 84, duration: 6, hour: SUNSET, captain: CAPTAIN_AWAY,
+    bubbles: BIG, story: 84, duration: 6, hour: SUNSET, captain: CAPTAIN_AWAY,
     stage: {
       ...EVENING,
       teo: { slot: "beach-sofa-1", act: "cards", group: "cards" }, coral: { slot: "beach-sofa-2", act: "cards", group: "cards" },
       juniper: { slot: "beach-armchair-p", act: "cards", group: "cards" }, lumi: { slot: "beach-armchair-s", act: "cards", group: "cards" },
     },
     groups: { cards: { mood: "cards", id: "film-cards-0", lineAt: 0.2 } },
-    // Side on to the table, from starboard: the sofa on the left, the armchairs on the right.
-    camera: { dolly: [{ pos: [5.9, 2.9, 51.6], at: [0, 1.65, 53.8], fov: 40 }, { pos: [5.6, 2.85, 51.8], at: [0, 1.65, 53.8], fov: 40 }] },
+    // Side on to the table from starboard and a little above, so no one has their back to us.
+    camera: { dolly: [{ pos: [4.9, 3.25, 53.4], at: [-0.1, 1.85, 53.75], fov: 44 }, { pos: [4.7, 3.2, 53.9], at: [-0.1, 1.85, 53.75], fov: 44 }] },
   },
 
   // ---------------- 20–27 s: the captain asks ----------------
@@ -144,7 +150,7 @@ export const SHOTS: Shot[] = [
   },
   {
     name: "typing", note: "23–27 s · unfolds it, types the request, sends it",
-    story: T.unfold - 0.4, duration: T.send - T.unfold + 0.9, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK,
+    phoneScale: PHONE, story: T.unfold - 0.4, duration: T.send - T.unfold + 0.9, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK,
     camera: { captain: true },
     ui: [
       { at: -1.9, do: { phone: "cover" } },
@@ -157,7 +163,7 @@ export const SHOTS: Shot[] = [
   // ---------------- 27–38 s: the plan, the scramble, the hire ----------------
   {
     name: "plan", note: "27–31 s · the computer reads the repos, replies, and its plan appears",
-    story: T.send + 0.3, duration: T.plan - T.send + 1.6, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK,
+    phoneScale: PHONE, story: T.send + 0.3, duration: T.plan - T.send + 1.6, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK,
     camera: { captain: true },
     ui: [{ at: -1.9, do: { phone: "cover" } }, { at: -1.5, do: { phone: "open" } }, { at: -0.2, do: { thread: "dark" } }],
   },
@@ -168,13 +174,13 @@ export const SHOTS: Shot[] = [
   },
   {
     name: "core", note: "32–34 s · below decks, Sable at the glowing core: her phone buzzes and she's off",
-    story: T.scramble + 0.6, duration: 4, hour: SUNSET + 0.08, stage: EVENING, captain: CAPTAIN_AWAY, focus: ["sable"],
-    // Over her shoulder at the rail, the column of light in front of her; she runs out of frame left.
-    camera: { dolly: [{ pos: [2.8, 2.45, -7.0], at: [-0.2, 2.35, -12.6], fov: 48 }, { pos: [2.5, 2.45, -7.4], at: [-0.2, 2.35, -12.6], fov: 48 }] },
+    bubbles: BIG, story: T.scramble + 0.6, duration: 4, hour: SUNSET + 0.08, stage: EVENING, captain: CAPTAIN_AWAY, focus: ["sable"],
+    // In front of her and to her left, the column of light beside her: her face as the phone buzzes.
+    camera: { dolly: [{ pos: [-3.5, 2.35, -13.1], at: [0.4, 2.0, -12.4], fov: 50 }, { pos: [-3.3, 2.35, -12.7], at: [0.4, 2.0, -12.4], fov: 50 }] },
   },
   {
     name: "hire", note: "33–36 s · Ezra, the new hire, lands on the helipad",
-    story: T.ezraLands - 3.2, duration: 6.5, hour: SUNSET + 0.1, stage: EVENING, captain: CAPTAIN_AWAY,
+    bubbles: BIG, story: T.ezraLands - 3.2, duration: 6.5, hour: SUNSET + 0.1, stage: EVENING, captain: CAPTAIN_AWAY,
     // From the starboard bow, clear of the bridge deck's overhang: it slides in over the pad and settles.
     camera: { dolly: [{ pos: [13.5, 13.9, -44.5], at: [0, 12.6, -53.5], fov: 46 }, { pos: [12.8, 13.5, -45.5], at: [0, 12.2, -53], fov: 46 }] },
     // Ezra steps out 1.8 s after touchdown.
@@ -194,13 +200,14 @@ export const SHOTS: Shot[] = [
   {
     name: "night-office", note: "38–42 s · night: the office deck lit, everyone at work",
     story: T.night + 2, duration: 4, hour: NIGHT, captain: CAPTAIN_AWAY,
-    camera: { dolly: [{ pos: [-26, 15.2, -24], at: [-4, 12.2, -9], fov: 42 }, { pos: [-26, 14.4, 4], at: [-4, 12.2, -7], fov: 42 }], ease: "gentle" },
+    // From above the office floor, so its deck edge hides the lit cabins on the deck below.
+    camera: { dolly: [{ pos: [-26, 17.2, -24], at: [-4, 12.4, -9], fov: 42 }, { pos: [-26, 16.6, 4], at: [-4, 12.4, -7], fov: 42 }], ease: "gentle" },
   },
   {
     name: "monitors", note: "42–45 s · over a shoulder: code on the monitor",
     story: T.night + 6, duration: 3, hour: NIGHT, captain: CAPTAIN_AWAY,
     // Over Wren's right shoulder, at whichever desk she has.
-    camera: { follow: "wren", offset: [0.85, 1.72, -0.4], lookAhead: 1.0, lookUp: 1.0, fov: 40, lag: 0.3 },
+    camera: { follow: "wren", offset: [0.6, 1.68, -0.1], lookAhead: 1.0, lookUp: 1.0, fov: 40, lag: 0.3 },
   },
   {
     name: "delivery", note: "45–48 s · Otis brings his package up to the bridge and sets it on the counter",
@@ -212,7 +219,7 @@ export const SHOTS: Shot[] = [
   },
   {
     name: "diff", note: "48–50 s · on the bridge, the captain opens Otis's changes on the phone",
-    story: T.otisDelivers + 8, duration: 4, hour: NIGHT, captain: CAPTAIN_BRIDGE,
+    phoneScale: PHONE, story: T.otisDelivers + 8, duration: 4, hour: NIGHT, captain: CAPTAIN_BRIDGE,
     camera: { captain: true },
     ui: [{ at: 0.5, do: { review: { thread: "dark", task: "sweep" } } }],
   },

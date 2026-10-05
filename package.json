@@ -17,7 +17,8 @@
     "test": "pnpm -r test && pnpm test:backend",
     "test:backend": "vitest run --config convex/vitest.config.ts",
     "film": "node scripts/film/film.mjs",
-    "film:stills": "node scripts/film/film.mjs --stills"
+    "film:stills": "node scripts/film/film.mjs --stills",
+    "video": "node scripts/video/build.mjs"
   },
   "dependencies": {
     "@offsite/contracts": "workspace:*",

@@ -1,0 +1,101 @@
+/* The launch video's titles, captions, terminal and end card, in the product's design language:
+   calm dark glass, one cyan accent, Saira, hairline cards and cyan corner brackets. */
+
+:root {
+  --accent: #4fe3ff;
+  --accent-hi: #9ff0ff;
+  --ink: #eef3f7;
+  --ink-2: #c7d0d9;
+  --dim: #9aa8b6;
+  --faint: #56657a;
+  --green: #6dffa8;
+  --red: #ff5d6c;
+  --amber: #ffc861;
+  --bg: #05070b;
+  --font: "Saira", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+body { font-family: var(--font); color: var(--ink); -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+#stage { position: absolute; inset: 0; }
+.layer { position: absolute; inset: 0; display: none; }
+.layer.on { display: block; }
+
+/* ---- corner brackets (the bubbles' and cards' motif) ---- */
+.brackets { position: absolute; inset: 0; pointer-events: none; }
+.brackets i { position: absolute; width: var(--len, 18px); height: var(--len, 18px); border: 0 solid var(--accent); }
+.brackets i:nth-child(1) { left: var(--o, 0); top: var(--o, 0); border-left-width: 3px; border-top-width: 3px; }
+.brackets i:nth-child(2) { right: var(--o, 0); top: var(--o, 0); border-right-width: 3px; border-top-width: 3px; }
+.brackets i:nth-child(3) { left: var(--o, 0); bottom: var(--o, 0); border-left-width: 3px; border-bottom-width: 3px; }
+.brackets i:nth-child(4) { right: var(--o, 0); bottom: var(--o, 0); border-right-width: 3px; border-bottom-width: 3px; }
+
+/* ---- the title, over the arrival ---- */
+.title { left: 0; top: 0; }
+.title .block { position: absolute; left: 132px; top: 128px; }
+.title .rule { width: 72px; height: 5px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 18px rgba(79, 227, 255, 0.55); margin: 0 0 30px 6px; transform-origin: left center; }
+.title .word { font-weight: 680; font-size: 212px; line-height: 0.92; letter-spacing: -0.012em; color: #fff;
+  text-shadow: 0 2px 6px rgba(40, 18, 6, 0.18), 0 10px 60px rgba(70, 30, 10, 0.28); }
+.title .tag { margin: 26px 0 0 8px; font-weight: 480; font-size: 50px; color: #fffaf3; letter-spacing: 0.002em;
+  text-shadow: 0 2px 4px rgba(40, 18, 6, 0.25), 0 6px 34px rgba(70, 30, 10, 0.35); }
+
+/* ---- captions ---- */
+.caption .box { position: absolute; left: 104px; bottom: 96px; padding: 20px 34px 22px; background: rgba(5, 7, 11, 0.72);
+  border-radius: 4px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28); }
+.caption .text { position: relative; font-weight: 560; font-size: 50px; line-height: 1.1; letter-spacing: -0.004em; color: var(--ink); white-space: nowrap; }
+.caption .brackets { --len: 18px; }
+
+/* ---- the terminal ---- */
+.terminal { background: radial-gradient(1100px 700px at 18% 0%, rgba(79, 227, 255, 0.10), transparent 60%),
+  radial-gradient(900px 600px at 100% 100%, rgba(255, 184, 107, 0.06), transparent 60%), var(--bg); }
+.terminal .head { position: absolute; left: 0; right: 0; top: 104px; text-align: center; }
+.terminal .head .l1 { font-weight: 600; font-size: 60px; line-height: 1.12; letter-spacing: -0.01em; color: var(--ink); }
+.terminal .head .l2 { font-weight: 600; font-size: 60px; line-height: 1.12; letter-spacing: -0.01em; color: var(--accent); margin-top: 6px; }
+.terminal .win { position: absolute; left: 50%; top: 318px; width: 1560px; height: 640px; margin-left: -780px; border-radius: 14px; overflow: hidden;
+  background: #070a0f; border: 1px solid rgba(238, 243, 247, 0.13); box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.terminal .bar { height: 52px; display: flex; align-items: center; padding: 0 22px; background: #0d1219; border-bottom: 1px solid rgba(238, 243, 247, 0.08); position: relative; }
+.terminal .dots { display: flex; gap: 10px; }
+.terminal .dots i { width: 15px; height: 15px; border-radius: 50%; background: #3a4350; }
+.terminal .dots i:nth-child(1) { background: #ff5f57; } .terminal .dots i:nth-child(2) { background: #febc2e; } .terminal .dots i:nth-child(3) { background: #28c840; }
+.terminal .wtitle { position: absolute; left: 0; right: 0; text-align: center; font: 500 21px var(--font); color: var(--dim); letter-spacing: 0.01em; }
+.terminal .body { padding: 30px 40px; font: 400 27.5px/1.6 var(--mono); color: var(--ink-2); white-space: pre; }
+.terminal .ln { position: relative; height: 44px; }
+.terminal .hl { position: absolute; left: -40px; right: -40px; top: 0; height: 88px; background: linear-gradient(90deg, rgba(79, 227, 255, 0.13), rgba(79, 227, 255, 0.04)); border-left: 3px solid var(--accent); }
+.terminal .prompt { color: var(--accent); font-weight: 600; }
+.terminal .cmd { color: var(--ink); font-weight: 600; }
+.terminal .cur { display: inline-block; width: 0.6em; height: 1.15em; vertical-align: -0.2em; background: var(--accent); }
+.terminal .k-name { color: var(--ink); font-weight: 600; }
+.terminal .k-dim { color: var(--dim); }
+.terminal .k-faint { color: var(--faint); }
+.terminal .k-ok { color: var(--green); }
+.terminal .k-plan { color: var(--accent); font-weight: 600; }
+.terminal .k-red { color: var(--red); }
+.terminal .k-acc { color: var(--accent); }
+
+/* ---- the end card ---- */
+.endcard { background: linear-gradient(#060b14, #081422 58%, #0b2238 58.15%, #071626); }
+.endcard .sun { position: absolute; right: 250px; top: calc(58% - 150px); width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, #ffb86b 0 58%, rgba(255, 184, 107, 0.25) 60%, transparent 72%); opacity: 0.8; }
+.endcard .sea { position: absolute; left: 0; right: 0; top: 58%; bottom: 0; background: linear-gradient(rgba(255, 184, 107, 0.07), transparent 40%); }
+.endcard .glint { position: absolute; height: 4px; background: #ffb86b; border-radius: 2px; }
+.endcard .g1 { right: 210px; top: calc(58% + 26px); width: 260px; opacity: 0.55; }
+.endcard .g2 { right: 250px; top: calc(58% + 52px); width: 180px; opacity: 0.36; }
+.endcard .g3 { right: 290px; top: calc(58% + 78px); width: 100px; opacity: 0.2; }
+.endcard .block { position: absolute; left: 150px; top: 190px; }
+.endcard .word { font-weight: 680; font-size: 190px; line-height: 0.95; letter-spacing: -0.012em; color: var(--accent); text-shadow: 0 0 60px rgba(79, 227, 255, 0.25); }
+.endcard .tag { margin: 22px 0 0 6px; font-weight: 480; font-size: 46px; color: var(--ink-2); }
+.endcard .links { margin: 74px 0 0 6px; display: flex; flex-direction: column; gap: 18px; }
+.endcard .link { position: relative; display: inline-flex; align-items: center; gap: 18px; font-weight: 560; font-size: 44px; color: var(--ink); }
+.endcard .link b { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 14px rgba(79, 227, 255, 0.6); transform: rotate(45deg); }
+.endcard .foot { margin: 46px 0 0 6px; font-weight: 500; font-size: 32px; color: var(--dim); letter-spacing: 0.01em; }
+
+/* ---- the YouTube thumbnail (1280×720) ---- */
+.thumb { position: absolute; inset: 0; width: 1280px; height: 720px; overflow: hidden; }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.thumb .shade { position: absolute; inset: 0; background: radial-gradient(900px 520px at 100% 0%, rgba(5, 7, 11, 0.62), rgba(5, 7, 11, 0.25) 55%, transparent 80%); }
+.thumb .block { position: absolute; right: 56px; top: 34px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.thumb .rule { width: 60px; height: 6px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 18px rgba(79, 227, 255, 0.6); margin: 0 4px 14px 0; }
+.thumb .word { font-weight: 760; font-size: 150px; line-height: 0.9; letter-spacing: -0.015em; color: #fff; text-shadow: 0 6px 40px rgba(0, 0, 0, 0.45); }
+.thumb .tag { margin-top: 16px; font-weight: 660; font-size: 50px; line-height: 1.06; color: #fff; text-shadow: 0 3px 8px rgba(0, 0, 0, 0.35), 0 4px 30px rgba(0, 0, 0, 0.55); }
+.thumb .tag em { font-style: normal; color: var(--accent); }
+.thumb .chip { position: fixed; right: 56px; bottom: 44px; display: inline-flex; gap: 14px; align-items: center; padding: 12px 22px; background: rgba(5, 7, 11, 0.8); border-radius: 4px; font-weight: 560; font-size: 30px; color: var(--ink); }

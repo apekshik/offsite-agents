@@ -204,6 +204,13 @@ export class Nameplate extends CanvasSprite {
 }
 
 /** A short line said out loud, over the nameplate. Fades in, holds, fades out. */
+/**
+ * How much larger speech bubbles are drawn than life-size. The game leaves it at 1; the film page
+ * turns it up for close shots, where a line has to read at a glance on a phone screen.
+ */
+let bubbleScale = 1;
+export function setBubbleScale(k: number) { bubbleScale = k > 0 ? k : 1; }
+
 export class SpeechBubble extends CanvasSprite {
   text = "";
   private base = new THREE.Vector2();
@@ -252,6 +259,7 @@ export class SpeechBubble extends CanvasSprite {
     setFont(ctx, 500, 21 * S);
     lines.forEach((l, i) => ctx.fillText(l, W / 2, padY + lineH * (i + 0.5)));
     this.commit();
+    this.sprite.scale.set(this.sprite.scale.x * bubbleScale, this.sprite.scale.y * bubbleScale, 1);
     this.base.set(this.sprite.scale.x, this.sprite.scale.y);
   }
 
