@@ -959,7 +959,8 @@ export function actFor(activity: CrewActivity, slot: SlotKind | null): ActId | n
     case "hammock": return "hammock";
     case "deck-chair": return working ? "laptop" : "sofa";
     case "bar-stool": return "stool";
-    case "pool": case "hot-tub": return "swim";
+    case "pool": return "swim";
+    case "hot-tub": return "sofa";
     case "rail": return activity === "thinking" ? "think" : "rail";
     case "fishing": return "fish";
     case "helm": case "computer": return working ? "talk" : "listen";

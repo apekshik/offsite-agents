@@ -434,7 +434,7 @@ export function buildLife(s: Ship, colliders: THREE.Object3D[], mast: Mast): Lif
   objects.push(lightPools(s.lights, colliders, [LD, D1, D2, D3, D4, D5, PLATFORM.y]));
 
   // Steam: off the hot tub, the sauna's stones, and the coffee machine now and then.
-  const sources: SteamSource[] = [{ at: new THREE.Vector3(-6.0, D3 + 0.42, 42.6), r: 1.25, count: 150, life: 4.2, rise: 1.6, size: 0.9, alpha: 0.11 }];
+  const sources: SteamSource[] = [{ at: new THREE.Vector3(-6.0, D3 + 0.76, 42.6), r: 1.25, count: 150, life: 4.2, rise: 1.6, size: 0.9, alpha: 0.11 }];
   if (s.sauna) sources.push({ at: s.sauna, r: 0.25, count: 50, life: 3.0, rise: 1.3, size: 0.55, alpha: 0.12 });
   if (s.coffee) sources.push({ at: s.coffee, r: 0.04, count: 40, life: 1.6, rise: 0.5, size: 0.16, alpha: 0.35, every: 7 });
   objects.push(steam(sources));

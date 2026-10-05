@@ -33,8 +33,8 @@ const local = (x: number, z: number, yaw: number, lx: number, lz: number): P2 =>
 export function buildSunDeck(s: Ship) {
   const { pile, col, plan, props } = s;
   const poolHole: P2[] = [[POOL.x0, POOL.z0], [POOL.x1, POOL.z0], [POOL.x1, POOL.z1], [POOL.x0, POOL.z1]];
-  const tubHole = circle(TUB.x, TUB.z, TUB.r);
-  const deck = slab(s, SUNDECK, D3, { holes: [poolHole, tubHole] });
+  // The hot tub stands on the deck (no hole): sunk into it, its bowl hung through the ceiling of the room below.
+  const deck = slab(s, SUNDECK, D3, { holes: [poolHole] });
   // Rails all round except the front (the office's glass) and the stair heads in the notches.
   const keep = (x: number, z: number) => z > SUN.z0 + 0.3 && !(z > MID_STAIR.zHigh - 0.2 && z < MID_STAIR.zHigh + 0.2 && Math.abs(x) > 6.95);
   for (const run of runs(inset(deck, 0.08), keep)) balustrade(s, run, D3);
@@ -67,25 +67,28 @@ export function buildSunDeck(s: Ship) {
   [[-2.2, 26.2, 0.6], [-2.0, 29.4, -2.2], [-4.9, 31.0, 1.2], [-2.4, 33.8, 3.0], [-3.6, 36.4, -2.8]].forEach(([x, z, f], i) =>
     plan.slot("pool", `pool-${i + 1}`, [x!, surface, z!], f!, { tags: ["water"] }));
 
-  // ---- the hot tub: a teak drum, a tiled bowl with a bench round it ----
+  // ---- the hot tub: a raised teak drum on the deck, a tiled bowl with a bench round it, two steps up ----
+  const RIM = D3 + 0.85, BENCH = D3 + 0.38, FLOOR = D3 + 0.02;
   const ring = (r: number, y0: number, y1: number, inward: boolean) => band(circle(TUB.x, TUB.z, r, 40), y0, y1, { inward });
-  pile.add("wood", ring(TUB.R, D3, D3 + 0.5, false));
-  pile.add("wood", cap(circle(TUB.x, TUB.z, TUB.R, 40), D3 + 0.5, false, [circle(TUB.x, TUB.z, TUB.r, 40)]));
-  pile.add("tile", ring(TUB.r, D3 - 0.55, D3 + 0.5, true));
-  pile.add("tile", cap(circle(TUB.x, TUB.z, 1.1, 32), D3 - 0.55));
-  pile.add("tile", cap(circle(TUB.x, TUB.z, TUB.r, 40), D3 - 0.08, false, [circle(TUB.x, TUB.z, 1.1, 32)]));
-  pile.add("tile", ring(1.1, D3 - 0.55, D3 - 0.08, true));
-  pile.box("wood", TUB.x - 0.7, D3, TUB.z - TUB.R - 0.6, TUB.x + 0.7, D3 + 0.25, TUB.z - TUB.R);
+  pile.add("wood", ring(TUB.R, D3, RIM, false));
+  pile.add("wood", cap(circle(TUB.x, TUB.z, TUB.R, 40), RIM, false, [circle(TUB.x, TUB.z, TUB.r, 40)]));
+  pile.add("tile", ring(TUB.r, FLOOR, RIM, true));
+  pile.add("tile", cap(circle(TUB.x, TUB.z, 1.1, 32), FLOOR));
+  pile.add("tile", cap(circle(TUB.x, TUB.z, TUB.r, 40), BENCH, false, [circle(TUB.x, TUB.z, 1.1, 32)]));
+  pile.add("tile", ring(1.1, FLOOR, BENCH, true));
+  pile.box("wood", TUB.x - 0.7, D3, TUB.z - TUB.R - 0.9, TUB.x + 0.7, D3 + 0.28, TUB.z - TUB.R);
+  pile.box("wood", TUB.x - 0.7, D3, TUB.z - TUB.R - 0.45, TUB.x + 0.7, D3 + 0.56, TUB.z - TUB.R);
   const tubWater = new THREE.Mesh(new THREE.CircleGeometry(TUB.r, 40).rotateX(-Math.PI / 2), s.materials.tubWater);
-  tubWater.position.set(TUB.x, D3 + 0.38, TUB.z);
+  tubWater.position.set(TUB.x, RIM - 0.13, TUB.z);
   tubWater.renderOrder = 2;
   s.extra.push(tubWater);
-  col.wall([...circle(TUB.x, TUB.z, TUB.R, 16), circle(TUB.x, TUB.z, TUB.R, 16)[0]!], D3, D3 + 0.5, 0.15);
-  col.box(TUB.x - 0.7, D3, TUB.z - TUB.R - 0.6, TUB.x + 0.7, D3 + 0.25, TUB.z - TUB.R);
+  // A solid drum to walk round, not into: crew get in by their slots, not by climbing.
+  col.box(TUB.x - TUB.R, D3, TUB.z - TUB.R, TUB.x + TUB.R, RIM, TUB.z + TUB.R);
+  col.box(TUB.x - 0.7, D3, TUB.z - TUB.R - 0.9, TUB.x + 0.7, D3 + 0.28, TUB.z - TUB.R);
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
     const x = TUB.x + Math.cos(a) * 1.28, z = TUB.z + Math.sin(a) * 1.28;
-    plan.slot("hot-tub", `hot-tub-${i + 1}`, [x, D3 - 0.55, z], yawOf(TUB.x - x, TUB.z - z), { seat: 0.47, tags: ["water"] });
+    plan.slot("hot-tub", `hot-tub-${i + 1}`, [x, FLOOR, z], yawOf(TUB.x - x, TUB.z - z), { seat: BENCH - FLOOR, tags: ["water"] });
   }
 
   // ---- loungers in pairs under umbrellas, heads to the starboard rail ----
