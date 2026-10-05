@@ -35,6 +35,19 @@ pnpm sim                  # in another terminal: a scripted crew, no subscriptio
 
 To run real agents, install and sign in to Claude Code (`claude`) or Codex (`codex login`), then `pnpm runner login` and `pnpm runner start`.
 
+## Use the hosted app
+
+Sign in at [offsiteagents.app](https://offsiteagents.app), make your ship, then connect the computer your crew runs on. The runner isn't on npm yet, so it runs from a checkout (Node 22.18+, pnpm 10); the app shows the exact command with its backend's URL:
+
+```
+git clone https://github.com/apekshik/offsite-agents.git
+cd offsite-agents && pnpm install
+pnpm runner login --url https://adamant-shrimp-822.convex.cloud   # approve the code it prints in the app
+pnpm runner start
+```
+
+Deploying your own: docs/deploy.md.
+
 ## License
 
 MIT. See NOTICE for the projects this builds on.

@@ -8,7 +8,12 @@ const Poll = z.object({ status: z.enum(["pending", "approved", "denied", "expire
 
 async function post(url: string, body: unknown): Promise<unknown> {
   const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`${url} answered ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    const text = await res.text();
+    let reason = text.slice(0, 200);
+    try { reason = String((JSON.parse(text) as { error?: unknown }).error ?? reason); } catch { /* not JSON */ }
+    throw new Error(res.status === 429 ? reason : `${url} answered ${res.status}: ${reason}`);
+  }
   return res.json();
 }
 

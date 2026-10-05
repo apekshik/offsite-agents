@@ -300,10 +300,18 @@ export const events = mutation({
 export const delivered = mutation({
   args: { token: v.string(), inboxIds: v.optional(v.array(v.id("inbox"))), questionIds: v.optional(v.array(v.id("questions"))) },
   handler: async (ctx, { token, inboxIds, questionIds }) => {
-    await requireMachine(ctx, token);
+    const machine = await requireMachine(ctx, token);
     const now = Date.now();
-    for (const id of inboxIds ?? []) await ctx.db.patch(id, { deliveredAt: now });
-    for (const id of questionIds ?? []) await ctx.db.patch(id, { deliveredAt: now });
+    // Only for runs this machine holds: another captain's messages are not this runner's to mark.
+    const ours = async (runId: Id<"runs"> | null) => !!runId && (await ctx.db.get(runId))?.machineId === machine._id;
+    for (const id of inboxIds ?? []) {
+      const m = await ctx.db.get(id);
+      if (m && (await ours(m.runId))) await ctx.db.patch(id, { deliveredAt: now });
+    }
+    for (const id of questionIds ?? []) {
+      const q = await ctx.db.get(id);
+      if (q && (await ours(q.runId))) await ctx.db.patch(id, { deliveredAt: now });
+    }
   },
 });
 

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { currentUser, fail, requireUser } from "./lib";
+import { capJson, currentUser, fail, requireUser } from "./lib";
 
 /** You, or null until users.ensure has made your row (right after signing in). */
 export const me = query({
@@ -36,7 +36,8 @@ export const setAvatar = mutation({
   args: { avatar: v.any(), look: v.optional(v.union(v.any(), v.null())) },
   handler: async (ctx, { avatar, look }) => {
     const user = await requireUser(ctx);
-    if (JSON.stringify(look ?? null).length > 16_000) fail("That look is too big");
+    capJson(avatar, 16_000, "avatar");
+    capJson(look, 16_000, "look");
     await ctx.db.patch(user._id, { avatar, ...(look !== undefined ? { look } : {}) });
   },
 });

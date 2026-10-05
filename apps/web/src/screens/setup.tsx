@@ -69,16 +69,20 @@ export function MachineCard({ m, chosen, onRevoke }: { m: Machine; chosen?: bool
   );
 }
 
+// The runner isn't on npm yet: it runs from a checkout of the repo, pointed at this app's backend.
+const REPO = "https://github.com/apekshik/offsite-agents.git";
+const BACKEND = (import.meta.env["CONVEX_URL"] as string | undefined) ?? "";
+
 /** "Run this on your computer". */
 export function LoginSteps() {
   return (
     <ol className="steps">
-      <li>On the computer that has your code and your Claude Code or Codex login, run
-        <pre className="mono cmd">npx offsite-agents login</pre>
-        <span className="dim">Working from this repo? <span className="mono">pnpm runner login</span> does the same.</span>
+      <li>On the computer that has your code and your Claude Code or Codex login (Node 22.18+ and pnpm), run
+        <pre className="mono cmd">{`git clone ${REPO}\ncd offsite-agents && pnpm install\npnpm runner login --url ${BACKEND}`}</pre>
+        <span className="dim">Already have the repo? Run the last line from it.</span>
       </li>
-      <li>It prints a code like <span className="mono">K7QD-3MPX</span>. Enter it below, or open the link it shows.</li>
-      <li>Then keep it running with <span className="mono">npx offsite-agents start</span>. Your crew works there, on your own subscriptions.</li>
+      <li>It prints a code like <span className="mono">K7QD-3MPX</span>. Enter it below, or open the link it shows. Only approve a code from a terminal you started yourself.</li>
+      <li>Then keep it running with <span className="mono">pnpm runner start</span> in that folder. Your crew works there, on your own subscriptions.</li>
     </ol>
   );
 }
@@ -93,17 +97,31 @@ export const formatCode = (s: string) => {
 export function CodeEntry({ initial = "", onApproved }: { initial?: string; onApproved?: (m: { machineId: string; name: string }) => void }) {
   const [code, setCode] = useState(formatCode(initial));
   const valid = CODE.test(code);
-  const pending = useQuery(api.machines.pending, valid ? { userCode: code } : "skip");
+  const lookup = useMutation(api.machines.lookup);
   const approve = useMutation(api.machines.approve);
   const deny = useMutation(api.machines.deny);
+  // undefined while looking; null when nothing waits with that code (lookups are counted, so they run once per code).
+  const [pending, setPending] = useState<{ name: string; hostname: string } | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  useEffect(() => { setErr(null); }, [code]);
+  useEffect(() => {
+    setErr(null);
+    setPending(undefined);
+    if (!valid) return;
+    let live = true;
+    lookup({ userCode: code }).then((r) => {
+      if (!live) return;
+      if (r.ok) setPending({ name: r.name, hostname: r.hostname });
+      else { setPending(null); setErr(r.error); }
+    }, (x) => { if (live) { setPending(null); setErr(errorText(x)); } });
+    return () => { live = false; };
+  }, [code, valid, lookup]);
   const go = async () => {
     setBusy(true);
     try {
       const r = await approve({ userCode: code });
+      if (!r.ok) { setErr(r.error); return; }
       setDone(r.name);
       onApproved?.({ machineId: r.machineId, name: r.name });
     } catch (x) { setErr(errorText(x)); } finally { setBusy(false); }
@@ -115,11 +133,10 @@ export function CodeEntry({ initial = "", onApproved }: { initial?: string; onAp
         <Input className="mono code-input" value={code} onChange={(e) => setCode(formatCode(e.target.value))} placeholder="XXXX-XXXX" autoComplete="off" spellCheck={false} />
       </Field>
       {valid && pending === undefined ? <div className="dim">Looking for it…</div> : null}
-      {valid && pending === null ? <div className="dim">No machine is waiting with that code. Codes last 15 minutes; run the login again for a new one.</div> : null}
       {valid && pending ? (
         <Card tone="accent" className="code-found">
           <span>Connect <b>{pending.name}</b>{pending.hostname ? <span className="dim"> ({pending.hostname})</span> : null} to your ship?</span>
-          <span className="dim">It can then run your crew with the Claude Code and Codex logins on that computer. Offsite never sees them.</span>
+          <span className="dim">It can then run your crew with the Claude Code and Codex logins on that computer. Offsite never sees them. Connect only a machine you just ran <span className="mono">offsite login</span> on: whoever runs it gets to work on your ship.</span>
           <div className="actions">
             <Button kind="primary" disabled={busy} onClick={() => void go()}>{busy ? "Connecting…" : "Connect"}</Button>
             <Button kind="ghost" onClick={() => void deny({ userCode: code }).then(() => setCode(""))}>That's not mine</Button>

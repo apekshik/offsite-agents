@@ -110,7 +110,14 @@ export default defineSchema({
     ownerId: v.union(v.id("users"), v.null()),
     token: v.union(v.string(), v.null()),
     expiresAt: v.number(),
-  }).index("by_device", ["deviceCode"]).index("by_user_code", ["userCode"]),
+  }).index("by_device", ["deviceCode"]).index("by_user_code", ["userCode"]).index("by_expires", ["expiresAt"]),
+
+  /** Fixed-window counters for what anyone can call (pairing): lib.ts `limit`. Swept hourly (crons.ts). */
+  rateLimits: defineTable({
+    key: v.string(),
+    windowStart: v.number(),
+    count: v.number(),
+  }).index("by_key", ["key"]).index("by_window", ["windowStart"]),
 
   /** A conversation with the ship's computer about one piece of work. Its work lands on one branch. */
   threads: defineTable({

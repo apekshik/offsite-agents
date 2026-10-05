@@ -12,7 +12,9 @@ type Captain = ReturnType<T["withIdentity"]>;
 /** Pair a machine the way `offsite login` does. */
 async function pair(t: T, captain: Captain, name = "Mac") {
   const { deviceCode, userCode } = await t.mutation(internal.machines.startCode, { name, hostname: `${name.toLowerCase()}.local` });
-  const { machineId } = await captain.mutation(api.machines.approve, { userCode });
+  const approved = await captain.mutation(api.machines.approve, { userCode });
+  if (!approved.ok) throw new Error(approved.error);
+  const { machineId } = approved;
   const poll = await t.mutation(internal.machines.pollCode, { deviceCode }) as { status: string; token: string };
   expect(poll.status).toBe("approved");
   return { machineId, token: poll.token };

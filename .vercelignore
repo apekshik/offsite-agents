@@ -1,0 +1,14 @@
+# What `vercel deploy` from a checkout never uploads (Git deploys only see what is committed anyway).
+.env
+.env.*
+!.env.example
+.convex
+.offsite
+.shots
+.claude
+.DS_Store
+node_modules
+**/node_modules
+**/dist
+coverage
+docs/offsite-agents-yacht-angles-art

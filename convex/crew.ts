@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { LIMITS } from "@offsite/contracts";
-import { fail, requireCrew, requireOffice } from "./lib";
+import { capJson, fail, requireCrew, requireOffice } from "./lib";
 import { crewOf, hire as hireCrew, liveRunOf } from "./crewlib";
 import { harness } from "./schema";
 
@@ -25,6 +25,7 @@ export const hire = mutation({
   },
   handler: async (ctx, { officeId, name, harness, avatar, specialty }) => {
     const { office } = await requireOffice(ctx, officeId);
+    capJson(avatar, LIMITS.lookBytes, "avatar");
     return (await hireCrew(ctx, office, { name, harness, avatar, specialty }))._id;
   },
 });
@@ -52,7 +53,9 @@ export const update = mutation({
       if (crew.role === "computer") fail("The computer keeps its name");
       patch["name"] = clean; // the handle stays: the computer and threads already know it
     }
-    if (fields.look !== undefined && JSON.stringify(fields.look).length > LIMITS.lookBytes) fail("That look is too big");
+    capJson(fields.look, LIMITS.lookBytes, "look");
+    capJson(fields.avatar, LIMITS.lookBytes, "avatar");
+    if ((fields.model?.length ?? 0) > 100 || (fields.profile?.length ?? 0) > 300) fail("That model or profile name is too long");
     for (const k of ["avatar", "look", "harness", "model", "effort", "profile"] as const) if (fields[k] !== undefined) patch[k] = fields[k];
     if (fields.specialty !== undefined) patch["specialty"] = fields.specialty?.trim().slice(0, 200) || null;
     await ctx.db.patch(crewId, patch);

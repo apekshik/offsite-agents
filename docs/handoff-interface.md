@@ -37,7 +37,7 @@ To add a field to the bridge, add it in your branch with a comment saying who wr
 
 1. **Sign in.** WorkOS AuthKit (`signIn()` in `src/auth.ts`). Locally, `?dev=name` signs you in without WorkOS.
 2. **Make your ship.** Name it, pick a world (only "The Yacht" for now; design for more: a card per world with a blurb), meet your starting crew.
-3. **Connect your machine.** Run `npx offsite-agents login` on your computer, then enter the code shown there (or open its link). Then choose the project folder the crew works on (a path on that machine plus its default branch), and the setup command run in each new worktree (e.g. `pnpm install`). Show the machine's probe: which of Claude Code and Codex is installed and signed in.
+3. **Connect your machine.** Run `pnpm runner login --url <this app's CONVEX_URL>` from a checkout of the repo on your computer (the runner isn't on npm yet), then enter the code shown there (or open its link). Then choose the project folder the crew works on (a path on that machine plus its default branch), and the setup command run in each new worktree (e.g. `pnpm install`). Show the machine's probe: which of Claude Code and Codex is installed and signed in.
 4. **The phone** (the heart). A Galaxy Fold–style device in the captain's hands.
    - **Closed (cover screen):** the time on the ship, who needs you (question count, the crew member's face and name), the latest report. Tap or press F again to unfold.
    - **Unfolding:** an animated open, hinge in the middle.
@@ -81,7 +81,7 @@ The backend is live on the dev deployment: every function below exists in `conve
 | `offices.setRepo` | `{ officeId, machineId, path, defaultBranch }` | |
 | `offices.update` | `{ officeId, name?, setupCommand?, defaultHarness? }` | |
 | `machines.mine` (query) | | `[{ _id, name, hostname, online, lastSeenAt, probe }]`; probe lists each harness: installed, signed in, version, models |
-| `machines.pending` (query) | `{ userCode }` | `{ name, hostname } \| null` |
+| `machines.lookup` (mutation: misses are counted) | `{ userCode }` | `{ ok: true, name, hostname } \| { ok: false, error }` |
 | `machines.approve` / `machines.deny` | `{ userCode }` | |
 | `machines.revoke` | `{ machineId }` | |
 | `crew.list` (query) | `{ officeId }` | crew, including the computer (`role: "computer"`): `{ _id, name, handle, role, avatar, look, specialty, harness, model, effort, arrivesAt }` |

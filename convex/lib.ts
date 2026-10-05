@@ -17,6 +17,11 @@ export async function currentUser(ctx: Ctx): Promise<Doc<"users"> | null> {
   return ctx.db.query("users").withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.tokenIdentifier)).unique();
 }
 
+/** Free-form JSON the app stores as given (avatars, looks) stays small. */
+export function capJson(value: unknown, maxBytes: number, what: string): void {
+  if (value !== undefined && JSON.stringify(value ?? null).length > maxBytes) fail(`That ${what} is too big`);
+}
+
 export async function requireUser(ctx: Ctx): Promise<Doc<"users">> {
   return (await currentUser(ctx)) ?? fail("Sign in first");
 }
@@ -56,6 +61,20 @@ export function randomToken(prefix: string): string {
 export async function sha256(s: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * At most `max` calls per `windowMs` for `key`, counted in a fixed window: false once the window is full. Convex sees
+ * no trustworthy client IP (forwarding headers can be forged), so keys are global or per user.
+ */
+export async function limit(ctx: MutationCtx, key: string, max: number, windowMs: number): Promise<boolean> {
+  const now = Date.now();
+  const row = await ctx.db.query("rateLimits").withIndex("by_key", (q) => q.eq("key", key)).unique();
+  if (!row) { await ctx.db.insert("rateLimits", { key, windowStart: now, count: 1 }); return true; }
+  if (now - row.windowStart >= windowMs) { await ctx.db.patch(row._id, { windowStart: now, count: 1 }); return true; }
+  if (row.count >= max) return false;
+  await ctx.db.patch(row._id, { count: row.count + 1 });
+  return true;
 }
 
 /** The machine a runner token belongs to. Every runner-facing function starts here. */

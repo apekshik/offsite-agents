@@ -6,7 +6,7 @@ A ship has one or more repos (`repos.list`), each a checkout on one machine with
 
 ## Pairing (HTTP, on the deployment's `.convex.site` URL)
 
-- `POST /device/start` `{ name, hostname }` → `{ deviceCode, userCode, verifyUrl, interval, expiresIn }`. Print the code and the link; the captain approves in the app.
+- `POST /device/start` `{ name, hostname }` → `{ deviceCode, userCode, verifyUrl, interval, expiresIn }`. Print the code and the link; the captain approves in the app. Answers 429 `{ error }` when too many machines are pairing at once (a global cap: Convex sees no trustworthy client IP).
 - `POST /device/poll` `{ deviceCode }` → `{ status: "pending" | "approved" | "denied" | "expired", token? }`. Poll every `interval` seconds. The token is handed out once.
 
 ## The loop

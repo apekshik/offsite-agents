@@ -50,6 +50,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const jwks = `data:text/plain;charset=utf-8;base64,${Buffer.from(JSON.stringify({ keys: [jwk] })).toString("base64")}`;
   const line = `DEV_AUTH_PRIVATE_KEY=${Buffer.from(pem).toString("base64")}`;
   writeFileSync(ENV, /^DEV_AUTH_PRIVATE_KEY=.*$/m.test(env) ? env.replace(/^DEV_AUTH_PRIVATE_KEY=.*$/m, line) : `${env.replace(/\n?$/, "\n")}${line}\n`);
-  execFileSync("npx", ["convex", "env", "set", "DEV_AUTH_JWKS", jwks], { stdio: "inherit", shell: process.platform === "win32" });
+  // A CONVEX_DEPLOY_KEY in this shell (say a production key, left over from deploying) would win over .env.local and
+  // point `convex env set` at that deployment. Drop it, and name the dev deployment outright.
+  const { CONVEX_DEPLOY_KEY: _key, CONVEX_SELF_HOSTED_URL: _url, CONVEX_SELF_HOSTED_ADMIN_KEY: _admin, ...childEnv } = process.env;
+  execFileSync("npx", ["convex", "env", "set", "DEV_AUTH_JWKS", jwks], {
+    stdio: "inherit", shell: process.platform === "win32", env: { ...childEnv, CONVEX_DEPLOYMENT: deployment },
+  });
   console.log("Dev sign-in ready: restart `pnpm dev`, then open http://localhost:5180/?dev=yourname");
 }
