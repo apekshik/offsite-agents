@@ -1,7 +1,8 @@
 // Adapted from Ready Player One (github.com/apekshik/ready-player-one): makeCharacter and
 // sayBubble, grown into a crew member as the world draws them: their avatar, a nameplate with
 // what they are doing, a speech bubble, the "!" when they need the captain, whatever they hold,
-// and a backpack when they have just flown in.
+// a "!" that pops when their phone buzzes, "Z z z" while they sleep, gestures over whatever they
+// are doing, and a backpack when they have just flown in.
 //
 // Move and turn `object` (a Walker does, nav/walker.ts); call update every frame.
 
@@ -9,9 +10,9 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import type { AvatarSpec, Look } from "@offsite/contracts";
 import { buildAvatar, type AvatarRig, type EmoteId } from "./avatar.ts";
-import type { ActId } from "./acts.ts";
-import { AskMarker, Nameplate, SpeechBubble, makeShadow, type Tone } from "./labels.ts";
-import { FishingRod, Laptop, type PropKind } from "./props.ts";
+import type { ActId, GestureId } from "./acts.ts";
+import { AskMarker, Nameplate, PopMarker, SleepMarker, SpeechBubble, makeShadow, type Tone } from "./labels.ts";
+import { FishingRod, Laptop, type Prop, type PropKind } from "./props.ts";
 import { damp, type Side } from "./pose.ts";
 import { bodyFit } from "./wear.ts";
 import { sanitizeAvatar } from "./sanitize.ts";
@@ -46,6 +47,8 @@ export class CrewFigure {
   readonly plate: Nameplate;
   readonly bubble = new SpeechBubble();
   readonly ask = new AskMarker();
+  readonly buzz = new PopMarker();
+  readonly zzz = new SleepMarker();
   act: ActId | null = null;
   /** World height of the water, for a fishing line to reach (null: 3 m below the rod's tip). */
   water: number | null = null;
@@ -59,14 +62,17 @@ export class CrewFigure {
   private blob: THREE.Mesh | null = null;
   private spec: AvatarSpec;
   private _v = new THREE.Vector3();
+  private sleeping = false;
+  /** In plain sight of the camera (the game says, as it decides name tags): markers hide when not. */
+  inSight = true;
 
   constructor(o: CrewFigureOptions) {
-    this.seed = o.seed ?? Math.floor(Math.random() * 1000);
+    this.seed = o.seed ?? [...o.name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 1000, 7);
     this.lead = o.lead ?? 0;
     this.spec = sanitizeAvatar(o.spec);
     this.rig = this.build(o.spec, o.look ?? null);
     this.plate = new Nameplate(o.name, o.line ?? "", o.tone ?? "accent");
-    this.object.add(this.plate.sprite, this.bubble.sprite, this.ask.sprite);
+    this.object.add(this.plate.sprite, this.bubble.sprite, this.ask.sprite, this.buzz.sprite, this.zzz.object);
     this.labelY = this.rig.topY + 0.18;
     if (o.blob) {
       this.blob = makeShadow(0.9);
@@ -111,6 +117,14 @@ export class CrewFigure {
   /** Turn the head toward a world point (the captain), or null. */
   lookAt(point: THREE.Vector3 | null) { this.rig.lookAt(point); }
   playEmote(id: EmoteId) { this.rig.playEmote(id); }
+  /** A gesture over what they're doing (a laugh, a toast, the phone): null eases a looping one out. */
+  gesture(id: GestureId | null) { this.rig.gesture(id); }
+  /** Their phone buzzed: the "!" pops over them. */
+  popAlert() { this.buzz.pop(); }
+  /** "Z z z" over them, or not (only while they're in sight: it hides behind walls and decks). */
+  setSleeping(on: boolean) { this.sleeping = on; }
+  /** Let go of what they're holding (a drink, dropped): the caller owns it now, where it is in the world. */
+  releaseProp(): Prop | null { return this.rig.releaseProp(); }
 
   /** What their laptop shows (kept for the next laptop they open). */
   write(lines: string[], title?: string) {
@@ -150,6 +164,13 @@ export class CrewFigure {
     this.bubble.update(dt, m.camera);
     this.ask.restY = this.labelY + plateH + 0.03 + (this.bubble.showing ? this.bubble.sprite.scale.y + 0.04 : 0);
     this.ask.update(time, m.camera);
+    this.buzz.restY = this.ask.restY + (this.ask.visible ? this.ask.sprite.scale.y : 0);
+    this.buzz.sprite.visible &&= this.inSight;
+    this.buzz.update(dt, m.camera);
+    // The Z's start just over the head, off to one side.
+    this.zzz.visible = this.sleeping && this.inSight;
+    this.zzz.restY = top - 0.1;
+    this.zzz.update(time, m.camera);
     if (this.blob) {
       const seated = m.seat != null;
       this.blob.visible = !seated;
@@ -162,6 +183,8 @@ export class CrewFigure {
     this.plate.dispose();
     this.bubble.dispose();
     this.ask.dispose();
+    this.buzz.dispose();
+    this.zzz.dispose();
     this.blob?.geometry.dispose();
     (this.blob?.material as THREE.Material | undefined)?.dispose();
     this.object.removeFromParent();

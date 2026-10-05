@@ -2,11 +2,13 @@ import * as THREE from "three";
 import {
   Captain, Collision, ComputerBot, CrewFigure, Input, Laptop, SELF_LAYER, Walker,
   buildAvatar, createPipeline, createRenderer, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
-  type ActId, type BotMood, type BuiltWorld, type Interactable, type Pipeline, type PropKind, type Quality, type Tone, type WorldModule,
+  type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
-import { isWorking, type AvatarSpec, type Look, type Slot } from "@offsite/contracts";
+import { isWorking, type AvatarSpec, type Look, type Slot, type Vec3 } from "@offsite/contracts";
 import { scene as sceneBridge, ui, type UiState } from "../bridge.ts";
-import { Director, type Act, type CrewView, type Direction } from "./director.ts";
+import { Director, type CrewView, type Direction, type Hangout } from "./director.ts";
+import { CrewBody, SPEED, type Stage } from "./crew.ts";
+import type { Effect } from "./fx.ts";
 import { CrewScreen, describeSlot, faceOf, takeOverLaptop, type HelmContent, type ScreenContent } from "./screens.ts";
 import { DEFAULT_SURFACE, disposeObject, makeMore, makePackage, packageSpots, type Surface } from "./dropoff.ts";
 
@@ -36,6 +38,17 @@ export interface Delivery {
   seen: boolean;
 }
 
+/**
+ * The film rig's way in (src/film, a dev page): restage the director's plan and move the camera
+ * after the captain's rig has. Unset (null) in the app.
+ */
+export interface FilmHooks {
+  /** Where crew go and what they do, given the director's plan (staging a scene). */
+  stage?(directions: Direction[], now: number): Direction[];
+  /** After the captain each frame: place the camera. Return true to redraw shadows this frame. */
+  camera?(camera: THREE.PerspectiveCamera, dt: number): boolean;
+}
+
 const TAGS = ["#4fe3ff", "#ffc861", "#6dffa8", "#c7a6ff", "#ff9cac", "#8fd8ff"];
 const short = (s: string, n = 34) => (s.length > n ? `${s.slice(0, n - 1).replace(/\s+\S*$/, "")}…` : s);
 const sizeOf = (d: Delivery["diff"]) => (d ? ` · +${d.added} −${d.removed}` : "");
@@ -47,24 +60,16 @@ export interface GameOptions {
   captain: { avatar: unknown; look: unknown } | null;
 }
 
-interface Body {
-  id: string;
-  name: string;
-  fig: CrewFigure;
-  walker: Walker;
-  /** What they were told last, so the same direction twice changes nothing. */
-  key: string;
-  dir: Direction | null;
-  arrived: boolean;
-  asking: string | null;
-}
+/** At most this many name tags at once (nearest first), plus anyone asking, pinged or in focus. */
+const MAX_PLATES = 9;
+/** At most this many speech bubbles up at once, and only this close to the camera, unless in focus. */
+const MAX_BUBBLES = 4;
+const BUBBLE_RANGE = 26;
+/** How close two people get on foot before they ease apart, metres. */
+const PERSONAL_SPACE = 0.62;
 
-const ACT: Record<Act, ActId | null> = {
-  type: "type", laptop: "laptop", "lounge-laptop": "lounge-laptop", sunbathe: "sunbathe", hammock: "hammock",
-  fish: "fish", carry: "carry", slump: "slump", think: "think", celebrate: "celebrate", rail: "rail",
-  swim: "swim", soak: "sofa", stool: "stool", wave: "wave", stand: null,
-};
-const PROP: Record<string, PropKind> = { laptop: "laptop", box: "box", rod: "rod", drink: "drink" };
+/** A world that can show how busy the ship is (lights in the office, music…): BuiltWorld's optional hook. */
+type BusyWorld = BuiltWorld & { setBusy?: (level: number) => void };
 
 function hash(s: string): number {
   let h = 2166136261;
@@ -96,7 +101,16 @@ export class Game {
   private input!: Input;
   private director!: Director;
   private slots = new Map<string, Slot>();
-  private bodies = new Map<string, Body>();
+  private bodies = new Map<string, CrewBody>();
+  private stage!: Stage;
+  private effects: Effect[] = [];
+  /** Banter lines already said (group:round:line), so each is said once. */
+  private said = new Set<string>();
+  /** Fraction of the crew at work, eased, for the world's setBusy. */
+  private busy = 0;
+  private busySent = -1;
+  /** Crew a film or the interface wants to see talking, whatever the distance. */
+  private focusIds = new Set<string>();
   private bot: { id: string; holder: THREE.Group; bot: ComputerBot } | null = null;
   /** Screens with their own canvas: the boards, and desks someone has sat at. */
   private monitors = new Map<string, CrewScreen>();
@@ -129,6 +143,8 @@ export class Game {
   private raf = 0;
   private unsub: (() => void) | null = null;
   private disposed = false;
+  /** Set by the film page only (src/film). */
+  film: FilmHooks | null = null;
 
   private readonly o: GameOptions;
 
@@ -157,7 +173,19 @@ export class Game {
     this.shelf.name = "dropoff-packages";
     scene.add(this.shelf);
     for (const s of this.world.layout.slots) this.slots.set(s.id, s);
-    this.director = new Director(this.world.layout.slots);
+    const collision = this.collision;
+    this.director = new Director(this.world.layout.slots, {
+      // A standing spot made up for a group: deck underfoot, and nothing in the way from where they gather.
+      walkable: (p: Vec3, from: Vec3) => {
+        const f = collision.floorBelow(p[0], p[1] + 0.6, p[2], 1.2);
+        if (f === null || Math.abs(f - p[1]) > 0.2) return false;
+        const o = new THREE.Vector3(from[0], from[1] + 1.0, from[2]);
+        const d = new THREE.Vector3(p[0] - from[0], 0, p[2] - from[2]);
+        const len = d.length();
+        if (len < 1e-3) return true;
+        return !collision.raycast(o, d.normalize(), len + 0.35);
+      },
+    });
 
     // Desk monitors are meshes named screen:<slotId>; the helm's is screen:helm.
     this.world.root.traverse((x) => {
@@ -212,6 +240,19 @@ export class Game {
     this.unsub = ui.subscribe(() => this.onUi(ui.get()));
     this.onUi(ui.get());
 
+    this.stage = {
+      scene, nav: this.world.layout.nav, collision: this.collision,
+      slot: (id) => this.director.slot(id),
+      captain: this.captain.object,
+      say: (b, text, ms) => this.say(b, text, ms),
+      fx: (e) => { if (!e.object.parent) scene.add(e.object); this.effects.push(e); },
+      delivered: (id) => this.director.delivered(id, Date.now()),
+      headOf: (id) => {
+        const b = this.bodies.get(id);
+        return b ? b.fig.object.localToWorld(b.fig.rig.headTop(new THREE.Vector3()).add(new THREE.Vector3(0, -0.25, 0))) : null;
+      },
+    };
+
     sceneBridge.locate = (id) => this.locate(id);
     sceneBridge.captain = () => {
       const p = this.captain.position;
@@ -220,7 +261,7 @@ export class Game {
     sceneBridge.where = (id) => {
       const t = this.bodies.get(id)?.dir?.target;
       if (t?.kind === "captain") return { slotId: "captain", kind: "captain", tags: [] };
-      const s = t?.kind === "slot" ? this.slots.get(t.slotId) : undefined;
+      const s = t?.kind === "slot" ? this.director.slot(t.slotId) : undefined;
       return s ? { slotId: s.id, kind: s.kind, tags: s.tags ?? [] } : null;
     };
 
@@ -287,7 +328,8 @@ export class Game {
     const snap = this.snapshot;
     if (!snap || !this.director) return;
     this.lastPlan = now;
-    const directions = this.director.plan(snap.crew, now);
+    let directions = this.director.plan(snap.crew, now);
+    if (this.film?.stage) directions = this.film.stage(directions, now);
     const seen = new Set<string>();
     for (const d of directions) {
       const view = snap.crew.find((c) => c._id === d.crewId)!;
@@ -302,36 +344,30 @@ export class Game {
     this.refreshUses();
   }
 
-  private makeBody(view: Snapshot["crew"][number], d: Direction): Body {
+  private makeBody(view: Snapshot["crew"][number], d: Direction): CrewBody {
     const fig = new CrewFigure({ spec: spec(view.avatar), look: look(view.look), name: view.name, seed: hash(view._id) % 1000 });
     fig.water = this.waterY;
     // A brisk walk: the ship is 140 m long.
-    const walker = new Walker(fig.object, { speed: 2.0, floor: (x, y, z) => this.collision.floorBelow(x, y + 0.6, z, 1.6) });
-    const start = (d.spawnSlot && this.slots.get(d.spawnSlot)) || (d.target.kind === "slot" ? this.slots.get(d.target.slotId) : null)
+    const walker = new Walker(fig.object, { speed: SPEED.walk, floor: (x, y, z) => this.collision.floorBelow(x, y + 0.6, z, 1.6) });
+    const start = (d.spawnSlot && this.slots.get(d.spawnSlot)) || (d.target.kind === "slot" ? this.director.slot(d.target.slotId) : null)
       || this.world.layout.slots.find((s) => s.kind === "crew-spawn");
     if (start) fig.object.position.set(...start.pos);
     if (d.spawnSlot) fig.setBackpack(true);
     this.scene.add(fig.object);
-    const body: Body = { id: view._id, name: view.name, fig, walker, key: "", dir: null, arrived: false, asking: null };
+    const body = new CrewBody(this.stage, { id: view._id, name: view.name, fig, walker });
     this.bodies.set(view._id, body);
     // Someone already aboard when the page loads is simply where they belong.
     if (!d.spawnSlot && d.target.kind === "slot") {
-      const slot = this.slots.get(d.target.slotId);
-      if (slot) { walker.place(slot); body.arrived = true; body.key = `slot:${slot.id}`; fig.setAct(ACT[d.act], this.propOpt(d)); }
+      const slot = this.director.slot(d.target.slotId);
+      if (slot) body.place(slot, d);
     }
     return body;
   }
 
-  private removeBody(b: Body) {
+  private removeBody(b: CrewBody) {
     this.scene.remove(b.fig.object);
-    b.fig.dispose();
+    b.dispose();
     this.bodies.delete(b.id);
-  }
-
-  private propOpt(d: Direction): { prop?: PropKind | null } {
-    // The act brings its own prop (a laptop on the lap, a rod); only leisure props are added here.
-    const extra = d.props.find((p) => p === "drink" || p === "box");
-    return extra ? { prop: PROP[extra]! } : {};
   }
 
   private direct(view: Snapshot["crew"][number], d: Direction, question: string | null) {
@@ -341,52 +377,33 @@ export class Game {
       return;
     }
     body ??= this.makeBody(view, d);
-    const { fig, walker } = body;
+    const { fig } = body;
     fig.object.visible = true;
     const tone: Tone = d.activity === "asking" ? "warn" : d.activity === "failed" ? "danger" : d.activity === "landed" ? "ok" : d.activity === "idle" ? "dim" : "accent";
     fig.setLabel(view.name, d.label, tone);
     fig.setAsking(d.marker === "asking");
-    body.dir = d;
-
-    const key = d.target.kind === "slot" ? `slot:${d.target.slotId}` : d.target.kind;
-    if (key !== body.key) {
-      body.key = key;
-      body.arrived = false;
-      body.asking = null;
-      fig.lookAt(null);
-      if (d.target.kind === "slot") {
-        const slot = this.slots.get(d.target.slotId)!;
-        fig.setAct(d.walkAct ? ACT[d.walkAct] : null, d.walkAct === "carry" ? { prop: "box" } : {});
-        walker.goTo(this.world.layout.nav, slot, () => {
-          body!.arrived = true;
-          fig.setBackpack(false);
-          if (slot.kind === "dropoff") this.director.delivered(body!.id, Date.now());
-          const now = body!.dir;
-          if (now) fig.setAct(ACT[now.act], this.propOpt(now));
-        });
-      } else if (d.target.kind === "captain") {
-        fig.setAct(null);
-        walker.follow(this.captain.object, {
-          graph: this.world.layout.nav, distance: 1.6, speed: 2.4,
-          onReach: () => {
-            body!.arrived = true;
-            fig.setAct("talk");
-            if (question && body!.asking !== question) {
-              body!.asking = question;
-              fig.say(question.length > 90 ? `${question.slice(0, 88)}…` : question, 9000);
-            }
-          },
-        });
-      } else {
-        walker.stop();
-        fig.setAct(null);
-      }
-    } else if (body.arrived && d.target.kind === "slot") {
-      const act = ACT[d.act];
-      if (fig.act !== act) fig.setAct(act, this.propOpt(d));
-    }
-
+    body.direct(d, question, Date.now());
     // Their screen (the desk's monitor, or the laptop on their lap) is painted in paintScreens.
+  }
+
+  /** Crew to keep in view: their bubbles show whatever the distance, and their name tags always. Null clears it. */
+  focus(ids: string[] | null) {
+    this.focusIds = new Set(ids ?? []);
+  }
+
+  /** Say a line over someone's head, if there's room for another bubble and they're near enough to read it. */
+  private say(b: CrewBody, text: string, ms?: number) {
+    const always = this.focusIds.has(b.id) || ui.get().ping?.crewId === b.id;
+    if (!always) {
+      if (!b.fig.object.visible || !b.fig.inSight) return;
+      const at = b.fig.object.getWorldPosition(this.v);
+      if (at.distanceTo(this.camera.position) > BUBBLE_RANGE) return;
+      let up = 0;
+      for (const o of this.bodies.values()) if (o.fig.bubble.showing && o !== b) up++;
+      if (up >= MAX_BUBBLES) return;
+    }
+    b.fig.say(text, ms);
+    this.labelsAt = -1; // whoever talks gets their name tag next frame
   }
 
   // ---- crew screens (screens.ts) ----
@@ -412,8 +429,8 @@ export class Game {
     const views = new Map(snap.crew.map((c) => [c._id, c]));
     this.liveMonitors = new Set();
     for (const d of directions) {
-      const slot = d.target.kind === "slot" ? this.slots.get(d.target.slotId) : undefined;
-      if (slot?.kind !== "desk" || !d.screen) continue;
+      const slot = d.target.kind === "slot" ? this.director.slot(d.target.slotId) : undefined;
+      if (slot?.kind !== "desk" || !d.screen || !this.deskMats.has(slot.id)) continue;
       for (const [desk, owner] of this.deskOwner) if (owner === d.crewId && desk !== slot.id) this.deskOwner.delete(desk);
       this.deskOwner.set(slot.id, d.crewId);
     }
@@ -439,7 +456,7 @@ export class Game {
       const content = this.screenFor.get(owner) ?? null;
       if (content) screen.show(content);
       else {
-        const t = d.target.kind === "slot" ? this.slots.get(d.target.slotId) : undefined;
+        const t = d.target.kind === "slot" ? this.director.slot(d.target.slotId) : undefined;
         screen.show({ kind: "off", name: view.name, where: t ? describeSlot(t.kind, t.id, t.tags) : "somewhere on deck", desk: deskLabel(id) });
       }
       if (screen.animating) this.liveMonitors.add(id);
@@ -453,7 +470,7 @@ export class Game {
   }
 
   /** A laptop appears when they sit down with it: paint it like their desk would be. */
-  private watchLaptop(b: Body) {
+  private watchLaptop(b: CrewBody) {
     const p = b.fig.rig.prop;
     if (!(p instanceof Laptop)) return;
     const have = this.laptops.get(b.id);
@@ -612,8 +629,9 @@ export class Game {
   // ---- the bridge's per-frame answers ----
 
   /**
-   * Name tags show through nothing: one hidden behind a wall or a deck, or far off, is hidden.
-   * Anyone who needs you, or whom you pinged, always shows.
+   * Name tags show through nothing: one hidden behind a wall or a deck, or far off, is hidden. With
+   * a big crew only the nearest few show, so the deck doesn't turn into a wall of labels. Anyone
+   * who needs you, whom you pinged, are aiming at or have in focus always shows.
    */
   private labelsAt = 0;
   private updateLabels(t: number) {
@@ -623,19 +641,154 @@ export class Game {
     const at = new THREE.Vector3();
     const dir = new THREE.Vector3();
     const pinged = ui.get().ping?.crewId;
+    const aimed = ui.get().aim?.crewId;
+    const seen: { b: CrewBody; dist: number; always: boolean }[] = [];
     for (const b of this.bodies.values()) {
+      b.fig.plate.sprite.visible = false;
+      b.fig.inSight = false;
       if (!b.fig.object.visible) continue;
       b.fig.plate.sprite.getWorldPosition(at);
       const dist = at.distanceTo(eye);
-      const always = b.dir?.marker === "asking" || b.id === pinged;
-      let seen = always || dist < 70;
-      if (seen && !always) {
+      const always = b.dir?.marker === "asking" || b.id === pinged || b.id === aimed || this.focusIds.has(b.id);
+      let ok = always || dist < 70;
+      if (ok && !always) {
         dir.subVectors(at, eye).normalize();
         const hit = this.collision.raycast(eye, dir, dist);
-        seen = !hit || hit.t > dist - 0.6;
+        ok = !hit || hit.t > dist - 0.6;
       }
-      // Bubbles keep their own visibility (it is how they fade); they only show up close anyway.
-      b.fig.plate.sprite.visible = seen;
+      b.fig.inSight = ok;
+      if (ok) seen.push({ b, dist, always });
+    }
+    // Who keeps a tag: anyone who must, then whoever is talking, then the nearest. A tag that would
+    // sit on top of one already shown (a huddle of four at the rail) waits its turn.
+    const talking = (b: CrewBody) => b.fig.bubble.showing;
+    seen.sort((p, q) => Number(q.always) - Number(p.always) || Number(talking(q.b)) - Number(talking(p.b)) || p.dist - q.dist);
+    const taken: { x: number; y: number; w: number; h: number }[] = [];
+    const k = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    let shown = 0;
+    for (const s of seen) {
+      if (!s.always && shown >= MAX_PLATES) break;
+      const sp = s.b.fig.plate.sprite;
+      sp.getWorldPosition(at);
+      const ndc = at.clone().project(this.camera);
+      // The tag hangs up from its anchor: its middle is half its height above.
+      const h = sp.scale.y / (s.dist * k * 2), w = sp.scale.x / (s.dist * k * 2 * this.camera.aspect);
+      const box = { x: ndc.x, y: ndc.y + h, w, h };
+      if (!s.always && taken.some((o) => Math.abs(o.x - box.x) < (o.w + box.w) * 0.85 && Math.abs(o.y - box.y) < (o.h + box.h) * 0.85)) continue;
+      taken.push(box);
+      sp.visible = true;
+      if (!s.always) shown++;
+    }
+    // A bubble over someone whose tag is hidden goes too, unless they're in focus.
+    for (const b of this.bodies.values()) {
+      if (b.fig.bubble.showing && !b.fig.plate.sprite.visible && !this.focusIds.has(b.id) && b.dir?.marker !== "asking") b.fig.bubble.clear();
+    }
+  }
+
+  // ---- off duty: hangouts talking, people giving each other room ----
+
+  /** Plays each group's banter (director.beat): who says what, who listens, who laughs, a toast. */
+  private updateBanter(wall: number) {
+    const groups = new Map<string, Hangout>();
+    for (const b of this.bodies.values()) if (b.dir?.group && b.arrived && !b.busy) groups.set(b.dir.group.id, b.dir.group);
+    for (const g of groups.values()) {
+      const beat = this.director.beat(g, wall);
+      if (!beat) continue;
+      const here = g.members.map((id) => this.bodies.get(id)).filter((b): b is CrewBody => !!b && b.arrived && !b.busy && b.fig.object.visible);
+      if (here.length < 2) continue;
+      beat.lines.forEach((line, i) => {
+        if (wall < line.at || wall >= line.at + line.ms) return;
+        const key = `${g.id}:${beat.round}:${i}`;
+        if (this.said.has(key)) return;
+        const speaker = here.find((b) => b.id === line.speaker);
+        if (!speaker) return;
+        this.said.add(key);
+        this.say(speaker, line.text, line.ms - (wall - line.at));
+        speaker.talkUntil = line.at + line.ms - 300;
+        if (!speaker.fig.rig.gestureId || speaker.fig.rig.gestureId === "listen") speaker.fig.gesture("talk");
+        const head = this.stage.headOf(speaker.id);
+        for (const b of here) {
+          if (b === speaker) continue;
+          if (head) b.fig.lookAt(head);
+          if (!b.fig.rig.gestureId) b.fig.gesture("listen");
+        }
+        speaker.fig.lookAt(null);
+      });
+      for (const l of beat.laughs) {
+        const key = `${g.id}:${beat.round}:laugh:${l.who}`;
+        if (wall < l.at || wall > l.at + 600 || this.said.has(key)) continue;
+        this.said.add(key);
+        this.bodies.get(l.who)?.fig.gesture("laugh");
+      }
+      if (beat.cheersAt !== null && wall >= beat.cheersAt && wall < beat.cheersAt + 600) {
+        const key = `${g.id}:${beat.round}:cheers`;
+        if (!this.said.has(key)) {
+          this.said.add(key);
+          for (const b of here) if (b.fig.rig.prop?.kind === "drink") b.fig.gesture("cheers");
+        }
+      }
+    }
+    // Done talking: back to listening (or nothing, out of a group).
+    for (const b of this.bodies.values()) {
+      if (b.fig.rig.gestureId !== "talk" || wall < b.talkUntil) continue;
+      b.fig.gesture(b.dir?.group ? "listen" : null);
+    }
+    if (this.said.size > 2000) this.said = new Set([...this.said].slice(-500));
+  }
+
+  /**
+   * Light separation: two people on foot closer than arm's length ease apart, and two walking at
+   * each other each step to their right. Only bodies under way move; anyone seated or settling
+   * into a spot stays put.
+   */
+  private separate(dt: number) {
+    const list = [...this.bodies.values()].filter((b) => b.fig.object.visible);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i]!, pa = a.fig.object.position;
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j]!, pb = b.fig.object.position;
+        if (Math.abs(pa.y - pb.y) > 1) continue;
+        const dx = pb.x - pa.x, dz = pb.z - pa.z, d2 = dx * dx + dz * dz;
+        if (d2 > 6.25) continue;
+        const am = a.striding, bm = b.striding;
+        if (!am && !bm) continue;
+        const d = Math.sqrt(d2) || 1e-3;
+        const nx = d2 > 1e-6 ? dx / d : (hash(a.id + b.id) % 2 ? 1 : -1), nz = d2 > 1e-6 ? dz / d : 0;
+        if (d < PERSONAL_SPACE) {
+          const push = Math.min(0.08, (PERSONAL_SPACE - d) * 4 * dt);
+          const share = am && bm ? 0.5 : 1;
+          if (am) { pa.x -= nx * push * share; pa.z -= nz * push * share; }
+          if (bm) { pb.x += nx * push * share; pb.z += nz * push * share; }
+        }
+        if (am && bm && d < 2.4) {
+          const ya = a.fig.object.rotation.y, yb = b.fig.object.rotation.y;
+          const fa = [Math.sin(ya), Math.cos(ya)], fb = [Math.sin(yb), Math.cos(yb)];
+          const facing = fa[0]! * fb[0]! + fa[1]! * fb[1]!;
+          const toward = fa[0]! * nx + fa[1]! * nz;
+          if (facing < -0.5 && toward > 0.6) {
+            const step = 0.55 * dt * (1 - d / 2.4);
+            pa.x += -Math.cos(ya) * step; pa.z += Math.sin(ya) * step;
+            pb.x += -Math.cos(yb) * step; pb.z += Math.sin(yb) * step;
+          }
+        }
+      }
+    }
+  }
+
+  /** How busy the ship is, for a world that shows it. */
+  private updateBusy(dt: number) {
+    const w = this.world as BusyWorld;
+    if (!w.setBusy) return;
+    let on = 0, all = 0;
+    for (const b of this.bodies.values()) {
+      if (!b.fig.object.visible || !b.dir) continue;
+      all++;
+      if (isWorking(b.dir.activity)) on++;
+    }
+    this.busy += ((all ? on / all : 0) - this.busy) * (1 - Math.exp(-0.8 * dt));
+    if (Math.abs(this.busy - this.busySent) > 0.002) {
+      this.busySent = this.busy;
+      w.setBusy(this.busy);
     }
   }
 
@@ -662,7 +815,8 @@ export class Game {
   private locate(id: string) {
     const body = this.bodies.get(id);
     if (!body || !body.fig.object.visible) return null;
-    const head = body.fig.rig.headTop(this.v).add(new THREE.Vector3(0, 0.6, 0));
+    // headTop is in the body's own frame: into the world before projecting.
+    const head = body.fig.object.localToWorld(body.fig.rig.headTop(this.v).add(new THREE.Vector3(0, 0.6, 0)));
     const distance = head.distanceTo(this.camera.position);
     const p = head.project(this.camera);
     const onScreen = p.z < 1 && Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1;
@@ -684,12 +838,20 @@ export class Game {
     if (wall - this.lastPlan > 1000) this.plan(wall);
     this.world.update(dt, wall);
     this.captain.update(dt, t);
+    if (this.film?.camera?.(this.camera, dt)) this.pipeline.cut();
     for (const b of this.bodies.values()) {
       if (!b.fig.object.visible) continue;
-      b.walker.update(dt);
-      if (b.dir?.target.kind === "captain" && b.arrived) b.fig.lookAt(this.captain.position.clone().setY(this.captain.position.y + 1.5));
-      b.fig.update(dt, t, { speed: b.walker.speed, seat: b.walker.seat, camera: this.camera });
+      b.update(dt, t, wall, this.camera);
     }
+    this.separate(dt);
+    this.updateBanter(wall);
+    this.effects = this.effects.filter((e) => {
+      if (e.update(dt)) return true;
+      e.object.removeFromParent();
+      e.dispose();
+      return false;
+    });
+    this.updateBusy(dt);
     this.bot?.bot.update(dt, this.camera.position);
     for (const id of this.liveMonitors) this.monitors.get(id)?.update(dt);
     for (const b of this.bodies.values()) if (b.dir?.screen && b.fig.object.visible) this.watchLaptop(b);
@@ -709,6 +871,8 @@ export class Game {
     sceneBridge.captain = () => null;
     sceneBridge.where = () => null;
     for (const b of [...this.bodies.values()]) this.removeBody(b);
+    for (const e of this.effects) { e.object.removeFromParent(); e.dispose(); }
+    this.effects = [];
     for (const p of this.packages.values()) disposeObject(p.obj);
     if (this.moreSign) disposeObject(this.moreSign);
     for (const m of this.monitors.values()) m.dispose();

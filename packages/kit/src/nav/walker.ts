@@ -1,5 +1,6 @@
-// Walks a body along waypoints: eases up to a stroll, turns smoothly, cuts corners a little,
-// slows for the last step, turns to face the way the slot faces and settles into its seat.
+// Walks a body along waypoints: eases up to a stroll (or a run, or an amble: each walk can have
+// its own pace), turns smoothly, cuts corners a little, slows for the last step, turns to face
+// the way the slot faces and settles into its seat.
 // Re-route it any time (go again); it gets up first if it was sitting. It can also follow
 // something that moves (the captain), stopping a polite distance away and turning to face it.
 //
@@ -78,19 +79,29 @@ export class Walker {
     this.state = this.seat != null ? "seated" : "idle";
   }
 
-  /** Walk these points; then turn to `facing` and sit at `seat` if given. */
-  go(points: P3[], end: { facing?: number; seat?: number | null } = {}, onArrive?: () => void) {
+  /** Walk these points (at `speed`, m/s, or the usual pace); then turn to `facing` and sit at `seat` if given. */
+  go(points: P3[], end: { facing?: number; seat?: number | null } = {}, onArrive?: () => void, speed?: number) {
     this.follow_ = null;
     this.points = points.map(v3);
     this.end = end;
     this.onArrive = onArrive ?? null;
-    this.pace = this.walkSpeed;
+    this.pace = speed ?? this.walkSpeed;
     this.beginWalk();
   }
 
   /** Walk the graph to a slot, then settle into it. */
-  goTo(graph: NavGraph, slot: Slot, onArrive?: () => void) {
-    this.go(routeTo(graph, this.object.position, slot), { facing: slot.facing, seat: slot.seat ?? null }, onArrive);
+  goTo(graph: NavGraph, slot: Slot, onArrive?: () => void, speed?: number) {
+    this.go(routeTo(graph, this.object.position, slot), { facing: slot.facing, seat: slot.seat ?? null }, onArrive, speed);
+  }
+
+  /** Where this walk ends, while walking. */
+  get goal(): THREE.Vector3 | null { return this.points.length ? this.points[this.points.length - 1]! : null; }
+
+  /** Out of the seat and still, without the stand-up pause (someone else is moving the body for a while). */
+  release() {
+    this.stop();
+    this.seat = null;
+    this.state = "idle";
   }
 
   /** Walk up to something that moves, and stay near it, facing it. */
@@ -194,7 +205,7 @@ export class Walker {
     const off = this.turnToward(yaw, dt);
     // Slow for sharp turns and for the last step in.
     const left = flat - stopAt;
-    const want = pace * Math.max(0.15, Math.cos(Math.min(off, 1.5))) * Math.min(1, 0.35 + left / 0.9);
+    const want = pace * Math.max(0.15, Math.cos(Math.min(off, 1.5))) * Math.min(1, 0.35 + left / Math.max(0.9, pace * 0.3));
     this.speed = damp(this.speed, want, 6, dt);
     const step = Math.min(this.speed * dt, left);
     // Walk where it faces (blended toward the target), so turns are arcs, not pivots.

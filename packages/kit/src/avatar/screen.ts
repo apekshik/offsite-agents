@@ -109,7 +109,7 @@ export class CodeScreen {
   update(dt: number) {
     this.since += dt;
     if (this.typing) {
-      if (this.shown < this.total) this.shown = Math.min(this.total, this.shown + dt * this.speed * (0.6 + Math.random()));
+      if (this.shown < this.total) this.shown = Math.min(this.total, this.shown + dt * this.speed * (1.1 + 0.5 * Math.sin(this.since * 7.3 + this.snippet)));
       else if ((this.wait += dt) > 3) {
         // Done: a pause, then the next snippet (its own text, if the app never wrote any).
         this.wait = 0;

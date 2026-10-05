@@ -6,12 +6,13 @@
 //   /dev/cast.html?lineup=1        every preset standing in a row
 //   /dev/cast.html?bot=think       the computer, close up, in one mood
 //   &camera=close|wide|side|x,y,z  where the camera starts
+//   &gesture=laugh                 everyone plays a gesture over their act, again and again
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { ACTIVITY_LABEL } from "@offsite/contracts";
 import {
-  ACTS, BOT_MOODS, CAPTAIN_PRESET, CREW_PRESETS, ComputerBot, CrewFigure, FIT, furniture, isAct, makeTextSprite, randomCrewAvatar,
+  ACTS, BOT_MOODS, CAPTAIN_PRESET, CREW_PRESETS, ComputerBot, CrewFigure, FIT, furniture, isAct, isGesture, makeTextSprite, randomCrewAvatar,
   type ActId, type AvatarPreset, type BotMood, type Tone,
 } from "../../../packages/kit/src/avatar/index.ts";
 
@@ -96,6 +97,7 @@ interface Station {
   set?: (g: THREE.Group) => number | null; // builds the furniture, returns the seat height (or null)
   walk?: boolean;
   backpack?: boolean;
+  zzz?: boolean;
   view?: "side" | "front" | "high";
 }
 
@@ -122,7 +124,32 @@ const STATIONS: Station[] = [
   { act: "listen", who: "wren", line: "idle" },
   { act: "chat", who: "teo", line: "idle" },
   { act: "point", who: "marlo", line: "delegating" },
+  // Off duty, with company.
+  { act: "nap", who: "ines", line: "idle", set: (g) => (g.add(furniture.lounger()), FIT.lounger.seat), view: "side", zzz: true },
+  { act: "nap-hammock", who: "kofi", line: "idle", set: (g) => (g.add(furniture.hammock()), FIT.hammock.seat), view: "side", zzz: true },
+  { act: "hammock-rest", who: "otis", line: "idle", set: (g) => (g.add(furniture.hammock()), FIT.hammock.seat), view: "side" },
+  { act: "nap-chair", who: "teo", line: "idle", set: (g) => (g.add(furniture.deckChair()), FIT.deckChair.seat), zzz: true },
+  { act: "sit-drink", who: "sable", line: "idle", set: (g) => (g.add(furniture.deckChair()), FIT.deckChair.seat) },
+  { act: "dance", who: "coral", line: "idle" },
+  { act: "cards", who: "wren", line: "idle", set: (g) => { g.add(furniture.deckChair()); table(g); return FIT.deckChair.seat; } },
+  { act: "selfie", who: "lumi", line: "idle" },
+  { act: "stretch", who: "nova", line: "idle" },
+  { act: "huddle", who: "pike", line: "delegating", set: (g) => { const d = furniture.desk(); d.position.set(0.55, 0, 0); g.add(d); return null; } },
+  { act: "tuck", who: "bodhi", line: "idle", set: (g) => { g.position.y = 0.9; return null; } },
+  { act: "climb", who: "juniper", line: "idle" },
+  { act: "jog", who: "marlo", line: "idle" },
+  { act: "sauna", who: "otis", line: "idle", set: (g) => (g.add(furniture.chair()), FIT.chair.seat) },
+  { act: "tinker", who: "kofi", line: "idle" },
+  { act: "leanBack", who: "wren", line: "idle" },
 ];
+
+// A low table in front of a seat, for cards.
+function table(g: THREE.Group) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.45, 0.55), new THREE.MeshStandardMaterial({ color: "#a8743f", roughness: 0.6 }));
+  m.position.set(0, 0.225, 0.75);
+  m.castShadow = m.receiveShadow = true;
+  g.add(m);
+}
 
 function platform(g: THREE.Group) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 1.4), new THREE.MeshStandardMaterial({ color: "#b7804f", roughness: 0.7 }));
@@ -157,6 +184,7 @@ function addFigure(p: AvatarPreset, at: THREE.Vector3, st: Station, i: number) {
   const fig = new CrewFigure({ spec: p.spec, look: p.look, name: p.name, line: label, tone: st.tone ?? (st.line === "asking" ? "warn" : "accent"), seed: i * 7 + 3 });
   fig.setAct(st.act);
   if (st.backpack) fig.setBackpack(true);
+  if (st.zzz) fig.setSleeping(true);
   if (st.line === "asking") fig.setAsking(true);
   if (st.act === "type") fig.write(["// settings.tsx", "export function Settings() {", "  const [dark, setDark] = useState(false);", "  return <Toggle on={dark} />;", "}"], "settings.tsx");
   g.add(fig.object);
@@ -248,6 +276,7 @@ resize();
 // ---------- loop ----------
 
 const timer = new THREE.Timer();
+const fr = (x: number) => x - Math.floor(x);
 let botMood = 0, botNext = 0;
 hud.textContent = only ? `act: ${only}` : lineup ? "presets" : botOnly ? "computer" : `${live.length} acts · drag to orbit`;
 
@@ -267,6 +296,8 @@ function frame(now?: number) {
       L.fig.object.rotation.y = ph < 0.5 ? Math.PI / 2 : -Math.PI / 2;
       speed = (2 * span * 2) / period;
     }
+    const gesture = params.get("gesture");
+    if (gesture && isGesture(gesture) && !L.fig.rig.gestureId && fr(t * 0.25) < 0.1) L.fig.gesture(gesture);
     L.fig.update(dt, t, { speed, seat: L.seat, camera });
   }
   if (bot) {

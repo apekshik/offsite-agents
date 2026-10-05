@@ -2,7 +2,8 @@
 //
 // World labels in the shell's look, "Bracket": dark glass, corner brackets instead of boxes,
 // one cyan accent, Saira. A nameplate (name and what they are doing), a speech bubble that
-// fades, and the "!" that bobs over someone who needs the captain. Labels drawn before the
+// fades, the "!" that bobs over someone who needs the captain, the "!" that pops when a phone
+// buzzes, and the "Z z z" over someone asleep. Labels drawn before the
 // font has loaded redraw themselves once it arrives.
 
 import * as THREE from "three";
@@ -326,6 +327,126 @@ export class AskMarker {
 }
 
 /** Any label as plain text: signs, debug tags. */
+// One glyph drawn once and shared by every marker that uses it.
+const glyphs = new Map<string, THREE.CanvasTexture>();
+function glyph(key: string, draw: (ctx: Ctx, size: number) => void): THREE.CanvasTexture {
+  let tex = glyphs.get(key);
+  if (tex) return tex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  draw(c.getContext("2d") as Ctx, 128);
+  tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  glyphs.set(key, tex);
+  return tex;
+}
+
+/** Scale for a marker that keeps its size on screen past 8 m (up to 26 m). */
+function screenScale(sprite: THREE.Object3D, camera?: THREE.Camera) {
+  if (!camera) return 1;
+  const d = camera.position.distanceTo(sprite.getWorldPosition(_v));
+  return Math.min(26, Math.max(8, d)) / 8;
+}
+
+/** "Z z z" drifting up and fading over someone asleep. Its time comes from update, so it is the same every run. */
+export class SleepMarker {
+  readonly object = new THREE.Group();
+  private letters: THREE.Sprite[] = [];
+  restY = 0;
+
+  constructor() {
+    const tex = glyph("z", (ctx, n) => {
+      ctx.translate(n / 2, n / 2);
+      ctx.font = `800 ${n * 0.8}px ${THEME.font}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = n * 0.09;
+      ctx.strokeStyle = "rgba(4, 7, 11, 0.85)";
+      ctx.strokeText("Z", 0, n * 0.04);
+      ctx.fillStyle = "#e9f4ff";
+      ctx.fillText("Z", 0, n * 0.04);
+    });
+    for (let i = 0; i < 3; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+      s.renderOrder = 11;
+      this.letters.push(s);
+      this.object.add(s);
+    }
+    this.object.visible = false;
+  }
+
+  set visible(on: boolean) { this.object.visible = on; }
+  get visible() { return this.object.visible; }
+
+  update(time: number, camera?: THREE.Camera) {
+    if (!this.object.visible) return;
+    const k = screenScale(this.object, camera);
+    this.object.position.y = this.restY;
+    this.letters.forEach((s, i) => {
+      const u = (time / 2.7 + i / 3) % 1; // each rises over 2.7 s, a third apart
+      const fade = Math.min(1, u / 0.15) * (1 - Math.max(0, (u - 0.7) / 0.3));
+      s.material.opacity = fade;
+      const size = (0.16 + 0.16 * u) * Math.min(k, 2.2);
+      s.scale.set(size, size, 1);
+      s.position.set((0.12 + 0.25 * u + 0.05 * Math.sin(u * 9)) * Math.min(k, 2.2), 0.05 + 0.55 * u * Math.min(k, 2.2), 0);
+    });
+  }
+
+  dispose() {
+    for (const s of this.letters) s.material.dispose();
+    this.object.removeFromParent();
+  }
+}
+
+/** A "!" that pops up over someone for a moment: their phone just buzzed. */
+export class PopMarker {
+  readonly sprite: THREE.Sprite;
+  private age = -1;
+  restY = 0;
+
+  constructor(color: string = THEME.accent) {
+    const tex = glyph(`pop:${color}`, (ctx, n) => {
+      ctx.translate(n / 2, n / 2);
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(0, 0, n * 0.36, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(4, 7, 11, 0.92)";
+      ctx.fillRect(-n * 0.05, -n * 0.24, n * 0.1, n * 0.3);
+      ctx.fillRect(-n * 0.05, n * 0.12, n * 0.1, n * 0.1);
+    });
+    this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+    this.sprite.center.set(0.5, 0);
+    this.sprite.renderOrder = 12;
+    this.sprite.visible = false;
+  }
+
+  /** Pop up now (it goes again after about a second). */
+  pop() { this.age = 0; this.sprite.visible = true; }
+  get showing() { return this.sprite.visible; }
+
+  update(dt: number, camera?: THREE.Camera) {
+    if (this.age < 0) return;
+    this.age += dt;
+    const a = this.age;
+    if (a > 1.25) { this.age = -1; this.sprite.visible = false; return; }
+    // Overshoot in, a wobble, then fade.
+    const grow = a < 0.22 ? Math.sin((a / 0.22) * Math.PI * 0.62) * 1.25 : 1 + 0.12 * Math.exp(-(a - 0.22) * 8) * Math.cos((a - 0.22) * 30);
+    this.sprite.material.opacity = 1 - Math.max(0, (a - 0.95) / 0.3);
+    const s = 0.5 * grow * screenScale(this.sprite, camera);
+    this.sprite.scale.set(s, s, 1);
+    this.sprite.position.y = this.restY + 0.12 * Math.min(1, a / 0.2);
+  }
+
+  dispose() {
+    this.sprite.material.dispose();
+    this.sprite.removeFromParent();
+  }
+}
+
 export function makeTextSprite(text: string, { font = 30, weight = 600, color = THEME.ink as string, bg = THEME.glassStrong as string | null, border = THEME.bracket as string, maxWidth = 420, worldScale = 0.0045 } = {}) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;

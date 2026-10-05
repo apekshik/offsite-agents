@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offsite · crew (dev)</title>
+  <link rel="icon" href="data:,">
+  <link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; height: 100%; background: #05070b; color: #eef3f7; overflow: hidden; font: 500 13px/1.4 Saira, sans-serif; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #hud { position: fixed; left: 12px; bottom: 10px; background: rgba(4, 7, 11, 0.7); padding: 6px 10px; white-space: pre; pointer-events: none; }
+    body.clean #hud { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="hud"></div>
+  <script type="module" src="./crew.ts"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 // Things the crew hold: an open laptop whose screen shows code, the package they carry to the
-// bridge, a fishing rod, the foldable phone, a drink. Each is a group with its origin where it
+// bridge, a fishing rod, the foldable phone, a drink, a coffee mug, a plain phone for selfies and
+// buzzes, a hand of cards. Each is a group with its origin where it
 // rests (a laptop's underside, a rod's butt, a glass's base), and grips: where the palms go when
 // it is held in two hands. The avatar places a prop and reaches for its grips (avatar.ts).
 
@@ -8,7 +9,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { CodeScreen } from "./screen.ts";
 import { THEME, drawBrackets } from "./labels.ts";
 
-export type PropKind = "laptop" | "box" | "rod" | "phone" | "drink";
+export type PropKind = "laptop" | "box" | "rod" | "phone" | "drink" | "mug" | "handset" | "cards";
 
 export interface Prop {
   readonly kind: PropKind;
@@ -176,10 +177,35 @@ export class PackageBox implements Prop {
 
 // ---------- fishing rod ----------
 
+/** What a fishing cycle is in at time t (s), for an angler with this seed. */
+export type FishPhase = "cast" | "wait" | "bite" | "reel" | "show" | "rest";
+export interface FishState { phase: FishPhase; /** 0..1 through the phase. */ k: number; /** What comes up this time. */ catch: "fish" | "boot" | "none"; /** Which cycle (counts up). */ n: number }
+
+/** One cast every FISH_CYCLE seconds: cast, wait, a bite, reel in, show off the catch (or not). */
+export const FISH_CYCLE = 24;
+const FISH_PHASES: [FishPhase, number][] = [["cast", 1.8], ["wait", 12.7], ["bite", 1.5], ["reel", 2.5], ["show", 4.0], ["rest", 1.5]];
+
+/** Pure in time and seed: the act and the rod both read it, so they always agree. */
+export function fishCycle(time: number, seed: number): FishState {
+  const tt = time + seed * 3.7;
+  const n = Math.floor(tt / FISH_CYCLE);
+  let u = tt - n * FISH_CYCLE;
+  const r = fract(Math.sin(n * 12.9898 + seed * 78.233) * 43758.5453);
+  const c: FishState["catch"] = r < 0.45 ? "fish" : r < 0.72 ? "boot" : "none";
+  for (const [phase, len] of FISH_PHASES) {
+    if (u < len) return { phase, k: u / len, catch: c, n };
+    u -= len;
+  }
+  return { phase: "rest", k: 1, catch: c, n };
+}
+const fract = (x: number) => x - Math.floor(x);
+const ease = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+
 /**
  * A rod with its line in the water. Origin: the butt; the rod runs up +y and bends a little
- * toward +z (hold it pitched forward and +z points down). Bites come now and then: the tip
- * twitches, then the angler strikes.
+ * toward +z (hold it pitched forward and +z points down). It goes through fishCycle: a cast, a
+ * wait with the bobber riding the swell, a bite, reeling in, and holding up a fish, an old boot or
+ * nothing at all.
  */
 export class FishingRod implements Prop {
   readonly kind = "rod" as const;
@@ -191,13 +217,15 @@ export class FishingRod implements Prop {
   private tip = new THREE.Object3D();
   private line: THREE.Line;
   private bobber = new THREE.Group();
-  private next = 6 + Math.random() * 8;
-  private biteT = -1;
+  private fish = new THREE.Group();
+  private boot = new THREE.Group();
+  private seed: number;
   private _a = new THREE.Vector3();
   private _b = new THREE.Vector3();
   private _f = new THREE.Vector3();
 
-  constructor() {
+  constructor({ seed = 0 }: { seed?: number } = {}) {
+    this.seed = seed;
     this.object.add(this.flex);
     const cork = std("#b98a5a", { roughness: 0.95 });
     const blank = std("#20252e", { roughness: 0.35, metalness: 0.3 });
@@ -238,43 +266,84 @@ export class FishingRod implements Prop {
     mesh(this.bobber, new THREE.SphereGeometry(0.03, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std("#ff4a3d"));
     mesh(this.bobber, new THREE.SphereGeometry(0.03, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), std("#f6f6f2"));
     this.object.add(this.bobber);
+    // The catch: a fat fish, bigger than life so it reads across the deck, or an old boot.
+    const scale = std(["#f2a03d", "#9fc6d8", "#e8735a"][seed % 3]!, { roughness: 0.35, metalness: 0.3 });
+    const body = mesh(this.fish, new THREE.SphereGeometry(0.09, 14, 10), scale, 0, -0.16, 0);
+    body.scale.set(0.55, 1.6, 1);
+    mesh(this.fish, new THREE.ConeGeometry(0.07, 0.11, 4), scale, 0, -0.34, 0, Math.PI, 0, 0).scale.set(1, 1, 0.25);
+    for (const x of [-0.035, 0.035]) mesh(this.fish, new THREE.SphereGeometry(0.012, 6, 4), std("#111"), x, -0.06, 0.03);
+    const leather = std("#6b4a2e", { roughness: 0.9 });
+    mesh(this.boot, new THREE.BoxGeometry(0.09, 0.2, 0.1), leather, 0, -0.14, 0);
+    mesh(this.boot, new THREE.BoxGeometry(0.09, 0.08, 0.22), leather, 0, -0.26, 0.06);
+    mesh(this.boot, new THREE.BoxGeometry(0.095, 0.02, 0.23), std("#2b2622"), 0, -0.305, 0.06);
+    this.fish.visible = this.boot.visible = false;
+    this.object.add(this.fish, this.boot);
     this.grips = [grip(this.flex, 0, 0.3, -0.02), grip(this.flex, 0, 0.06, -0.02)];
   }
 
-  update(dt: number, time: number) {
-    // Bites: a few twitches of the tip, then a strike, then the line settles.
-    this.next -= dt;
-    if (this.next <= 0 && this.biteT < 0) this.biteT = 0;
+  update(_dt: number, time: number) {
+    const f = fishCycle(time, this.seed);
+    // The rod: swung back and whipped forward to cast, twitching at a bite, up to reel in and show.
     let bend = 0.025 * Math.sin(time * 0.9);
-    let dip = 0;
-    if (this.biteT >= 0) {
-      const b = (this.biteT += dt);
-      if (b < 1.4) { const tw = Math.max(0, Math.sin(b * 14)) * 0.12; bend += tw; dip = tw * 0.6; }
-      else if (b < 1.9) bend -= 0.3 * Math.sin(((b - 1.4) / 0.5) * Math.PI);
-      else { this.biteT = -1; this.next = 9 + Math.random() * 14; }
+    let dip = 0, out = 1, up = 0;
+    if (f.phase === "cast") {
+      const k = f.k;
+      bend = k < 0.45 ? -1.15 * ease(k / 0.45) : -1.15 + 1.3 * ease((k - 0.45) / 0.2) - 0.15 * ease((k - 0.65) / 0.35);
+      out = ease((k - 0.5) / 0.5);
+    } else if (f.phase === "bite") {
+      const tw = Math.max(0, Math.sin(f.k * 1.5 * 14)) * 0.12;
+      bend += tw; dip = tw * 0.6;
+    } else if (f.phase === "reel") {
+      bend = -0.55 * ease(f.k / 0.3) + 0.05 * Math.sin(time * 18);
+      out = 1 - ease(f.k);
+      up = ease(f.k);
+    } else if (f.phase === "show") {
+      bend = -0.75 + 0.06 * Math.sin(time * 2.2);
+      out = 0; up = 1;
+    } else if (f.phase === "rest") {
+      bend = -0.75 * (1 - ease(f.k));
+      out = 0; up = 1 - ease(f.k);
     }
     this.flex.rotation.x = bend;
-    // The line: from the tip, out a little and down to the water, sagging slightly.
+    // The line: from the tip, out and down to the water (sagging), or hanging short with the catch.
     this.object.updateWorldMatrix(true, true);
     const a = this.tip.getWorldPosition(this._a);
-    const f = this._f.set(0, 0, 1).applyQuaternion(this.object.getWorldQuaternion(new THREE.Quaternion())).setY(0);
-    if (f.lengthSq() < 1e-6) f.set(0, 0, 1);
-    f.normalize();
+    const f3 = this._f.set(0, 0, 1).applyQuaternion(this.object.getWorldQuaternion(new THREE.Quaternion())).setY(0);
+    if (f3.lengthSq() < 1e-6) f3.set(0, 0, 1);
+    f3.normalize();
     const water = this.water ?? a.y - 3;
-    const b = this._b.copy(a).addScaledVector(f, 0.9);
+    const b = this._b.copy(a).addScaledVector(f3, 0.9);
     b.y = water + 0.02 * Math.sin(time * 1.7) - dip;
+    // Hanging from the tip: where the line ends when it's out of the water.
+    const hang = new THREE.Vector3(a.x + Math.sin(time * 2.4) * 0.05, a.y - 0.55, a.z + Math.cos(time * 1.9) * 0.04);
+    if (out < 1) b.lerpVectors(hang, b, out);
     const arr = (this.line.geometry.attributes["position"] as THREE.BufferAttribute);
     const p = new THREE.Vector3();
+    const sag = 0.12 * out;
     for (let i = 0; i < 12; i++) {
       const t = i / 11;
       p.lerpVectors(a, b, t);
-      p.y -= Math.sin(t * Math.PI) * 0.12; // sag
+      p.y -= Math.sin(t * Math.PI) * sag;
       this.object.worldToLocal(p);
       arr.setXYZ(i, p.x, p.y, p.z);
     }
     arr.needsUpdate = true;
-    this.bobber.position.copy(this.object.worldToLocal(b.clone()));
+    const end = this.object.worldToLocal(b.clone());
+    this.bobber.position.copy(end);
     this.bobber.quaternion.copy(this.object.getWorldQuaternion(new THREE.Quaternion()).invert());
+    // The catch rides the end of the line once it's out of the water.
+    const showing = up > 0.35 && f.catch !== "none";
+    this.fish.visible = showing && f.catch === "fish";
+    this.boot.visible = showing && f.catch === "boot";
+    for (const c of [this.fish, this.boot]) {
+      if (!c.visible) continue;
+      c.position.copy(end);
+      c.quaternion.copy(this.bobber.quaternion);
+      // A fish flaps; a boot just turns on the line.
+      c.rotateY(time * (f.catch === "fish" ? 0.8 : 0.5));
+      if (f.catch === "fish") c.rotateZ(0.35 * Math.sin(time * 16));
+    }
+    this.bobber.visible = !showing;
   }
 
   dispose() { disposeTree(this.object); this.object.removeFromParent(); }
@@ -471,11 +540,81 @@ export class Drink implements Prop {
   dispose() { disposeTree(this.object); this.object.removeFromParent(); }
 }
 
+// ---------- small things for one hand ----------
+
+/** A coffee mug. Origin: its base. */
+export class Mug implements Prop {
+  readonly kind = "mug" as const;
+  readonly object = new THREE.Group();
+  readonly grips: THREE.Object3D[] = [];
+  constructor({ seed = 0 }: { seed?: number } = {}) {
+    const glaze = std(["#f4f1ea", "#2d6fd4", "#ff8a3d", "#1fb5a8", "#20252e"][seed % 5]!, { roughness: 0.35 });
+    mesh(this.object, new THREE.CylinderGeometry(0.042, 0.038, 0.1, 16), glaze, 0, 0.05, 0);
+    mesh(this.object, new THREE.CylinderGeometry(0.036, 0.036, 0.004, 16), std("#3b2416", { roughness: 0.2 }), 0, 0.096, 0);
+    mesh(this.object, new THREE.TorusGeometry(0.026, 0.008, 6, 12), glaze, 0.047, 0.05, 0, 0, 0, Math.PI / 2);
+  }
+  update() {}
+  dispose() { disposeTree(this.object); this.object.removeFromParent(); }
+}
+
+/** A plain phone with a lit screen: for selfies, and for the buzz when work comes in. Origin: its middle, screen to +z. */
+export class Handset implements Prop {
+  readonly kind = "handset" as const;
+  readonly object = new THREE.Group();
+  readonly grips: THREE.Object3D[] = [];
+  constructor({ seed = 0 }: { seed?: number } = {}) {
+    mesh(this.object, new RoundedBoxGeometry(0.075, 0.15, 0.012, 2, 0.006), std(["#20252e", "#e9e6df", "#ff5d8f", "#4fe3ff"][seed % 4]!, { roughness: 0.3, metalness: 0.4 }));
+    const glass = mesh(this.object, new THREE.PlaneGeometry(0.066, 0.138), new THREE.MeshBasicMaterial({ color: "#7fe6ff", toneMapped: false }), 0, 0, 0.0065);
+    glass.castShadow = false;
+    const back = mesh(this.object, new THREE.PlaneGeometry(0.066, 0.138), new THREE.MeshBasicMaterial({ color: "#7fe6ff", toneMapped: false }), 0, 0, -0.0065, 0, Math.PI, 0);
+    back.castShadow = false;
+  }
+  update() {}
+  dispose() { disposeTree(this.object); this.object.removeFromParent(); }
+}
+
+/** A hand of cards, fanned. Origin: the bottom of the fan, faces to -z (toward whoever holds it). */
+export class Cards implements Prop {
+  readonly kind = "cards" as const;
+  readonly object = new THREE.Group();
+  readonly grips: THREE.Object3D[];
+  constructor({ seed = 0 }: { seed?: number } = {}) {
+    const back = std(["#c8283c", "#1d3f8f"][seed % 2]!, { roughness: 0.6, side: THREE.DoubleSide });
+    const face = std("#f7f5ef", { roughness: 0.6 });
+    const geo = new THREE.PlaneGeometry(0.075, 0.105);
+    geo.translate(0, 0.052, 0);
+    for (let i = 0; i < 5; i++) {
+      const a = (i - 2) * 0.2;
+      const card = new THREE.Group();
+      card.rotation.z = a;
+      card.position.z = -i * 0.0015;
+      this.object.add(card);
+      const b = new THREE.Mesh(geo, back);
+      card.add(b);
+      const f = new THREE.Mesh(geo, face);
+      f.rotation.y = Math.PI;
+      f.position.z = -0.0006;
+      card.add(f);
+      // A red or black pip, for the side that faces the player.
+      const pip = new THREE.Mesh(new THREE.CircleGeometry(0.012, 10), std(i % 2 ? "#c8283c" : "#16181d"));
+      pip.rotation.y = Math.PI;
+      pip.position.set(0, 0.07, -0.0012);
+      card.add(pip);
+    }
+    this.grips = [grip(this.object, 0, 0.0, 0.0), grip(this.object, 0, 0.0, 0.0)];
+  }
+  update() {}
+  dispose() { disposeTree(this.object); this.object.removeFromParent(); }
+}
+
 export function makeProp(kind: PropKind, seed = 0): Prop {
   switch (kind) {
     case "laptop": return new Laptop({ seed });
     case "box": return new PackageBox();
-    case "rod": return new FishingRod();
+    case "rod": return new FishingRod({ seed });
+    case "mug": return new Mug({ seed });
+    case "handset": return new Handset({ seed });
+    case "cards": return new Cards({ seed });
     case "phone": return new FoldPhone({ open: true });
     case "drink": return new Drink({ seed, color: ["#ff8a3d", "#ff5d8f", "#7ee0c6", "#ffd23f"][seed % 4]! });
   }

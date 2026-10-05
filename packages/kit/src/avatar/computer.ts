@@ -161,6 +161,14 @@ export class ComputerBot {
   private spin = 0;
   private thinkSide = 1;
   private blinkIn = 1.5;
+  // Blinks, glances and sparks come from a seeded stream, so the same clock gives the same bot.
+  private rndState = 0x9e3779b9;
+  private rnd() {
+    let t = (this.rndState = (this.rndState + 0x6d2b79f5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
   private blink = 0;
   private glanceIn = 5;
   private glance = 0;
@@ -291,8 +299,8 @@ export class ComputerBot {
       this.flash = 1;
       this.say("sad");
       for (let i = 0; i < 24; i++) {
-        const a = Math.random() * Math.PI * 2;
-        this.fx.spark?.(p.x, p.y + 0.6 * this.scale, p.z, Math.cos(a) * 2, 1 + Math.random() * 2, Math.sin(a) * 2, i % 2 ? "#ff3b4e" : "#ffb0a0", 0.5, 0.07, 6, 0.8);
+        const a = this.rnd() * Math.PI * 2;
+        this.fx.spark?.(p.x, p.y + 0.6 * this.scale, p.z, Math.cos(a) * 2, 1 + this.rnd() * 2, Math.sin(a) * 2, i % 2 ? "#ff3b4e" : "#ffb0a0", 0.5, 0.07, 6, 0.8);
       }
     } else if (mood === "greet") { this.sp.y.v += 3; this.say("hello"); }
     else if (mood === "focus") this.say("start");
@@ -437,10 +445,10 @@ export class ComputerBot {
     if (mood === "focus") {
       this.glance -= dt;
       this.glanceIn -= dt;
-      if (this.glanceIn <= 0) { this.glance = 1.1; this.glanceIn = 6 + Math.random() * 5; }
+      if (this.glanceIn <= 0) { this.glance = 1.1; this.glanceIn = 6 + this.rnd() * 5; }
     } else this.glance = 0;
     this.blinkIn -= dt;
-    if (this.blinkIn <= 0) { this.blink = 0.16; this.blinkIn = 2 + Math.random() * 3.5; }
+    if (this.blinkIn <= 0) { this.blink = 0.16; this.blinkIn = 2 + this.rnd() * 3.5; }
     this.blink = Math.max(0, this.blink - dt);
     const blink = this.blink > 0 ? Math.abs(this.blink - 0.08) / 0.08 : 1;
 

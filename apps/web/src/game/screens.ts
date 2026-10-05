@@ -218,6 +218,7 @@ export class CrewScreen {
   private clock = 0;
   private blink = true;
   private seed: number;
+  private ticks = 0;
   readonly size: ScreenSize;
 
   constructor(size: ScreenSize, seed = 0) {
@@ -273,8 +274,11 @@ export class CrewScreen {
     this.clock = 0;
     this.blink = !this.blink;
     if (motion === "typing") {
-      if (this.shown < this.total) this.shown = Math.min(this.total, this.shown + 9 + Math.floor(Math.random() * 7));
-      else if (Math.random() < 0.1) this.shown = 0; // finished the snippet: start again after a beat
+      // Seeded by the screen and how far it has got, so the same clock types the same way.
+      this.ticks++;
+      const r = hash(`${this.seed}:${this.ticks}`);
+      if (this.shown < this.total) this.shown = Math.min(this.total, this.shown + 9 + (r % 7));
+      else if (r % 10 === 0) this.shown = 0; // finished the snippet: start again after a beat
     }
     this.repaint();
   }

@@ -5,8 +5,11 @@
 // a designed look's pieces pinned to the joints. Everything faces +z; height 1 is ~1.92 m.
 //
 // On top of RPO's rig: held acts (acts.ts) that can hold a prop (props.ts) and reach for it
-// with the hands (ik.ts), a gait whose stride matches the ground speed so feet don't skate at a
-// stroll, a head that can turn to look at someone, and where the head is now (for labels).
+// with the hands (ik.ts), gestures layered over any act for a moment (a laugh, a toast, the phone
+// buzzing), sometimes with something brought out in a hand, a gait whose stride matches the
+// ground speed so feet don't skate at a stroll, a head that can turn to look at someone, and where
+// the head is now (for labels). Nothing here draws from Math.random: the same clock gives the
+// same motion.
 
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
@@ -16,7 +19,10 @@ import { pieceGeometry } from "./pieces.ts";
 import {
   LR, REST, SIDES, type Pose, type Side, clamp, clamp01, copyPose, damp, lerp, mixPose, newPose, smooth,
 } from "./pose.ts";
-import { ACTS, type ActBody, type ActDef, type ActId, type Anchor, type Hold, isAct, keyTap, treadWater, typingBurst } from "./acts.ts";
+import {
+  ACTS, GESTURES, gestureWeight, isAct, isGesture, keyTap, treadWater, typingBurst,
+  type ActBody, type ActDef, type ActId, type Anchor, type GestureDef, type GestureId, type Hold,
+} from "./acts.ts";
 import { makeProp, type Prop, type PropKind } from "./props.ts";
 import { solveArm } from "./ik.ts";
 
@@ -556,6 +562,12 @@ export interface AvatarRig {
   readonly prop: Prop | null;
   /** Override the act's prop: a kind, null for empty hands, undefined for the act's own. */
   setProp(kind: PropKind | null | undefined): void;
+  /** Let go of what the act holds and hand it over (it stays where it is in the world; the caller owns it now). */
+  releaseProp(): Prop | null;
+  /** A gesture over whatever the act is (acts.ts GESTURES); one-shots end by themselves, null eases a loop out. */
+  gesture(id: GestureId | null): void;
+  /** The gesture playing now, if any. */
+  readonly gestureId: GestureId | null;
   /** Turn the head toward a world point (null: look where the body faces). */
   lookAt(point: THREE.Vector3 | null): void;
   /** Just above the head as it is now (sitting, lying), in the root's frame. */
@@ -729,6 +741,10 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
   let prop: Prop | null = null, propFor: ActId | null = null, propGrow = 1;
   let override: PropKind | null | undefined = undefined;
   let lookTarget: THREE.Vector3 | null = null, lookYaw = 0, lookPitch = 0;
+  // The gesture playing (g: seconds in; stop: when it was told to ease out), and what it brought out.
+  let gest: { id: GestureId; def: GestureDef; g: number; stop: number | null } | null = null, gestW = 0;
+  let item: Prop | null = null;
+  const freeHands: [number, number] = [0, 0];
   const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _pole = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
   const _targets: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(), new THREE.Vector3()];
   const _has: [boolean, boolean] = [false, false];
@@ -787,6 +803,9 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
     const burst = hold.typing ? typingBurst(time, rig.seed) : 0;
     for (const k of LR) {
       if (!_has[k]) continue;
+      // A gesture can take a hand off what it was holding (a sip of coffee, the phone).
+      const wk = w * (1 - freeHands[k]);
+      if (wk <= 0.001) continue;
       if (burst > 0) {
         // Fingers on the keys: little taps, and the hands drift across the keyboard.
         _targets[k].y += keyTap(time, k, rig.seed) * burst;
@@ -794,7 +813,7 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
       }
       const pole = hold.pole?.[k] ?? [SIDES[k] * 0.6, -1, -0.35];
       _pole.set(pole[0], pole[1], pole[2]);
-      solveArm(upperArms[k]!, forearms[k]!, upperArms[k]!.position, _targets[k], _pole, D.upper, D.fore + 0.045 * hw, w);
+      solveArm(upperArms[k]!, forearms[k]!, upperArms[k]!.position, _targets[k], _pole, D.upper, D.fore + 0.045 * hw, wk);
     }
   }
 
@@ -852,6 +871,26 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
         copyPose(A, P);
         EMOTE_POSES[emote.def.id](A, emote.t, time);
         mixPose(P, A, emoteW);
+      }
+    }
+    // A gesture over the act, eased in and out.
+    freeHands[0] = freeHands[1] = 0;
+    gestW = 0;
+    if (gest) {
+      gest.g += dt;
+      const def = gest.def;
+      let w = gestureWeight(gest.g, def.dur);
+      if (gest.stop !== null) w = Math.min(w, 1 - smooth(gest.stop, gest.stop + 0.3, gest.g));
+      const over = (def.dur !== undefined && gest.g >= def.dur) || (gest.stop !== null && gest.g >= gest.stop + 0.3);
+      if (over) endGesture();
+      else if (w > 0.001) {
+        actBody.lead = rig.lead; actBody.seed = rig.seed; actBody.seated = sitting;
+        copyPose(A, P);
+        def.pose(A, gest.g, time, actBody);
+        mixPose(P, A, w);
+        gestW = w;
+        const f = def.free === "both" ? [1, 1] : def.free === "other" ? (rig.lead === 0 ? [0, 1] : [1, 0]) : def.free ?? [0, 0];
+        freeHands[0] = f[0]! * w; freeHands[1] = f[1]! * w;
       }
     }
     if (sitW > 0.001) mixPose(P, seatedPose(A, time), sitW);
@@ -912,6 +951,10 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
       prop.object.updateWorldMatrix(true, true);
       prop.update(dt, time);
     }
+    if (item) {
+      const sc = gest?.def.item?.scale ?? 1;
+      item.object.scale.setScalar(Math.max(0.001, smooth(0.2, 0.8, gestW) * sc));
+    }
 
     if (anim.orbRings) {
       anim.orbRings[0]!.rotation.z = time * 1.6;
@@ -928,8 +971,19 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
       for (const wg of anim.wings) wg.rotation.y = -wg.userData["side"] * lerp(0.45 + f, 0.3, sitW);
     }
     if (custom) animatePieces(custom.moving, time);
-    if (anim.flames) for (const fl of anim.flames) fl.scale.setScalar(sitting ? 0.4 : flying ? 1.4 + Math.random() * 0.8 : 0.5 + Math.random() * 0.2);
+    if (anim.flames) {
+      anim.flames.forEach((fl, i) => {
+        const flicker = 0.5 + 0.5 * Math.sin(time * 37 + i * 2.1) * Math.sin(time * 23.3 + i);
+        fl.scale.setScalar(sitting ? 0.4 : flying ? 1.4 + flicker * 0.8 : 0.5 + flicker * 0.2);
+      });
+    }
     void swimming;
+  }
+
+  function endGesture() {
+    gest = null;
+    gestW = 0;
+    if (item) { item.dispose(); item = null; }
   }
 
   const rig: AvatarRig = {
@@ -951,6 +1005,34 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
       override = kind;
       setHeld(poseTo);
     },
+    releaseProp() {
+      const p = prop;
+      if (!p) return null;
+      prop = null;
+      override = null; // empty-handed until told otherwise
+      p.object.updateWorldMatrix(true, true);
+      return p;
+    },
+    gesture(id) {
+      if (id === null) {
+        if (gest && gest.stop === null) gest.stop = gest.g;
+        return;
+      }
+      if (!isGesture(id)) return;
+      if (gest?.id === id && gest.def.dur === undefined && gest.stop === null) return; // already looping
+      endGesture();
+      const def: GestureDef = GESTURES[id];
+      gest = { id, def, g: 0, stop: null };
+      if (def.item) {
+        const hand = def.item.hand === "lead" ? rig.lead : ((1 - rig.lead) as Side);
+        item = makeProp(def.item.kind, rig.seed);
+        hands[hand]!.add(item.object);
+        item.object.position.set(...def.item.pos);
+        if (def.item.rot) item.object.rotation.set(...def.item.rot);
+        item.object.scale.setScalar(0.001);
+      }
+    },
+    get gestureId() { return gest && gest.stop === null ? gest.id : null; },
     lookAt(point) { lookTarget = point ? (lookTarget ?? new THREE.Vector3()).copy(point) : null; },
     headTop(out) {
       head.getWorldPosition(out); // brings the head's chain up to date, nothing else
@@ -960,6 +1042,7 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
     dispose() {
       prop?.dispose();
       prop = null;
+      endGesture();
       root.removeFromParent();
       root.traverse((o) => {
         const m = o as THREE.Mesh;
