@@ -70,6 +70,8 @@ export class Game {
   private bodies = new Map<string, Body>();
   private bot: { id: string; holder: THREE.Group; bot: ComputerBot } | null = null;
   private monitors = new Map<string, CodeScreen>();
+  /** Monitors someone is working at (and the helm's). Only these animate: each redraw is a texture upload. */
+  private liveMonitors = new Set<string>(["helm"]);
   private snapshot: Snapshot | null = null;
   private lastPlan = 0;
   private ping: { crewId: string; at: number; beacon: THREE.Group; line: THREE.Line; routedAt: number } | null = null;
@@ -111,6 +113,7 @@ export class Game {
       if (!(x instanceof THREE.Mesh) || !x.name.startsWith("screen:")) return;
       const screen = new CodeScreen({ seed: hash(x.name) });
       screen.write(["Offsite"], "");
+      screen.update(1); // draw it once; only monitors in use keep animating
       x.material = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false });
       this.monitors.set(x.name.slice("screen:".length), screen);
     });
@@ -195,6 +198,10 @@ export class Game {
       this.direct(view, d, snap.questions.find((q) => q.crewId === d.crewId)?.prompt ?? null);
     }
     for (const [id, b] of this.bodies) if (!seen.has(id)) this.removeBody(b);
+    this.liveMonitors = new Set(["helm"]);
+    for (const d of directions) {
+      if (d.screen && d.target.kind === "slot" && this.slots.get(d.target.slotId)?.kind === "desk") this.liveMonitors.add(d.target.slotId);
+    }
     this.directComputer(snap.crew.find((c) => c.role === "computer"), now);
   }
 
@@ -409,7 +416,7 @@ export class Game {
       b.fig.update(dt, t, { speed: b.walker.speed, seat: b.walker.seat, camera: this.camera });
     }
     this.bot?.bot.update(dt, this.camera.position);
-    for (const m of this.monitors.values()) m.update(dt);
+    for (const id of this.liveMonitors) this.monitors.get(id)?.update(dt);
     this.updatePing(t);
     this.updateLabels(t);
     this.pipeline.render(dt);
