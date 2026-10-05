@@ -2,8 +2,10 @@
 // (.shots/film, `pnpm film all`), graphics drawn frame by frame in headless Chrome
 // (graphics/), the soundtrack and the effects pack (assets/audio/video).
 //
-//   pnpm video                 every cut: offsite-launch-a.mp4, -b.mp4, -30s.mp4, and the thumbnail
-//   pnpm video a b             just these cuts (a, b, 30s), plus `thumb` for the thumbnail
+//   pnpm video                 the launch cut on take B (offsite-launch.mp4), its 30-s cut
+//                              (offsite-launch-30s.mp4) and the thumbnail
+//   pnpm video b 30s a 30s-a   just these: b and 30s are take B (Lo-fi Lagoon, the one that ships),
+//                              a and 30s-a take A (Sundeck House, offsite-launch-a.mp4, -30s-a.mp4); thumb
 //   --draft                    a fast encode, for checking a cut
 //   --out <dir>                default .shots/video
 //
@@ -28,7 +30,10 @@ const draft = flag("draft");
 const out = resolve(repo, opt("out", ".shots/video"));
 const cache = join(here, ".cache");
 const wanted = argv.filter((a, i) => !a.startsWith("--") && argv[i - 1] !== "--out");
-const TAKES = wanted.length ? wanted : ["a", "b", "30s", "thumb"];
+const TAKES = wanted.length ? wanted : ["b", "30s", "thumb"];
+/** What each name renders, and the file it writes. */
+const OUTPUTS = { b: "offsite-launch.mp4", a: "offsite-launch-a.mp4", "30s": "offsite-launch-30s.mp4", "30s-a": "offsite-launch-30s-a.mp4" };
+for (const n of TAKES) if (n !== "thumb" && !OUTPUTS[n]) throw new Error(`No cut called ${n}: try ${Object.keys(OUTPUTS).join(", ")} or thumb`);
 const W = 1920, H = 1080;
 const CAST = join(repo, ".shots/real-run/runner-tidy.cast");
 
@@ -253,7 +258,7 @@ function report(file) {
 
 async function build(name) {
   const t0 = Date.now();
-  const cut = name === "30s" ? shortCut() : cutFor(name);
+  const cut = name === "30s" ? shortCut("b") : name === "30s-a" ? shortCut("a") : cutFor(name);
   cut.terminal = terminalScript(CAST);
   assertClean(JSON.stringify(cut.terminal), "terminal script");
   for (const g of cut.graphics) assertClean([g.text, g.tagline, ...(g.caption ?? []), ...(g.lines ?? []), g.foot].filter(Boolean).join("\n"), `graphic ${g.kind}`);
@@ -263,7 +268,7 @@ async function build(name) {
   const gfx = join(cache, `graphics-${name}.mov`), wav = join(cache, `sound-${name}.wav`);
   if (!(flag("keep-graphics") && existsSync(gfx))) await renderGraphics(cut, gfx);
   mixAudio(cut, wav);
-  const file = join(out, name === "30s" ? "offsite-launch-30s.mp4" : `offsite-launch-${name}.mp4`);
+  const file = join(out, OUTPUTS[name]);
   encode(cut, name, gfx, wav, file);
   report(file);
   log(`  ${((Date.now() - t0) / 1000).toFixed(0)} s`);
