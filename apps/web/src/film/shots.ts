@@ -1,5 +1,6 @@
 import type { Blocking, CaptainSetup, FilmGroup, Shot, Still } from "./dsl.ts";
 import { T } from "./story.ts";
+import { dolly } from "./camera.ts";
 
 // The launch film's shots and the README's pictures. Times in `ui` are seconds into the shot
 // (negative: during the warm-up); `story` is the story second at the shot's first frame (story.ts T).
@@ -42,7 +43,7 @@ const EVENING: Record<string, Blocking> = {
   juniper: { slot: "hammock-d2s35" },
   // Mira flies in at the start and takes up the bow rail, phone out.
   mira: { slot: "rail-bow-1", act: "selfie" },
-  // Below decks, at the rail round the ship's computer: she gets the first buzz down there.
+  // Below decks, at the rail round Computah's core: she gets the first buzz down there.
   sable: { slot: "core-2", act: "rail" },
 };
 
@@ -162,7 +163,7 @@ export const SHOTS: Shot[] = [
 
   // ---------------- 27–38 s: the plan, the scramble, the hire ----------------
   {
-    name: "plan", note: "27–31 s · the computer reads the repos, replies, and its plan appears",
+    name: "plan", note: "27–31 s · Computah reads the repos, replies, and its plan appears",
     phoneScale: PHONE, story: T.send + 0.3, duration: T.plan - T.send + 1.6, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK,
     camera: { captain: true },
     ui: [{ at: -1.9, do: { phone: "cover" } }, { at: -1.5, do: { phone: "open" } }, { at: -0.2, do: { thread: "dark" } }],
@@ -229,6 +230,24 @@ export const SHOTS: Shot[] = [
 
 const still = (s: Omit<Still, "duration"> & { duration?: number }): Still => ({ duration: 1 / 60, ...s });
 
+/** The README's "life on board" pictures: shown two to a row, so their bubbles are drawn larger still. */
+const LIFE: Pick<Shot, "size" | "bubbles"> = { size: [1600, 900], bubbles: 2.1 };
+
+/**
+ * One frame of a clip, `t` seconds in, as a still: the same story time, staging, talk and camera
+ * (a dolly held where it is at that frame), so the picture is the moment in the film. `s` overrides
+ * anything, the camera included, to frame it closer.
+ */
+function frameOf(clip: string, t: number, s: Pick<Still, "name" | "file" | "note"> & Partial<Shot>): Still {
+  const shot = SHOTS.find((x) => x.name === clip);
+  if (!shot) throw new Error(`No shot called ${clip}`);
+  const cam = shot.camera;
+  const camera: Shot["camera"] = "dolly" in cam && !cam.track ? { hold: dolly(cam.dolly, t / shot.duration, cam.ease) } : cam;
+  const groups = shot.groups && Object.fromEntries(Object.entries(shot.groups).map(([k, g]) => [k, { ...g, lineAt: g.lineAt - t }]));
+  const ui = shot.ui?.map((a) => ({ ...a, at: a.at - t }));
+  return still({ ...shot, ...LIFE, duration: 1 / 60, story: shot.story + t, warmup: (shot.warmup ?? 2) + t, camera, groups, ui, ...s });
+}
+
 const GALLERY_VIEWS: { name: string; pose: { pos: [number, number, number]; at: [number, number, number]; fov: number } }[] = [
   { name: "aerial", pose: { pos: [-118, 112, 52], at: [0, 6, 2], fov: 50 } },
   { name: "stern", pose: { pos: [26, 12, 100], at: [0, 9, 45], fov: 45 } },
@@ -240,13 +259,36 @@ export const STILLS: Still[] = [
   still({ name: "hero", file: "hero.png", note: "the yacht at golden hour", story: 60, hour: GOLDEN, stage: EVENING, camera: { hold: { pos: [-62, 30, -98], at: [2, 8, -6], fov: 40 } } }),
   still({ name: "hero-2x", file: "hero@2x.png", note: "the hero at twice the size", size: [3840, 2160], story: 60, hour: GOLDEN, stage: EVENING, camera: { hold: { pos: [-62, 30, -98], at: [2, 8, -6], fov: 40 } } }),
 
+  // Life on board: the crew off duty and at work, a line each, under the README's title.
+  frameOf("bar", 3.6, { name: "life-bar", file: "life-bar.png", note: "life · the bar: \"something with no merge conflicts\"" }),
+  frameOf("hottub", 2.3, { name: "life-hottub", file: "life-hottub.png", note: "life · the hot tub: \"this is nice\" \"warmer than prod\"" }),
+  frameOf("pool", 2.4, {
+    name: "life-cannonball", file: "life-cannonball.png", note: "life · Bodhi's cannonball, mid-air",
+    // Closer in on him in the air, Coral's shout to the right.
+    camera: { hold: { pos: [-6.5, 16.05, 25.64], at: [-1.36, 16.17, 31.79], fov: 30 } },
+    ui: [{ at: -3.4, do: { stage: { bodhi: { slot: "pool-2" } } } }, { at: -0.2, do: { say: "coral", text: "BODHI!", ms: 1800 } }],
+  }),
+  frameOf("gym", 2.2, { name: "life-gym", file: "life-gym.png", note: "life · the gym: \"is it DNS?\" \"it's always DNS\"" }),
+  frameOf("scramble", 1.8, {
+    name: "life-scramble", file: "life-scramble.png", note: "life · phones buzz: drinks down, out of the hot tub",
+    // Closer than the clip's wide: the bar and the hot tub as the phones go off.
+    camera: { hold: { pos: [-4.2, 17.6, 35.2], at: [-1.39, 15.14, 42.62], fov: 38 } },
+  }),
+  still({
+    name: "life-night", file: "life-night.png", note: "life · the office at night: Otis about to land his sweep", story: T.otisLands - 2, hour: NIGHT, captain: CAPTAIN_AWAY, ...LIFE,
+    focus: ["otis", "teo", "wren", "sable"],
+    // From aft of the front desks: Otis and Teo at work under the office wall board.
+    camera: { hold: { pos: [0.6, 12.1, -9.4], at: [-1.2, 11.3, -15.0], fov: 52 } },
+    ui: [{ at: -0.8, do: { say: "otis", text: "green across the board", ms: 3000 } }],
+  }),
+
   // How a thread plays out, in six steps.
   still({
     name: "thread-1-ask", file: "thread-1-ask.png", note: "1 · ask on the phone", story: T.send - 0.15, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK, camera: { captain: true }, warmup: 4,
     ui: [{ at: -3.5, do: { phone: "cover" } }, { at: -3, do: { phone: "open" } }, { at: -2.8, do: { type: "Add dark mode and a billing page", cps: 20 } }],
   }),
   still({
-    name: "thread-2-plan", file: "thread-2-plan.png", note: "2 · the computer plans", story: T.plan + 1.2, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK, camera: { captain: true },
+    name: "thread-2-plan", file: "thread-2-plan.png", note: "2 · Computah plans", story: T.plan + 1.2, hour: SUNSET + 0.05, stage: EVENING, captain: CAPTAIN_SUNDECK, camera: { captain: true },
     ui: [{ at: -1.8, do: { phone: "cover" } }, { at: -1.5, do: { phone: "open" } }, { at: -1.4, do: { thread: "dark" } }],
   }),
   still({

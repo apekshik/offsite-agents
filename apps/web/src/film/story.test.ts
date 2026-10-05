@@ -23,7 +23,7 @@ describe("the scripted ship", () => {
     expect(after.messages.get("thread_dark")!.map((m) => m.text)).toEqual([REQUEST]);
   });
 
-  it("streams the computer's reply, then shows its plan of eight tasks", () => {
+  it("streams Computah's reply, then shows its plan of eight tasks", () => {
     const mid = shipAt(EPOCH, T.reply + 1).messages.get("thread_dark")!.at(-1)!;
     expect(mid.streaming).toBe(true);
     expect(shipAt(EPOCH, T.plan - 0.1).tasks.get("thread_dark")).toHaveLength(0);

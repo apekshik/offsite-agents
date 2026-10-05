@@ -10,7 +10,39 @@
 [![Convex](https://img.shields.io/badge/backend-Convex-c2410c)](https://www.convex.dev)
 [![three.js](https://img.shields.io/badge/world-three.js-1f6f8b)](https://threejs.org)
 
-<a href="docs/media/hero@2x.webp"><img src="docs/media/hero.webp" alt="The Offsite superyacht cruising through open water at golden hour, helipad on the bow" width="100%"></a>
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/hero-poster.webp">
+  <img src="docs/media/hero-loop.webp" alt="The crew on board: banter at the bar, a cannonball into the pool, phones buzzing as work comes in, and the office lit up at night" width="100%">
+</picture>
+
+### Life on board
+
+<table>
+<tr>
+<td width="50%"><img src="docs/media/life-bar.webp" alt="Wren at the bar at sunset, her speech bubble: something with no merge conflicts" width="100%"></td>
+<td width="50%"><img src="docs/media/life-hottub.webp" alt="Kofi, Marlo and Ines in the hot tub: this is nice, warmer than prod" width="100%"></td>
+</tr>
+<tr>
+<td align="center">Pike: "What'll it be?" Wren: "Something with no merge conflicts."</td>
+<td align="center">The hot tub. "This is nice." "Warmer than prod."</td>
+</tr>
+<tr>
+<td><img src="docs/media/life-cannonball.webp" alt="Bodhi mid-air over the pool, Coral shouting BODHI!" width="100%"></td>
+<td><img src="docs/media/life-gym.webp" alt="Bodhi on the weight bench and Lumi on the treadmill: is it DNS? it's always DNS" width="100%"></td>
+</tr>
+<tr>
+<td align="center">Bodhi's cannonball. Coral and Teo get soaked.</td>
+<td align="center">The gym. "Is it DNS?" "It's always DNS."</td>
+</tr>
+<tr>
+<td><img src="docs/media/life-scramble.webp" alt="Phones buzzing at the bar and the hot tub as work comes in, someone calling coming!" width="100%"></td>
+<td><img src="docs/media/life-night.webp" alt="The office at night, crew at their desks under the wall board, Otis saying green across the board" width="100%"></td>
+</tr>
+<tr>
+<td align="center">You ask for something. Their phones buzz, and drinks go down.</td>
+<td align="center">Night in the office. Otis: "Green across the board."</td>
+</tr>
+</table>
 
 </div>
 
@@ -18,9 +50,10 @@
 
 Agents are better company than a wall of terminal text. Offsite puts yours on a yacht.
 
-You're the captain. Take the foldable phone out of your pocket, or walk up to the helm, and ask the
-ship's computer for something. It reads your repos, plans the work and hands it to whoever is free;
-if everyone is busy it hires someone, and they arrive by helicopter. The crew are real Claude Code
+You're the captain. Take the foldable phone out of your pocket, or walk up to the helm, and ask
+Computah (the main orchestrator) for something. Computah helps you manage your crew: it reads your
+repos, plans the work and hands it to whoever is free; if everyone is busy it hires someone, and they
+arrive by helicopter. It checks what the crew land before it goes in. The crew are real Claude Code
 and Codex agents, running on your own subscriptions through a small runner on your machine, each in
 its own git worktree. Finished work turns up as a package on the bridge counter. Off duty, they hang
 out at the bar, swim, fish off the stern and trade bad jokes in the hammocks.
@@ -39,17 +72,17 @@ No API keys, and Offsite never stores a provider credential: the runner starts t
 <td width="50%" valign="top">
 
 **1. You ask.** Press <kbd>F</kbd> twice to unfold the phone, or press <kbd>E</kbd> at the helm,
-and tell the computer what you want: "add dark mode and a billing page".
+and tell Computah what you want: "add dark mode and a billing page".
 
-<img src="docs/media/thread-1-ask.webp" alt="The unfolded phone at sunset, asking the ship's computer for dark mode and a billing page" width="100%">
+<img src="docs/media/thread-1-ask.webp" alt="The unfolded phone at sunset, asking Computah for dark mode and a billing page" width="100%">
 
 </td>
 <td width="50%" valign="top">
 
-**2. The computer plans.** It reads the repos, splits the work into tasks (one repo each, in the
+**2. Computah plans.** It reads the repos, splits the work into tasks (one repo each, in the
 right order) and hands each to someone free. Everyone busy? It hires.
 
-<img src="docs/media/thread-2-plan.webp" alt="The computer's plan: eight tasks across the web and api repos, each with a crew member" width="100%">
+<img src="docs/media/thread-2-plan.webp" alt="Computah's plan: eight tasks across the web and api repos, each with a crew member" width="100%">
 
 </td>
 </tr>
@@ -82,7 +115,7 @@ delivered as a package. Open it for the real diff, file by file.
 </td>
 <td width="50%" valign="top">
 
-**6. A pull request in every repo.** When everything has landed, the computer reviews and finishes
+**6. A pull request in every repo.** When everything has landed, Computah reviews and finishes
 the thread: one branch name, one PR per repo it touched.
 
 <img src="docs/media/thread-6-pr.webp" alt="A finished thread: every task landed, with pull requests in the web and api repos" width="100%">
@@ -98,8 +131,8 @@ the thread: one branch name, one PR per repo it touched.
 <img src="docs/media/cast.webp" alt="The crew lined up on the helipad at golden hour" width="100%">
 
 Anyone can join. Each crew member has a name, a look, a specialty and what powers them: Claude Code
-or Codex, a model, an effort level, which of your accounts. Most threads get one crew member; the
-computer splits work only when it clearly splits. When someone needs a decision or a permission,
+or Codex, a model, an effort level, which of your accounts. Most threads get one crew member;
+Computah splits work only when it clearly splits. When someone needs a decision or a permission,
 they walk over to you and your phone buzzes.
 
 <table>
@@ -118,6 +151,8 @@ they walk over to you and your phone buzzes.
 <br>
 
 ## The yacht
+
+<a href="docs/media/hero@2x.webp"><img src="docs/media/hero.webp" alt="The Offsite superyacht cruising through open water at golden hour, helipad on the bow" width="100%"></a>
 
 <table>
 <tr>
@@ -151,8 +186,8 @@ they walk over to you and your phone buzzes.
 
 The ship tells you how busy it is before you read a word: the office and bridge lights, the radar
 and the wake all pick up when work is out. Below the waterline there's more: a beach club, a gym, a
-cinema, a sauna, the crew mess, and behind a glass wall the server room, where the ship's computer
-lives as a column of light that brightens when it thinks.
+cinema, a sauna, the crew mess, and behind a glass wall the server room, where Computah lives as a
+column of light that brightens when it thinks.
 
 <br>
 
@@ -164,23 +199,23 @@ a small sample site, on the captain's own subscriptions:
 > Add a counter page with a big + button, and a dark mode toggle for the whole site. They're separate
 > pieces, so put two crew on them side by side.
 
-The computer (Claude Code) planned two tasks and gave them a shared contract: which CSS variables
+Computah (on Claude Code) planned two tasks and gave them a shared contract: which CSS variables
 the theme defines, and who touches which part of `index.html`. **Indy** (Claude Code) built the
 counter page with its own script, styles and 8 tests (+208 −0, 6 files). **Arlo** (Codex) built
 site-wide dark mode (+133 −5, 7 files), pausing once for a permission the captain allowed. When
-Indy's work landed, the computer reviewed it and steered Arlo mid-task to cover the new page too.
+Indy's work landed, Computah reviewed it and steered Arlo mid-task to cover the new page too.
 The thread finished about six minutes after it was asked: **+341 −5 across 10 files, 12 of 12 tests
 passing** on the merged branch. The sample repo had no GitHub remote, so it ended on a local branch
 instead of a pull request.
 
 <table>
 <tr>
-<td width="33%"><img src="docs/media/real-ask.webp" alt="The real thread on the phone: the captain's ask and the computer's two-task plan" width="100%"></td>
+<td width="33%"><img src="docs/media/real-ask.webp" alt="The real thread on the phone: the captain's ask and Computah's two-task plan" width="100%"></td>
 <td width="33%"><img src="docs/media/real-working.webp" alt="Arlo, a Codex crew member, working on dark mode, with his live tool calls" width="100%"></td>
 <td width="33%"><img src="docs/media/real-off-duty.webp" alt="Indy's card after delivering: off duty in the hot tub, changes +208 −0" width="100%"></td>
 </tr>
 <tr>
-<td>The ask, and the computer's plan.</td>
+<td>The ask, and Computah's plan.</td>
 <td>Arlo on Codex, mid-task.</td>
 <td>Indy, delivered and off duty in the hot tub.</td>
 </tr>
@@ -199,10 +234,10 @@ instead of a pull request.
 What the runner printed (paths shortened, account emails removed):
 
 ```
-offsite is up on "MacBook Pro" for demo-real.
-  claude         v2.1.280   authenticated    Claude Max
-  codex          v0.155.1   authenticated    ChatGPT Pro
-Waiting for work. Ctrl-C stops the crew and commits their work.
+Offsite Agents v0.1.0 · MacBook Pro
+  ✓ Claude Code   Claude Max
+  ✓ Codex         ChatGPT Pro
+
 [8fqv3f] Indy · counter-page: working in ~/.offsite/worktrees/…/counter-page on offsite/add-a-counter-page-with-a-big-8fp0st-counter-page (claude)
 [8fp5q7] Arlo · dark-mode: working in ~/.offsite/worktrees/…/dark-mode on offsite/add-a-counter-page-with-a-big-8fp0st-dark-mode (codex)
 [8fqv3f] Indy · counter-page: landed e5a4059d on offsite/add-a-counter-page-with-a-big-8fp0st
@@ -222,7 +257,7 @@ Offsite is built to point at code you care about.
   fast-forwarded, one task at a time per repo. On a conflict, the crew member who just finished
   resolves it in their own worktree.
 - **Nothing pushed until the thread finishes.** Offsite pushes the thread's branch and opens the pull
-  requests only when the computer finishes the thread. Until then it's all local.
+  requests only when Computah finishes the thread. Until then it's all local.
 - **You answer the permission prompts.** Anything the crew's policy doesn't settle becomes a question
   for you: the crew member walks over, the phone buzzes, and you choose allow, always allow or deny.
 - **No stored credentials.** The runner starts your own `claude` and `codex` with their own logins and
@@ -242,26 +277,29 @@ Offsite is built to point at code you care about.
 
 ### Hosted
 
-**You need** Node 22.18+, pnpm 10, git, and [Claude Code](https://claude.com/claude-code) or
+**You need** Node 22.18+, git, and [Claude Code](https://claude.com/claude-code) or
 [Codex](https://github.com/openai/codex) (or both) installed and signed in on the computer that has
 your code. For pull requests, a signed-in [GitHub CLI](https://cli.github.com) (`gh`).
 
 1. Sign in at [offsiteagents.app](https://offsiteagents.app) and name your ship.
-2. Connect the computer your crew will run on. The runner isn't on npm yet, so it runs from a
-   checkout; the app shows these same lines:
+2. On the computer your crew will run on:
 
    ```sh
-   git clone https://github.com/apekshik/offsite-agents.git
-   cd offsite-agents && pnpm install
-   pnpm runner login --url https://adamant-shrimp-822.convex.cloud   # approve the code it prints in the app
-   pnpm runner start                                                 # keep it running: this is your crew
+   npx https://offsiteagents.app/offsite-agents.tgz
    ```
 
-3. Add a repo (a folder on that machine) from the phone's Ship tab, then ask the computer for
+   It opens your browser to approve this machine (one click), then starts taking work right away.
+   Keep it running: this is your crew. Next time, the same command just starts.
+
+3. Add a repo (a folder on that machine) from the phone's Ship tab, then ask Computah for
    something.
 
-`pnpm runner probe` shows what's installed and signed in on this machine, and
-`pnpm runner profile add <claude|codex> <name>` adds another account.
+`status` shows whether it's paired and running and what's signed in; `install` keeps it running in
+the background from login (a LaunchAgent on macOS, a systemd user unit on Linux; `uninstall` undoes
+it); `profile add <claude|codex> <name>` adds another account, and `--help` lists the rest. Add any
+of these after the command above.
+
+npx keeps its first download, so to update, `rm -rf ~/.npm/_npx` and run it again.
 
 ### Local
 
@@ -276,8 +314,11 @@ pnpm sim                  # in another terminal: a scripted crew, no CLI, no spe
 ```
 
 The sim crew plays the whole loop with small, real git changes in a repo you add (plans, questions,
-landings, deliveries, finished threads) without touching a subscription. For real agents, `pnpm runner login` and `pnpm runner start` pick up your
-dev deployment from `.env.local`. Deploying your own copy: [docs/deploy.md](docs/deploy.md).
+landings, deliveries, finished threads) without touching a subscription. For real agents,
+`pnpm runner` (the CLI from source: pair if needed, then start) picks up your dev deployment from
+`.env.local`. The published CLI never reads `.env.local`; point it at a dev or self-hosted deployment
+with `OFFSITE_URL=https://<deployment>.convex.cloud npx https://offsiteagents.app/offsite-agents.tgz` (or `--url`). Deploying your
+own copy: [docs/deploy.md](docs/deploy.md).
 
 <br>
 
@@ -334,7 +375,8 @@ flowchart LR
   repos it holds, makes the worktrees, runs the harness adapters, lands finished work and opens pull
   requests. Every harness event is normalized to one `RunEvent` shape, and text deltas are coalesced
   to 100 ms before they reach Convex.
-- **The ship's computer** is a crew member too: a Claude Code or Codex agent with planning tools
+- **Computah** is a crew member too (role `computer` in the code; its turns are `computer` runs,
+  and the crew mention it as `@computah`): a Claude Code or Codex agent with planning tools
   (`plan_tasks`, `assign_task`, `hire_crew`, `message_crew`, `ask_captain`, `review_task`,
   `send_back`, `finish_thread`). Crew members get `sync_with_team` to pick up what teammates landed.
 - **The world** is data-driven. A world marks where things can happen (desks, loungers, the bar, the
@@ -365,7 +407,7 @@ station in orbit is a contribution away.
 2. Mark the layout ([packages/contracts/src/world.ts](packages/contracts/src/world.ts)): slots by
    kind (`desk`, `lounger`, `bar-stool`, `pool`, `rail`, `helm`, `computer`, `dropoff`, `helipad`,
    `crew-spawn`, `captain-spawn` and the rest) and a walking graph between them.
-3. Add an interactable with the id `helm` for the computer's console, fly arrivals in from
+3. Add an interactable with the id `helm` for Computah's console, fly arrivals in from
    `setArrivals`, and, if you like, show how busy the ship is in `setBusy`.
 4. Register it in `WORLDS` in [apps/web/src/game/Game.tsx](apps/web/src/game/Game.tsx) and offer it
    in the picker in [apps/web/src/screens/Gate.tsx](apps/web/src/screens/Gate.tsx).
@@ -381,7 +423,7 @@ time of day and seats crew for checking scale. See [CONTRIBUTING.md](CONTRIBUTIN
 | Path | What lives there |
 |---|---|
 | [`apps/web`](apps/web) | The app: the 3D world, the phone, the helm console, crew cards. Vite, React for the interface, three.js for the world. |
-| [`convex`](convex) | The backend: ships, crew and hiring, machines and pairing, threads, tasks, runs, events, questions, the computer's tools. |
+| [`convex`](convex) | The backend: ships, crew and hiring, machines and pairing, threads, tasks, runs, events, questions, Computah's tools. |
 | [`packages/runner`](packages/runner) | `offsite`, the CLI that runs your crew on your machine. |
 | [`packages/harness`](packages/harness) | The Claude Code and Codex adapters, plus the scripted sim crew. |
 | [`packages/git`](packages/git) | Thread branches, a worktree per task, landing one task at a time, pull requests. |
@@ -420,7 +462,7 @@ Offsite is young. Today it is:
 
 - **Single player.** Your ship, your crew. Friends coming aboard is planned.
 - **One world,** the yacht. Mars and space are next, and open to anyone who wants to build them.
-- **Runner from a checkout.** The npm package (`offsite-agents`) isn't published yet.
+- **Runner from the site.** Until the npm package (`offsite-agents`) is published, `npx` installs it from offsiteagents.app.
 - **Run on macOS so far.** Linux and Windows haven't been tried.
 
 Issues and ideas are welcome.

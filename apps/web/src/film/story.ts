@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import type { RunEvent } from "@offsite/contracts";
+import { COMPUTER_HANDLE, COMPUTER_NAME, type RunEvent } from "@offsite/contracts";
 import { CREW_PRESETS, randomCrewAvatar } from "@offsite/kit";
 import type { api } from "../../../../convex/_generated/api";
 import type { Id, TableNames } from "../../../../convex/_generated/dataModel";
@@ -12,7 +12,7 @@ import type { CrewRow, MachineRow, MessageRow, OfficeRow, QuestionRow, Snapshot,
 // Story time is seconds from 19:00 (BASE_EPOCH in clock.ts). The arc:
 //   0–118 s     golden hour, off duty. Mira flies in at the start.
 //   ~120 s      the captain types "Add dark mode and a billing page" on the sun deck and sends it.
-//   ~123–132 s  the computer reads the repos, plans eight tasks and hires Ezra; the crew scramble.
+//   ~123–132 s  Computah reads the repos, plans eight tasks and hires Ezra; the crew scramble.
 //   ~142 s      Ezra's helicopter lands.
 //   9000 s on   21:30, night: everyone at work, packages on the counter, the thread finishes with
 //               a pull request in each repo.
@@ -35,7 +35,7 @@ export const T = {
   unfold: 118,
   typeFrom: 119.6,
   send: 122.6,
-  /** The computer's reply starts streaming. */
+  /** Computah's reply starts streaming. */
   reply: 125.0,
   plan: 128.0,
   /** First crew member gets up from leisure. */
@@ -233,7 +233,7 @@ const MESSAGES: MessageDef[] = [
   { key: "d-plan", thread: "docs", at: 4204, author: "computer", kind: "plan", text: "Four tasks." },
 ];
 
-/** The computer's own turns: [thread, from, to, steps]. */
+/** Computah's own turns: [thread, from, to, steps]. */
 const COMPUTER_RUNS: { thread: string; from: number; to: number; steps: [number, Kind, string][] }[] = [
   { thread: "dark", from: T.send + 0.3, to: T.plan + 0.6, steps: [[T.send + 0.3, "read", "Reading web and api"], [T.send + 1.2, "search", "Finding every hard-coded colour"], [T.reply - 0.4, "plan", "Planning"], [T.plan - 0.6, "agent", "Hiring Ezra"]] },
   { thread: "dark", from: T.finished - 20, to: T.finished, steps: [[T.finished - 20, "read", "Reviewing eight tasks"], [T.finished - 8, "bash", "gh pr create"]] },
@@ -300,12 +300,12 @@ export function shipAt(epoch: number, s: number, seen: ReadonlySet<string> = new
   const open = QUESTIONS.filter((q) => s >= q.from && s < q.to);
   const crewRows: CrewRow[] = [];
 
-  // The computer.
+  // Computah, the main orchestrator.
   const comp = computerLive(s);
   const compStep = comp ? [...comp.steps].reverse().find(([x]) => x <= s) ?? null : null;
   const compEnded = COMPUTER_RUNS.filter((r) => r.to <= s).at(-1) ?? null;
   crewRows.push({
-    _id: id<"crew">(COMPUTER), _creationTime: ms(-86_400), officeId: OFFICE_ID, role: "computer", name: "Computer", handle: "computer",
+    _id: id<"crew">(COMPUTER), _creationTime: ms(-86_400), officeId: OFFICE_ID, role: "computer", name: COMPUTER_NAME, handle: COMPUTER_HANDLE,
     avatar: null, look: null, specialty: null, harness: "claude", model: null, effort: "high", profile: null,
     hiredAt: ms(-86_400), arrivesAt: ms(-86_400), dismissedAt: null,
     live: comp && {
@@ -397,7 +397,7 @@ export function shipAt(epoch: number, s: number, seen: ReadonlySet<string> = new
   }
   threads.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 
-  // Messages: the computer's reply streams in.
+  // Messages: Computah's reply streams in.
   const messages = new Map<string, MessageRow[]>();
   for (const th of THREADS) {
     const rows: MessageRow[] = [];
