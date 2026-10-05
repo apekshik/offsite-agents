@@ -1,0 +1,15 @@
+/* The film page. HUD off (the default for clips): the world and whatever the captain has open. */
+.film-nohud .hud-status, .film-nohud .hud-hints, .film-nohud .hud-look, .film-nohud .hud-prompt,
+.film-nohud .hud-reticle, .film-nohud .hud-cross, .film-nohud .ping, .film-nohud .toasts { display: none !important; }
+
+/* Keyboard hints are for players, not viewers. */
+.device-hint, .hm-close .key, .hud-look { display: none !important; }
+.film-nophone .phone-wrap, .film-nophone .phone-backdrop { display: none !important; }
+
+/* No text caret or hover states in a capture. */
+body:not(.film-preview) * { caret-color: transparent; cursor: none !important; }
+
+.film-index { padding: 32px 40px; font: 15px/1.5 Saira, system-ui, sans-serif; overflow: auto; height: 100%; box-sizing: border-box; }
+.film-index a { color: #4fe3ff; }
+.film-index span { color: #9aa4b2; }
+.film-index code { font-family: "JetBrains Mono", monospace; }
