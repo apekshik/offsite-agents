@@ -18,5 +18,22 @@ export function freshName(taken: Iterable<string>, seed = 0): string {
   return `${CREW_NAMES[start]} ${n}`;
 }
 
-/** The ship's computer's name, shown on the helm and in threads. */
-export const COMPUTER_NAME = "Computer";
+/**
+ * Computah, the main orchestrator: the ship's computer the captain talks to at the helm or on the
+ * phone. In code it is the crew row with role "computer" and its turns are "computer" runs.
+ */
+export const COMPUTER_NAME = "Computah";
+/** How the app introduces it, beside its name, so it reads apart from the crew. */
+export const COMPUTER_ROLE = "Main orchestrator";
+/** What it is for, in a sentence. */
+export const COMPUTER_BLURB = "Helps you manage your crew: plans the work, hands it to whoever's free, hires when everyone's busy, and checks what they land before it goes in.";
+/** The handle the crew and the captain mention it by. */
+export const COMPUTER_HANDLE = "computah";
+/** Its earlier handle, still understood in old threads and messages. */
+export const COMPUTER_HANDLE_ALIASES: readonly string[] = ["computer"];
+
+/** Whether a handle (with or without its @) means Computah. */
+export function isComputerHandle(handle: string): boolean {
+  const h = handle.trim().replace(/^@/, "").toLowerCase();
+  return h === COMPUTER_HANDLE || COMPUTER_HANDLE_ALIASES.includes(h);
+}

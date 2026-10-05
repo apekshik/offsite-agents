@@ -1,5 +1,5 @@
 // What screens show until the app paints them: a dark editor with lines of code for the desks,
-// the ship's computer's console for the helm, a status board for the office's wall. Each screen
+// Computah (the orchestrator)'s console for the helm, a status board for the office's wall. Each screen
 // is its own mesh named `screen:<id>` with its own material, so the app can set `material.map`.
 
 import * as THREE from "three";
@@ -53,7 +53,7 @@ export function deskScreenTexture(): THREE.CanvasTexture {
   }));
 }
 
-/** The ship's computer at the helm: a conversation, a plan, the crew. */
+/** Computah (the orchestrator) at the helm: a conversation, a plan, the crew. */
 export function helmScreenTexture(): THREE.CanvasTexture {
   return canvasTexture(1024, 440, (g) => {
     g.fillStyle = "#08121f";
@@ -62,7 +62,7 @@ export function helmScreenTexture(): THREE.CanvasTexture {
     g.fillRect(0, 0, 260, 440);
     g.fillStyle = "#4fd1ff";
     g.font = "600 30px Saira, system-ui, sans-serif";
-    g.fillText("SHIP'S COMPUTER", 290, 52);
+    g.fillText("COMPUTAH", 290, 52);
     g.fillStyle = "#7d97b5";
     g.font = "20px Saira, system-ui, sans-serif";
     g.fillText("Walk up and press E", 290, 84);

@@ -1,31 +1,32 @@
 {
   "name": "offsite-agents",
-  "version": "0.0.1",
-  "description": "Run your Offsite crew on this machine, on your own Claude Code and Codex subscriptions.",
+  "version": "0.1.0",
+  "description": "Run your Offsite crew on this machine, on your own Claude Code and Codex subscriptions. One command: npx offsite-agents",
+  "keywords": ["offsite", "claude-code", "codex", "agents", "coding-agents", "runner"],
+  "homepage": "https://offsiteagents.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apekshik/offsite-agents.git",
+    "directory": "packages/runner"
+  },
+  "bugs": "https://github.com/apekshik/offsite-agents/issues",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "offsite": "./src/cli.ts"
-  },
-  "exports": {
-    ".": "./src/index.ts"
+    "offsite-agents": "dist/offsite.mjs",
+    "offsite": "dist/offsite.mjs"
   },
   "files": [
-    "dist"
+    "dist/offsite.mjs",
+    "dist/LICENSE",
+    "dist/NOTICE"
   ],
-  "publishConfig": {
-    "bin": {
-      "offsite": "./dist/offsite.mjs"
-    },
-    "exports": {
-      ".": "./dist/index.mjs"
-    }
-  },
   "engines": {
     "node": ">=22.18"
   },
   "scripts": {
     "build": "node build.mjs",
+    "prepack": "node build.mjs",
     "typecheck": "tsc -p .",
     "test": "vitest run --passWithNoTests"
   },

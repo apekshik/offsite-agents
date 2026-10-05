@@ -81,7 +81,7 @@ export async function limit(ctx: MutationCtx, key: string, max: number, windowMs
 export async function requireMachine(ctx: Ctx, token: string): Promise<Doc<"machines">> {
   const hash = await sha256(token);
   const machine = await ctx.db.query("machines").withIndex("by_hash", (q) => q.eq("tokenHash", hash)).unique();
-  if (!machine || machine.revokedAt) fail("This machine is not paired, or was disconnected. Run `offsite login` again.");
+  if (!machine || machine.revokedAt) fail("This machine is not paired, or was disconnected. Run `npx offsite-agents login` again.");
   return machine!;
 }
 

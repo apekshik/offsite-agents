@@ -35,7 +35,7 @@ describe("a thread from request to pull request", () => {
     const { t, captain, officeId, token } = await aboard();
     const crew = await captain.query(api.crew.list, { officeId });
     expect(crew.filter((c) => c.role === "crew")).toHaveLength(3);
-    expect(crew.find((c) => c.role === "computer")?.handle).toBe("computer");
+    expect(crew.find((c) => c.role === "computer")).toMatchObject({ name: "Computah", handle: "computah" });
 
     const threadId = await captain.mutation(api.threads.create, { officeId, text: "Add dark mode to the settings page" });
     let work = await t.query(api.runner.work, { token });
@@ -148,6 +148,30 @@ describe("a thread from request to pull request", () => {
     await captain.mutation(api.threads.send, { threadId, text: "Actually, use blue" });
     const live = (await t.query(api.runner.work, { token })).live.find((l) => l.runId === c!.run.id)!;
     expect(live.inbox[0]?.text).toContain("Actually, use blue");
+  });
+});
+
+describe("Computah", () => {
+  it("answers to @computer as well as @computah, and the rename migration moves old ships over once", async () => {
+    const { t, captain, officeId, token } = await aboard();
+    // A ship from before the rename.
+    const row = (await captain.query(api.crew.list, { officeId })).find((c) => c.role === "computer")!;
+    await t.run((ctx) => ctx.db.patch(row._id, { name: "Computer", handle: "computer" }));
+    expect(await t.mutation(internal.crew.renameComputer, {})).toEqual({ computers: 1, renamed: 1 });
+    expect(await t.mutation(internal.crew.renameComputer, {})).toEqual({ computers: 1, renamed: 0 });
+    expect((await captain.query(api.crew.list, { officeId })).find((c) => c.role === "computer")).toMatchObject({ name: "Computah", handle: "computah" });
+
+    // Old messages still say @computer; it reaches Computah.
+    await captain.mutation(api.threads.create, { officeId, text: "Start" });
+    const work = await t.query(api.runner.work, { token });
+    const c = await t.mutation(api.runner.claim, { token, runId: work.queued[0]!.runId });
+    for (const handle of ["@computer", "computah"]) {
+      await expect(t.mutation(api.tools.messageCrew, { token, runId: c!.run.id, crew: handle, text: "note to self" })).resolves.toMatchObject({ delivered: "to their live run" });
+    }
+    // Nobody new takes either handle.
+    await captain.mutation(api.crew.hire, { officeId, name: "Computer" });
+    const hired = (await captain.query(api.crew.list, { officeId })).find((x) => x.role === "crew" && x.name === "Computer")!;
+    expect(hired.handle).toBe("computer-2");
   });
 });
 

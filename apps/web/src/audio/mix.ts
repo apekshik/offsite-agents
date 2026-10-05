@@ -26,7 +26,7 @@ export function ambienceMix(night: number, busy: number): Record<Layer, number> 
     // Breeze by day, halyards and lapping water by night.
     wind: 0.25 + 0.6 * day,
     night: n,
-    // Work: typing first, the murmur once a few are at it, the computer working harder.
+    // Work: typing first, the murmur once a few are at it, Computah working harder.
     typing: Math.pow(b, 0.8),
     murmur: smooth(0.2, 1, b),
     hum: 0.15 + 0.85 * b,

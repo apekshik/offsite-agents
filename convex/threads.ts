@@ -61,7 +61,7 @@ function clean(text: string): string {
   return t.slice(0, LIMITS.messageChars);
 }
 
-/** Start a thread: your words go to the ship's computer, which starts on it. */
+/** Start a thread: your words go to Computah, which starts on it. */
 export const create = mutation({
   args: { officeId: v.id("offices"), text: v.string() },
   handler: async (ctx, { officeId, text }) => {
@@ -77,7 +77,7 @@ export const create = mutation({
   },
 });
 
-/** Say more in a thread. Reaches the computer's live turn, or starts a new one. */
+/** Say more in a thread. Reaches Computah's live turn, or starts a new one. */
 export const send = mutation({
   args: { threadId: v.id("threads"), text: v.string() },
   handler: async (ctx, { threadId, text }) => {

@@ -16,7 +16,7 @@ const tool = <S extends z.ZodRawShape>(t: ToolSpec<S>) => t;
 const taskRef = z.string().min(1).describe("A task's id, or the key you gave it in plan_tasks");
 const crewRef = z.string().min(1).describe("A crew member's handle, e.g. \"juniper\"");
 
-// ---- the ship's computer ----
+// ---- Computah, the main orchestrator ("computer" runs) ----
 
 export const COMPUTER_TOOLS = {
   crew_status: tool({

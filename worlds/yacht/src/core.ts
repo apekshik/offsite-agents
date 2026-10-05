@@ -1,4 +1,4 @@
-// The ship's computer, made visible: a column of light in the middle of the server room, in a
+// Computah (the orchestrator), made visible: a column of light in the middle of the server room, in a
 // glass tube, rings of light turning round it, racks all round blinking. It is the orchestrator's
 // heart, so it shows how busy the ship is: at rest it breathes slowly, dim; with the whole crew at
 // work it pulses fast and bright, and the racks' lights race.

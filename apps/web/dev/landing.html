@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Landing backdrop</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; background: #05070b; overflow: hidden; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #stats { position: fixed; top: 8px; right: 8px; font: 12px ui-monospace, Menlo, monospace; color: #9fb6cc; white-space: pre; }
+    body.clean #stats { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="stats"></div>
+  <script type="module" src="./landing.ts"></script>
+</body>
+</html>

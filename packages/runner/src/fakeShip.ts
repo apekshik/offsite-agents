@@ -1,4 +1,4 @@
-import type { ChangeStats, Look, RunEvent, RunKind } from "@offsite/contracts";
+import { COMPUTER_HANDLE, COMPUTER_NAME, isComputerHandle, type ChangeStats, type Look, type RunEvent, type RunKind } from "@offsite/contracts";
 import type { Backend, LiveRun, Outcome, RepoInfo, ReviewInfo, RunContext, ShipStatus, ThreadPr, Work } from "./backend.ts";
 
 // An in-memory ship that follows the backend's rules (convex/runner.ts, tools.ts, flow.ts) closely enough to drive
@@ -12,7 +12,7 @@ interface Run { id: string; kind: RunKind; threadId: string | null; taskId: stri
 interface Question { id: string; runId: string; requestId: string; prompt: string; answer: string | null; delivered: boolean }
 
 export class FakeShip implements Backend {
-  readonly crew: Crew[] = [{ id: "crew-computer", name: "Computer", handle: "computer", role: "computer", harness: "sim" }];
+  readonly crew: Crew[] = [{ id: "crew-computer", name: COMPUTER_NAME, handle: COMPUTER_HANDLE, role: "computer", harness: "sim" }];
   readonly threads: Thread[] = [];
   readonly tasks: Task[] = [];
   readonly runs: Run[] = [];
@@ -91,7 +91,7 @@ export class FakeShip implements Backend {
       if (busy.has(who.id) || this.liveRunOf(who.id)) continue;
       busy.add(who.id);
       task.state = "doing";
-      this.runs.push({ id: this.id("run"), kind: "task", threadId: task.threadId, taskId: task.id, crewId: who.id, state: "queued", prompt: task.notes ? `${task.brief}\n\nNotes from the computer on your last attempt:\n${task.notes}` : task.brief, interrupt: false, error: null, report: null, worktree: null });
+      this.runs.push({ id: this.id("run"), kind: "task", threadId: task.threadId, taskId: task.id, crewId: who.id, state: "queued", prompt: task.notes ? `${task.brief}\n\nNotes from Computah on your last attempt:\n${task.notes}` : task.brief, interrupt: false, error: null, report: null, worktree: null });
     }
     this.notify();
   }
@@ -217,7 +217,7 @@ export class FakeShip implements Backend {
 
   private computerThread(runId: string): Thread {
     const run = this.runs.find((r) => r.id === runId)!;
-    if (run.kind !== "computer") throw new Error("Only the ship's computer has this tool");
+    if (run.kind !== "computer") throw new Error(`Only ${COMPUTER_NAME}, the main orchestrator, has this tool`);
     return this.threads.find((t) => t.id === run.threadId)!;
   }
   private resolveTask(thread: Thread, ref: string): Task {
@@ -255,9 +255,9 @@ export class FakeShip implements Backend {
     assignTask: async () => ({}),
     hireCrew: async (_runId, args) => { const c = this.hire(args.name ?? `Hire${this.n}`); return { handle: c.handle, name: c.name, arrivesAt: Date.now() }; },
     messageCrew: async (_runId, handle, text) => {
-      const c = this.crew.find((x) => x.handle === handle)!;
+      const c = this.crew.find((x) => (isComputerHandle(handle) ? x.role === "computer" : x.handle === handle))!;
       const live = this.liveRunOf(c.id);
-      this.inbox.push({ id: this.id("inbox"), crewId: c.id, runId: live && live.state !== "queued" ? live.id : null, text: `From the computer: ${text}`, delivered: false });
+      this.inbox.push({ id: this.id("inbox"), crewId: c.id, runId: live && live.state !== "queued" ? live.id : null, text: `From ${COMPUTER_NAME}: ${text}`, delivered: false });
       this.notify();
       return { delivered: live ? "to their live run" : "with their next task" };
     },

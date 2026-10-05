@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { ui, useUi } from "../bridge.ts";
-import { ActivityLabel, Button, Card, clock, Dot, Face, Key, useNow } from "../ui/index.tsx";
+import { COMPUTER_NAME } from "@offsite/contracts";
+import { ActivityLabel, Button, Card, clock, Dot, Face, Key, OrchestratorBadge, useNow } from "../ui/index.tsx";
 import { activityOf, ComputerLabel, useShip } from "../overlay/ship.tsx";
 import { NewThread, QuestionCard, ThreadList, ThreadView } from "../phone/Conversation.tsx";
 import { CrewDetail } from "../phone/Crew.tsx";
@@ -10,7 +11,7 @@ import { Review } from "../review/Review.tsx";
 import { closeReview } from "../review/open.ts";
 import "./helm.css";
 
-// The helm console on the bridge: the same computer interface as the phone, big. Threads on the
+// The helm console on the bridge: Computah's interface, the same as the phone's, big. Threads on the
 // left, the conversation in the middle, the ship on the right (what waits on you, who's aboard,
 // pull requests). The game opens it (walk up to the helm, E); Esc steps away.
 
@@ -26,14 +27,20 @@ function Accounts() {
 function Aboard({ onPick, picked }: { onPick: (id: string) => void; picked: string | null }) {
   const { crew, computer } = useShip();
   const now = useNow(2000);
-  const all = [...(computer ? [computer] : []), ...crew];
   return (
     <div className="hm-aboard">
-      {all.map((c) => (
+      {computer ? (
+        <button className={`hm-person ${picked === computer._id ? "on" : ""}`} onClick={() => onPick(computer._id)}>
+          <Face computer size={26} />
+          <span className="clip">{computer.name} <OrchestratorBadge /></span>
+          <ComputerLabel c={computer} />
+        </button>
+      ) : null}
+      {crew.map((c) => (
         <button key={c._id} className={`hm-person ${picked === c._id ? "on" : ""}`} onClick={() => onPick(c._id)}>
-          <Face avatar={c.avatar} look={c.look} computer={c.role === "computer"} size={26} />
+          <Face avatar={c.avatar} look={c.look} size={26} />
           <span className="clip">{c.name}</span>
-          {c.role === "computer" ? <ComputerLabel c={c} /> : <ActivityLabel activity={activityOf(c, now)} />}
+          <ActivityLabel activity={activityOf(c, now)} />
         </button>
       ))}
     </div>
@@ -69,7 +76,7 @@ export function Helm() {
     <div className="hm-new">
       <Face computer size={44} />
       <span className="disp">What should the crew do?</span>
-      <span className="dim">Say it the way you'd tell a colleague. The computer reads the repo, plans the work and hands it out.</span>
+      <span className="dim">Say it the way you'd tell a colleague. {COMPUTER_NAME} reads the repo, plans the work and hands it out.</span>
       <NewThread big autoFocus onStarted={() => setComposing(false)} placeholder="Add a settings page with a dark mode toggle…" />
       {threadId ? <Button kind="ghost" size="sm" onClick={() => setComposing(false)}>Cancel</Button> : null}
     </div>

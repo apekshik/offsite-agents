@@ -1,16 +1,17 @@
 import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { audio } from "../audio/index.ts";
-import { ACTIVITY_LABEL, isWorking, type RunEvent } from "@offsite/contracts";
+import { ui, useUi } from "../bridge.ts";
+import { ACTIVITY_LABEL, COMPUTER_BLURB, COMPUTER_NAME, isWorking, type RunEvent } from "@offsite/contracts";
 import { CREW_PRESETS } from "@offsite/kit";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { activityTone, ago, Button, Card, Chip, ConfirmButton, errorText, Face, Field, Input, RichText, useNow, useStickToBottom } from "../ui/index.tsx";
+import { activityTone, ago, Button, Card, Chip, ConfirmButton, errorText, Face, Field, Input, OrchestratorBadge, RichText, useNow, useStickToBottom } from "../ui/index.tsx";
 import { activityOf, harnessName, placeOf, useShip, workTitle, type CrewRow } from "../overlay/ship.tsx";
 import { find, QuestionCard, RepoChip, ViewChanges } from "./Conversation.tsx";
 import { phone } from "./state.ts";
 
-// The crew tab: everyone aboard, and one of them up close (what they are doing, their live work,
+// The crew tab: Computah, then everyone aboard, and one of them up close (what they are doing, their live work,
 // Find, Message, Stop, their look and specialty). Hiring lives here too.
 
 /** "Editing · Settings page" / "Off duty · in a hammock, promenade" / "Needs you · walking to you". */
@@ -47,7 +48,7 @@ export function CrewRowCard({ c, selected, onClick }: { c: CrewRow; selected: bo
       onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}>
       <Face avatar={c.avatar} look={c.look} computer={computer} size={30} />
       <div className="cr-main">
-        <span className="cr-name">{c.name} <Chip>{harnessName(c.harness)}</Chip></span>
+        <span className="cr-name">{c.name} {computer ? <OrchestratorBadge /> : <Chip>{harnessName(c.harness)}</Chip>}</span>
         <span className={`cr-line clip t-${computer && !c.asking ? "dim" : tone}`}>{line.text}</span>
         {line.sub ? <span className={`cr-sub clip ${line.mono ? "mono" : ""}`}>{line.sub}</span> : null}
       </div>
@@ -63,6 +64,7 @@ export function CrewList({ selected, onSelect }: { selected: string | null; onSe
   return (
     <div className="crew-list">
       {computer ? <CrewRowCard c={computer} selected={selected === computer._id} onClick={() => onSelect(computer._id)} /> : null}
+      {computer && crew.length ? <span className="lab dim crew-sec">Crew · {crew.length}</span> : null}
       {crew.map((c) => <CrewRowCard key={c._id} c={c} selected={selected === c._id} onClick={() => onSelect(c._id)} />)}
     </div>
   );
@@ -154,7 +156,7 @@ function MessageBox({ c, onDone }: { c: CrewRow; onDone: () => void }) {
   const [err, setErr] = useState<string | null>(null);
   const threadId = c.live?.threadId ?? null;
   if (!threadId) {
-    return <div className="note">{c.name} isn't on a thread right now. Messages reach the crew through the thread they're working on; start one and the computer brings them in.</div>;
+    return <div className="note">{c.name} isn't on a thread right now. Messages reach the crew through the thread they're working on; start one and {COMPUTER_NAME} brings them in.</div>;
   }
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -174,7 +176,7 @@ function MessageBox({ c, onDone }: { c: CrewRow; onDone: () => void }) {
         <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={`Message ${c.name}…`} aria-label={`Message ${c.name}`} />
         <Button kind="primary" size="sm" type="submit" disabled={!text.trim()}>Send</Button>
       </form>
-      <div className="note">{sent ? `Sent. The computer passes it to ${c.name} in “${c.live?.threadTitle ?? "their thread"}”.` : `Goes to ${c.name} through “${c.live?.threadTitle ?? "their thread"}”.`}</div>
+      <div className="note">{sent ? `Sent. ${COMPUTER_NAME} passes it to ${c.name} in “${c.live?.threadTitle ?? "their thread"}”.` : `Goes to ${c.name} through “${c.live?.threadTitle ?? "their thread"}”.`}</div>
       {err ? <div className="error">{err}</div> : null}
     </>
   );
@@ -203,9 +205,11 @@ function EditCrew({ c, onDone }: { c: CrewRow; onDone: () => void }) {
   return (
     <form className="edit-crew" onSubmit={(e) => void save(e)}>
       {!computer ? <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} /></Field> : null}
-      <Field label="Specialty" hint="What the computer should hand them: “frontend and CSS”, “tests”…">
-        <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Anything" maxLength={200} />
-      </Field>
+      {!computer ? (
+        <Field label="Specialty" hint={`What ${COMPUTER_NAME} should hand them: “frontend and CSS”, “tests”…`}>
+          <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Anything" maxLength={200} />
+        </Field>
+      ) : null}
       <div className="row2">
         <Field label="Runs on">
           <select className="input" value={harness} onChange={(e) => setHarness(e.target.value as typeof harness)}>
@@ -234,6 +238,7 @@ function EditCrew({ c, onDone }: { c: CrewRow; onDone: () => void }) {
 export function CrewDetail({ crewId, compact }: { crewId: string; compact?: boolean }) {
   const { byId, questions } = useShip();
   const interrupt = useMutation(api.runs.interrupt);
+  const atHelm = useUi((s) => s.helm);
   const now = useNow(1000);
   const [mode, setMode] = useState<"watch" | "message" | "edit">("watch");
   const c = byId.get(crewId);
@@ -250,19 +255,20 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
       <div className="cd-head">
         <Face avatar={c.avatar} look={c.look} computer={computer} size={44} />
         <div className="cd-who">
-          <span className="cd-name">{c.name}</span>
+          <span className="cd-name">{c.name}{computer ? <> <OrchestratorBadge /></> : null}</span>
           <span className="dim cd-facts">{facts}</span>
-          {c.specialty ? <span className="ink2 cd-facts">{c.specialty}</span> : null}
+          {computer ? <span className="ink2 cd-facts">{COMPUTER_BLURB}</span> : c.specialty ? <span className="ink2 cd-facts">{c.specialty}</span> : null}
         </div>
       </div>
       <div className="cd-now">
-        <span className={`lab t-${tone}`}>{c.live ? (a === "asking" ? "Needs you" : `${ACTIVITY_LABEL[a]} · working on`) : ACTIVITY_LABEL[a]}</span>
+        <span className={`lab t-${tone}`}>{c.live ? (a === "asking" ? "Needs you" : `${ACTIVITY_LABEL[a]} · working on`) : computer ? (c.asking ? "Needs you" : "Standing by") : ACTIVITY_LABEL[a]}</span>
         {c.live ? (
           <>
             <span className="cd-task">{title ?? "Thinking"}<RepoChip name={c.live.repo} /></span>
             <span className="dim cd-thread">{[c.live.taskTitle ? c.live.threadTitle : null, c.live.startedAt ? ago(now - c.live.startedAt) : null].filter(Boolean).join(" · ")}</span>
           </>
-        ) : a === "arriving" ? <span className="cd-task">On the helicopter, {ago(c.arrivesAt - now)} out</span>
+        ) : computer ? null
+          : a === "arriving" ? <span className="cd-task">On the helicopter, {ago(c.arrivesAt - now)} out</span>
           : (
             <span className="dim cd-thread">
               {c.lastEnded ? `${c.lastEnded.state === "landed" ? "Last delivered" : c.lastEnded.state === "failed" ? "Got stuck on" : "Last worked on"} ${c.lastEnded.taskTitle ? `“${c.lastEnded.taskTitle}”` : "a thread"} ${ago(now - c.lastEnded.endedAt)} ago.` : "Nothing yet. They'll get the next task that suits them."}
@@ -276,10 +282,12 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
       {mode === "edit" ? <EditCrew c={c} onDone={() => setMode("watch")} />
         : mode === "message" ? <MessageBox c={c} onDone={() => setMode("watch")} />
         : c.live ? <Watch runId={c.live.runId} compact={compact ?? false} />
-        : !computer && (a === "idle" || a === "landed") ? <OffDuty name={c.name} place={place} landed={a === "landed"} />
+        : computer ? <><div className="note">Lives at the helm on the bridge. Talk to {c.name} there, or on your phone: every thread is a conversation with {c.name}.</div><div className="cd-spacer" /></>
+        : a === "idle" || a === "landed" ? <OffDuty name={c.name} place={place} landed={a === "landed"} />
         : <div className="cd-spacer" />}
       {mode !== "edit" ? (
         <div className="actions">
+          {computer && !atHelm ? <Button kind="primary" onClick={() => phone.openThread(c.live?.threadId ?? ui.get().threadId)}>Message {c.name}</Button> : null}
           {!computer && a !== "arriving" ? <Button kind="primary" onClick={() => find(c._id)}>Find {c.name}</Button> : null}
           {!computer ? <Button kind={mode === "message" ? "soft" : "plain"} onClick={() => setMode(mode === "message" ? "watch" : "message")}>Message</Button> : null}
           {!computer ? <Button onClick={() => phone.editLook(c._id)}>Look</Button> : null}
@@ -345,7 +353,7 @@ export function HireForm({ onHired, onCancel }: { onHired: (id: string) => void;
           </select>
         </Field>
       </div>
-      <Field label="Specialty" hint="Optional. The computer reads it when it hands out work.">
+      <Field label="Specialty" hint={`Optional. ${COMPUTER_NAME} reads it when it hands out work.`}>
         <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Frontend, tests, the database…" maxLength={200} />
       </Field>
       {err ? <div className="error">{err}</div> : null}

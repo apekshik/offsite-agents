@@ -93,7 +93,8 @@ export function readable(e: unknown): string {
 const runId = (id: string) => id as Id<"runs">;
 
 export function convexBackend(convexUrl: string, token: string): Backend {
-  const client = new ConvexClient(convexUrl);
+  // Every failure reaches the caller, which says it readably; the client's own logging would print server stacks.
+  const client = new ConvexClient(convexUrl, { logger: false });
   const t = { token };
   return {
     hello: (probe, fresh) => client.mutation(api.runner.hello, { ...t, probe, ...(fresh ? { fresh } : {}) }),

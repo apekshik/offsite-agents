@@ -1,5 +1,5 @@
 // The superyacht: Offsite's first world. A ~140 m yacht cruising through an open sea at golden
-// hour, with an office for the crew, a bridge for the ship's computer, decks to lounge on and a
+// hour, with an office for the crew, a bridge for Computah (the orchestrator), decks to lounge on and a
 // helipad for new arrivals. Built after the concept art in docs/art/yacht.
 
 import * as THREE from "three";

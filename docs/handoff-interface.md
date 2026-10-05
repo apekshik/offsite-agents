@@ -4,7 +4,7 @@ You are designing and building Offsite's interface: every 2D screen and overlay.
 
 ## The product, in one breath
 
-You are the captain of a superyacht in your browser. Your crew are Claude Code and Codex agents running on your own machine and subscriptions. You walk the decks in first or third person. You talk to the ship's computer (the orchestrator), at the helm console on the bridge or on a foldable phone you pull out anywhere, even from a sun lounger. It splits your request into tasks, hands them to free crew (or hires new ones, who arrive by helicopter), and reports back. Crew work at desks or on loungers with laptops; when they need you, they walk over.
+You are the captain of a superyacht in your browser. Your crew are Claude Code and Codex agents running on your own machine and subscriptions. You walk the decks in first or third person. You talk to Computah (the main orchestrator), at the helm console on the bridge or on a foldable phone you pull out anywhere, even from a sun lounger. It splits your request into tasks, hands them to free crew (or hires new ones, who arrive by helicopter), and reports back. Crew work at desks or on loungers with laptops; when they need you, they walk over.
 
 ## What you own
 
@@ -14,7 +14,7 @@ You are the captain of a superyacht in your browser. Your crew are Claude Code a
 | `apps/web/src/screens/` | Sign-in, "make your ship", connecting your machine (device-code pairing), choosing the project folder, settings. `Gate.tsx` is the router between them. |
 | `apps/web/src/overlay/` | `Overlay.tsx`, mounted over the game. Composes the HUD, phone, helm console, crew card, question prompts and toasts. |
 | `apps/web/src/phone/` | The foldable phone. |
-| `apps/web/src/helm/` | The helm console: the same computer interface, as a large screen on the bridge. |
+| `apps/web/src/helm/` | The helm console: the same interface for talking to Computah, as a large screen on the bridge. |
 | `apps/web/src/hud/` | Interaction prompts ("E  Open the helm console"), the view hint, ping markers and the compass or edge arrow pointing to a pinged crew member, toasts. |
 | `apps/web/src/creator/` | The character customizer UI (the 3D preview comes from @offsite/kit's `buildAvatar`). |
 
@@ -41,9 +41,9 @@ To add a field to the bridge, add it in your branch with a comment saying who wr
 4. **The phone** (the heart). A Galaxy Fold–style device in the captain's hands.
    - **Closed (cover screen):** the time on the ship, who needs you (question count, the crew member's face and name), the latest report. Tap or press F again to unfold.
    - **Unfolding:** an animated open, hinge in the middle.
-   - **Open:** two panes. Left: threads (newest first, each with its state, the crew working on it, a badge when a question waits) and a "New thread" composer at the top; a tab to switch to **Crew**. Right: the open thread. That's your conversation with the computer: your messages, the computer's replies (they stream), its plan as task cards (title, assignee's face, state: todo, doing, review, landed, failed), crew reports, and questions with answer buttons inline.
+   - **Open:** two panes. Left: threads (newest first, each with its state, the crew working on it, a badge when a question waits) and a "New thread" composer at the top; a tab to switch to **Crew**. Right: the open thread. That's your conversation with Computah: your messages, Computah's replies (they stream), its plan as task cards (title, assignee's face, state: todo, doing, review, landed, failed), crew reports, and questions with answer buttons inline.
    - **Crew tab:** everyone aboard with their face, name, harness (Claude Code / Codex), what they are doing (`ACTIVITY_LABEL` in contracts: "Editing", "Off duty", "Needs you"…), the current step ("Edit src/app.tsx"), and which thread/task. Per crew member: **Find** (sets `ping`; the world marks them and shows the way), **Watch** (their live activity log, `runs.events`), **Message**, **Stop**. Plus "Hire" and editing their look and specialty.
-5. **Helm console.** The same computer interface, big, framed as the bridge's main screen. It opens when the game sets `helm: true`.
+5. **Helm console.** The same Computah interface, big, framed as the bridge's main screen. It opens when the game sets `helm: true`.
 6. **Crew card.** When `crewCard` is set (clicked in the world): face, name, activity, current step, task, buttons as in the crew tab.
 7. **Questions.** A crew member asking is the most important moment. Show it on the phone's cover screen, as a toast with the asker's face, and inline in the thread. Approvals: Allow / Deny. Inputs: the options as buttons, plus free text.
 8. **Customizer.** Defaults, parts and colours and proportions (Ready Player One's creator), and "describe it" (a prompt; the look is designed on the captain's own subscription and streams in).
@@ -77,14 +77,14 @@ The backend is live on the dev deployment: every function below exists in `conve
 | `users.setAvatar` | `{ avatar, look? }` | |
 | `offices.mine` (query) | | your offices |
 | `offices.get` (query) | `{ officeId }` | office: `{ name, world, repo: { machineId, path, defaultBranch } \| null, setupCommand, defaultHarness }` |
-| `offices.create` | `{ name, world }` | officeId (comes with the computer and three crew aboard) |
+| `offices.create` | `{ name, world }` | officeId (comes with Computah and three crew aboard) |
 | `offices.setRepo` | `{ officeId, machineId, path, defaultBranch }` | |
 | `offices.update` | `{ officeId, name?, setupCommand?, defaultHarness? }` | |
 | `machines.mine` (query) | | `[{ _id, name, hostname, online, lastSeenAt, probe }]`; probe lists each harness: installed, signed in, version, models |
 | `machines.lookup` (mutation: misses are counted) | `{ userCode }` | `{ ok: true, name, hostname } \| { ok: false, error }` |
 | `machines.approve` / `machines.deny` | `{ userCode }` | |
 | `machines.revoke` | `{ machineId }` | |
-| `crew.list` (query) | `{ officeId }` | crew, including the computer (`role: "computer"`): `{ _id, name, handle, role, avatar, look, specialty, harness, model, effort, arrivesAt }` |
+| `crew.list` (query) | `{ officeId }` | crew, including Computah (`role: "computer"`, handle `computah`): `{ _id, name, handle, role, avatar, look, specialty, harness, model, effort, arrivesAt }` |
 | `crew.hire` | `{ officeId, name?, harness?, avatar?, specialty? }` | crewId; they arrive by helicopter |
 | `crew.update` | `{ crewId, name?, avatar?, look?, specialty?, harness?, model?, effort? }` | |
 | `crew.dismiss` | `{ crewId }` | |
@@ -95,7 +95,7 @@ The backend is live on the dev deployment: every function below exists in `conve
 | `runs.forThread` (query) | `{ threadId }` | the thread's runs, newest first |
 | `questions.open` (query) | `{ officeId }` | open questions with `crewName`, `crewHandle` |
 | `users.setName` | `{ name }` | |
-| `threads.create` | `{ officeId, text }` | threadId; the computer starts on it |
+| `threads.create` | `{ officeId, text }` | threadId; Computah starts on it |
 | `threads.send` | `{ threadId, text }` | |
 | `threads.archive` | `{ threadId }` | |
 | `messages.list` (query) | `{ threadId }` | `[{ _id, author: { kind: "captain" } \| { kind: "crew", crewId } \| { kind: "system" }, kind: "text" \| "report" \| "plan" \| "system", text, streaming, taskId, createdAt }]` |

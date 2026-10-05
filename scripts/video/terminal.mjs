@@ -52,7 +52,7 @@ export function terminalScript(file) {
     if (!l) throw new Error(`terminal: no line matching ${re}`);
     return l;
   };
-  const working = all.filter((l) => /: working in /.test(l) && !/Computer ·/.test(l)).map((l) => l.replace(/ on offsite\/\S+/, ""));
+  const working = all.filter((l) => /: working in /.test(l) && !/(Computer|Computah) ·/.test(l)).map((l) => l.replace(/ on offsite\/\S+/, ""));
   const landed = all.filter((l) => /: landed [0-9a-f]{6,}/.test(l));
   const lines = [
     { at: 1.3, kind: "up", text: pick(/^offsite is up on /) },

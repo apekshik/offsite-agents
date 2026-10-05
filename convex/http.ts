@@ -3,8 +3,8 @@ import { ConvexError } from "convex/values";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-// Device-code pairing for `offsite login`. The runner has no browser session, so it talks plain
-// HTTP here; the captain approves the code in the app. Starting is rate limited (machines.ts PAIRING).
+// Device-code pairing for `npx offsite-agents`. The runner has no browser session, so it talks plain
+// HTTP here; the captain approves the code in the app (/pair?code=). Starting is rate limited (machines.ts PAIRING).
 
 const http = httpRouter();
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-methods": "POST, OPTIONS", "access-control-allow-headers": "content-type" };
@@ -18,15 +18,16 @@ http.route({
   path: "/device/start",
   method: "POST",
   handler: httpAction(async (ctx, req) => {
-    const body = (await req.json().catch(() => ({}))) as { name?: unknown; hostname?: unknown };
+    const body = (await req.json().catch(() => ({}))) as { name?: unknown; hostname?: unknown; os?: unknown };
     const name = typeof body.name === "string" ? body.name : "My machine";
     const hostname = typeof body.hostname === "string" ? body.hostname : "";
+    const os = typeof body.os === "string" && body.os ? body.os : undefined;
     let started;
-    try { started = await ctx.runMutation(internal.machines.startCode, { name, hostname }); }
+    try { started = await ctx.runMutation(internal.machines.startCode, { name, hostname, ...(os ? { os } : {}) }); }
     catch (e) { if (e instanceof ConvexError) return json({ error: String(e.data) }, 429); throw e; }
     const { deviceCode, userCode, expiresIn } = started;
     const site = process.env["SITE_URL"] ?? "http://localhost:5180";
-    return json({ deviceCode, userCode, verifyUrl: `${site}/?connect=${userCode}`, interval: 2.5, expiresIn });
+    return json({ deviceCode, userCode, verifyUrl: `${site}/pair?code=${userCode}`, interval: 2.5, expiresIn });
   }),
 });
 

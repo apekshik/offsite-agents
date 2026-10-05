@@ -1,8 +1,9 @@
 import { createClient } from "@workos-inc/authkit-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { sameSitePath } from "./returnTo.ts";
 
 // Sign-in is WorkOS AuthKit (Google, GitHub, email…) on their page, which sends you back to
-// /callback signed in; Convex checks the access token on every request.
+// /callback signed in (and on to wherever sign-in started); Convex checks the access token on every request.
 // Dev sign-in (scripts/devauth.mjs), `pnpm dev` only: /?dev=alice is signed in as alice, with a
 // token from the dev server. Not in a build. Adapted from Ready Player One.
 
@@ -12,6 +13,8 @@ export const devUser = import.meta.env.DEV ? new URLSearchParams(location.search
 type AuthKit = Awaited<ReturnType<typeof createClient>>;
 let authkit: AuthKit | null = null;
 let ready: Promise<void> | null = null;
+/** Where sign-in started (say /pair?code=…), handed back through WorkOS as `state`. */
+let returnTo: string | null = null;
 
 function start(): Promise<void> {
   ready ??= (async () => {
@@ -21,17 +24,23 @@ function start(): Promise<void> {
         redirectUri: `${location.origin}/callback`,
         // Remember the session in this browser across reloads (no custom WorkOS auth domain yet).
         devMode: true,
+        onRedirectCallback: ({ state }) => { returnTo = sameSitePath(state?.["returnTo"]); },
       });
     } catch (err) {
       console.warn("Sign-in is unavailable", err);
     }
-    if (location.pathname === "/callback") history.replaceState({}, "", "/");
+    if (location.pathname === "/callback") history.replaceState({}, "", returnTo ?? "/");
   })();
   return ready;
 }
 
 export const signInAvailable = () => !!devUser || !!WORKOS_CLIENT_ID;
-export const signIn = async () => { await start(); authkit?.signIn(); };
+/** Off to WorkOS; back here afterwards, or at `back` (a path on this site, like /pair?code=…). */
+export const signIn = async (back?: string) => {
+  await start();
+  const path = back ? sameSitePath(back) : null;
+  await authkit?.signIn(path ? { state: { returnTo: path } } : undefined);
+};
 export const signOut = async () => { await start(); await authkit?.signOut({ navigate: false }).catch(() => {}); location.reload(); };
 
 /** Who the sign-in service says you are, before Convex has a user row: { name, email } or null. */

@@ -53,7 +53,7 @@ export async function resolveTask(ctx: QueryCtx | MutationCtx, threadId: Id<"thr
 }
 
 function taskPrompt(task: Doc<"tasks">): string {
-  return task.notes ? `${task.brief}\n\nNotes from the computer on your last attempt:\n${task.notes}` : task.brief;
+  return task.notes ? `${task.brief}\n\nNotes from Computah on your last attempt:\n${task.notes}` : task.brief;
 }
 
 /**

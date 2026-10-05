@@ -1,14 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { ACTIVITY_LABEL, crewActivity, isLive, type RunState } from "@offsite/contracts";
+import { ACTIVITY_LABEL, COMPUTER_NAME, crewActivity, isLive, type RunState } from "@offsite/contracts";
 import { fail, requireMachine, requireOwnRun } from "./lib";
 import { crewByHandle, crewOf, freeCrew, hire, liveRunOf } from "./crewlib";
 import { post, resolveTask, tick } from "./flow";
 import { harness } from "./schema";
 import { ensureRepos, repoByName, repoForPlan, repoOfTask, reposOf } from "./repolib";
 
-// The ship's computer's tools (contracts COMPUTER_TOOLS), and ask_captain for everyone. The runner
+// Computah's tools (contracts COMPUTER_TOOLS), and ask_captain for everyone. The runner
 // calls these on the agent's behalf; messages say what went wrong in words the agent can act on.
 
 type Ctx = QueryCtx | MutationCtx;
@@ -23,7 +23,7 @@ async function liveRun(ctx: Ctx, token: string, runId: Id<"runs">) {
 
 async function computerRun(ctx: Ctx, token: string, runId: Id<"runs">) {
   const r = await liveRun(ctx, token, runId);
-  if (r.run.kind !== "computer" || !r.run.threadId) fail("Only the ship's computer has this tool");
+  if (r.run.kind !== "computer" || !r.run.threadId) fail(`Only ${COMPUTER_NAME}, the main orchestrator, has this tool`);
   const thread = (await ctx.db.get(r.run.threadId!))!;
   return { ...r, thread };
 }
@@ -173,7 +173,7 @@ export const messageCrew = mutation({
     const { run } = await computerRun(ctx, token, runId);
     const who = await crewByHandle(ctx, run.officeId, handle);
     const live = await liveRunOf(ctx, who._id);
-    const body = `From the computer: ${text.trim().slice(0, 4000)}`;
+    const body = `From ${COMPUTER_NAME}: ${text.trim().slice(0, 4000)}`;
     await ctx.db.insert("inbox", { crewId: who._id, runId: live && live.state !== "queued" ? live._id : null, text: body, deliveredAt: null, createdAt: Date.now() });
     return { delivered: live ? "to their live run" : "with their next task" };
   },

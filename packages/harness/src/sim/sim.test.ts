@@ -111,7 +111,7 @@ describe("the sim crew on a task", () => {
   });
 });
 
-describe("the sim computer", () => {
+describe("the sim Computah", () => {
   it("plans one task for a short ask, and a shared-types task first when the ask has parts", () => {
     expect(planFor("Add dark mode to the settings page", new Set())).toHaveLength(1);
     expect(partsOf("Add an invoices API endpoint and a page that lists the invoices")).toEqual(["Add an invoices API endpoint", "a page that lists the invoices"]);
@@ -149,7 +149,7 @@ describe("the sim computer", () => {
       review_task: async (a) => { calls.push({ name: "review_task", args: a }); return JSON.stringify({ stat: { files: 1, add: 3, del: 0 } }); },
       finish_thread: async (a) => { calls.push({ name: "finish_thread", args: a }); return "Opened https://github.com/acme/app/pull/7"; },
     });
-    const { session, events, until } = await start({ kind: "computer", crew: { name: "Computer", handle: "computer", role: "computer", model: null, effort: "high" }, tools });
+    const { session, events, until } = await start({ kind: "computer", crew: { name: "Computah", handle: "computah", role: "computer", model: null, effort: "high" }, tools });
     await session.send("Add an invoices API endpoint and a page that lists the invoices");
     await until(1);
     expect(calls.map((c) => c.name)).toEqual(["plan_tasks"]);

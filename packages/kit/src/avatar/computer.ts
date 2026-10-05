@@ -1,6 +1,6 @@
 // Adapted from Ready Player One (github.com/apekshik/ready-player-one): the Computah.
 //
-// The ship's computer in person: a little floating robot. Its head is a white ceramic pod with
+// Computah in person, the ship's main orchestrator: a little floating robot. Its head is a white ceramic pod with
 // a dark glass screen for a face: two glowing eyes and a small mouth, drawn as signed distance
 // fields so one expression melts into the next. Round it: ear pods that light up, an antenna
 // that blinks with each new thought and wobbles behind the head, a dashed hover ring that spins

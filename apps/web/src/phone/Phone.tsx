@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { isWorking } from "@offsite/contracts";
+import { COMPUTER_NAME, isWorking } from "@offsite/contracts";
 import { ui, useUi } from "../bridge.ts";
 import { ActivityLabel, ago, Button, Card, clock, Dot, Face, Key, partOfDay, useNow } from "../ui/index.tsx";
 import { activityOf, useShip } from "../overlay/ship.tsx";
@@ -13,7 +13,7 @@ import "./phone.css";
 import "./spread.css";
 
 // The foldable phone. F takes it out (the cover screen: who needs you, the latest delivery, the
-// crew); a double F unfolds it on a hinge into the computer's interface (threads, the crew, the ship);
+// crew); a double F unfolds it on a hinge into Computah's interface (threads, the crew, the ship);
 // F once more puts it away. Esc puts it away from anywhere.
 
 /** How much to shrink a w×h design so it fits the window with a margin. */
@@ -113,7 +113,7 @@ function LeftPane({ tab, ghost }: { tab: PhoneTab; ghost?: boolean }) {
       </div>
       {tab === "threads" ? (ghost
         // The static copy on the swinging leaf: it looks like the composer, without a second input.
-        ? <div className="card composer ghost-composer"><span className="dim">Ask the computer for something…</span></div>
+        ? <div className="card composer ghost-composer"><span className="dim">Ask {COMPUTER_NAME} for something…</span></div>
         : <NewThread />) : null}
       <div className="tabs">
         <button className={`tab ${tab === "threads" ? "on" : ""}`} onClick={() => phone.set({ tab: "threads", hiring: false })}>Threads</button>
@@ -143,7 +143,7 @@ function RightPane({ tab }: { tab: PhoneTab }) {
       <div className="empty-thread">
         <Face computer size={44} />
         <span className="disp">What should the crew do?</span>
-        <span className="dim">Ask the computer for something on the left. It reads the repo, splits the work, and hands it to whoever is free.</span>
+        <span className="dim">Ask {COMPUTER_NAME} for something on the left. It reads the repo, splits the work, and hands it to whoever is free.</span>
       </div>
     );
   } else if (tab === "crew") {

@@ -1,11 +1,11 @@
-import { ARRIVAL, AVATAR_PARTS, DEFAULT_AVATAR, LIMITS, freshName, handleFor, isLive, type AvatarSpec, type RunState } from "@offsite/contracts";
+import { ARRIVAL, AVATAR_PARTS, COMPUTER_HANDLE, COMPUTER_HANDLE_ALIASES, COMPUTER_NAME, DEFAULT_AVATAR, LIMITS, freshName, handleFor, isComputerHandle, isLive, type AvatarSpec, type RunState } from "@offsite/contracts";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { fail } from "./lib";
 
 type Ctx = QueryCtx | MutationCtx;
 
-// Who is aboard, who is free, and hiring. Shared by the app's mutations and the computer's tools.
+// Who is aboard, who is free, and hiring. Shared by the app's mutations and Computah's tools.
 
 const SKIN = ["#f1d2b8", "#e8b894", "#d39b72", "#b57a53", "#8d5a3b", "#5f3b26"];
 const HAIR = ["#2b1d14", "#5a3a22", "#a8692f", "#d9b45b", "#1d1d22", "#b9bcc0", "#c2432e"];
@@ -44,10 +44,12 @@ export async function crewOf(ctx: Ctx, officeId: Id<"offices">): Promise<Doc<"cr
 
 export async function computerOf(ctx: Ctx, officeId: Id<"offices">): Promise<Doc<"crew">> {
   const crew = await crewOf(ctx, officeId);
-  return crew.find((c) => c.role === "computer") ?? fail("This ship has no computer");
+  return crew.find((c) => c.role === "computer") ?? fail(`This ship has no ${COMPUTER_NAME}`);
 }
 
 export async function crewByHandle(ctx: Ctx, officeId: Id<"offices">, handle: string): Promise<Doc<"crew">> {
+  // @computah, or @computer from before the rename: whichever handle its row still has.
+  if (isComputerHandle(handle)) return computerOf(ctx, officeId);
   const h = handle.replace(/^@/, "").toLowerCase();
   const c = await ctx.db.query("crew").withIndex("by_office_handle", (q) => q.eq("officeId", officeId).eq("handle", h)).first();
   if (!c || c.dismissedAt !== null) {
@@ -95,7 +97,7 @@ export async function hire(
   const seed = Math.floor(now % 100_000) + crew.length * 7919;
   const name = (opts.name?.replace(/[\u0000-\u001f<>@]/g, "").trim().slice(0, LIMITS.nameChars)) || freshName(crew.map((c) => c.name), seed);
   let handle = handleFor(name);
-  const taken = new Set(crew.map((c) => c.handle));
+  const taken = new Set([...crew.map((c) => c.handle), COMPUTER_HANDLE, ...COMPUTER_HANDLE_ALIASES]); // those mean Computah
   for (let n = 2; taken.has(handle); n++) handle = `${handleFor(name)}-${n}`;
   let arrivesAt = now;
   if (!opts.aboard) {

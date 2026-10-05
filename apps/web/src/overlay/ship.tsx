@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { crewActivity, type CrewActivity, type RunState } from "@offsite/contracts";
+import { COMPUTER_NAME, crewActivity, type CrewActivity, type RunState } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { scene } from "../bridge.ts";
@@ -29,7 +29,7 @@ export interface Ship {
   computer: CrewRow | undefined;
   questions: QuestionRow[];
   byId: Map<string, CrewRow>;
-  /** The machine the computer works on (the first repo's), or the first one online. */
+  /** The machine Computah works on (the first repo's), or the first one online. */
   machine: MachineRow | undefined;
 }
 
@@ -43,14 +43,15 @@ export function ShipProvider({ officeId, children }: { officeId: string; childre
   const machines = useQuery(api.machines.mine);
   const me = useQuery(api.users.me);
   const value = useMemo<Ship>(() => {
-    const all = snap?.crew ?? [];
+    // Computah by name, even on a ship whose row predates the rename.
+    const all = (snap?.crew ?? []).map((c) => (c.role === "computer" && c.name !== COMPUTER_NAME ? { ...c, name: COMPUTER_NAME } : c));
     const byId = new Map(all.map((c) => [c._id as string, c]));
     const machine = machines?.find((m) => m._id === office?.machine?._id) ?? machines?.find((m) => m.online) ?? machines?.[0];
     return {
       officeId: id, office, snap, threads, machines, me,
       crew: all.filter((c) => c.role === "crew"),
       computer: all.find((c) => c.role === "computer"),
-      questions: snap?.questions ?? [],
+      questions: (snap?.questions ?? []).map((q) => (byId.get(q.crewId)?.role === "computer" ? { ...q, crewName: COMPUTER_NAME } : q)),
       byId,
       machine,
     };
@@ -64,7 +65,7 @@ export function useShip(): Ship {
   return s;
 }
 
-/** The computer's own label: it thinks, waits on you, or stands by at the helm. */
+/** Computah's own label: it thinks, waits on you, or stands by at the helm. */
 export function ComputerLabel({ c }: { c: CrewRow }) {
   if (c.asking) return <span className="lab t-amber">Needs you</span>;
   return c.live ? <span className="lab t-accent">Thinking</span> : <span className="lab t-dim">Standing by</span>;

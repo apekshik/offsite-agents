@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { COMPUTER_NAME } from "@offsite/contracts";
+import { COMPUTER_HANDLE, COMPUTER_NAME } from "@offsite/contracts";
 import { fail, requireOffice, requireUser } from "./lib";
 import { hire } from "./crewlib";
 import { harness } from "./schema";
@@ -30,7 +30,7 @@ export const get = query({
     return {
       ...rest,
       repos: repos.map((r) => ({ _id: r._id, name: r.name, machineId: r.machineId, path: r.path, defaultBranch: r.defaultBranch, setupCommand: r.setupCommand })),
-      /** The machine the computer works on: the one holding the first repo. */
+      /** The machine Computah works on: the one holding the first repo. */
       machine: machine ? { _id: machine._id, name: machine.name, lastSeenAt: machine.lastSeenAt } : null,
     };
   },
@@ -38,7 +38,7 @@ export const get = query({
 
 const WORLDS = ["yacht"];
 
-/** A new ship: the computer at the helm and a starting crew already aboard. */
+/** A new ship: Computah at the helm and a starting crew already aboard. */
 export const create = mutation({
   args: { name: v.string(), world: v.string(), defaultHarness: v.optional(harness) },
   handler: async (ctx, { name, world, defaultHarness }) => {
@@ -58,7 +58,7 @@ export const create = mutation({
       officeId,
       role: "computer",
       name: COMPUTER_NAME,
-      handle: "computer",
+      handle: COMPUTER_HANDLE,
       avatar: null,
       look: null,
       specialty: null,

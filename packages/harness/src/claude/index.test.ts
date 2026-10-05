@@ -50,7 +50,7 @@ describe("Claude Code sessions", () => {
   });
 
   it("keeps the computer from editing", async () => {
-    const { options } = await setup({ kind: "computer", crew: { name: "Computer", handle: "computer", role: "computer", model: "claude-opus-5-5", effort: "max" } });
+    const { options } = await setup({ kind: "computer", crew: { name: "Computah", handle: "computah", role: "computer", model: "claude-opus-5-5", effort: "max" } });
     expect(options.disallowedTools).toEqual(expect.arrayContaining(["Edit", "Write", "AskUserQuestion"]));
     expect(options.model).toBe("claude-opus-5-5");
   });

@@ -384,7 +384,7 @@ function defaultPhoneScreen(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.fillText("CREW ASKING", w / 2, h * 0.63);
     return;
   }
-  // Inside: the computer's interface, two panes.
+  // Inside: Computah's interface, two panes.
   ctx.textAlign = "left";
   ctx.font = `600 ${h * 0.035}px ${THEME.font}`;
   ctx.fillStyle = THEME.dim;

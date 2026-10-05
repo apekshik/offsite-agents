@@ -1,0 +1,40 @@
+/* The night yacht behind the landing page and the way aboard. */
+
+/* Under the poster while it loads: a tiny blurred copy of it (scripts/landing-poster.mjs makes it). */
+.backdrop { position: fixed; inset: 0; overflow: hidden; background: #040a18 url(data:image/webp;base64,UklGRs4AAABXRUJQVlA4IMIAAAAwBgCdASowABsAPuFcpU2opSOiNVgMARAcCWQAuzPafuHQ9ksMw1eECTRxo2soYUP7B7eNqRHbA2EAAP7xnT5WpeI//4tDw7H4gCXwpvdWY26QtbRmidO7kPn2DNT85TpGh744sIqV15ey98813bmcrB1kzh4cvyjsncYO4MrQqlKhDbFFeZKSGLzmR5DkwD/s1lKA/isYyXd7KxPzZwtxrh4xe+5P7o7Fn/j7S5CbqYgJJB/qas7lZo/QonQ19kAAAA==) 60% 50% / cover no-repeat; pointer-events: none; }
+.backdrop picture, .backdrop .bd-poster, .backdrop .bd-live { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.backdrop .bd-poster { object-fit: cover; object-position: 60% 50%; }
+.backdrop .bd-live { opacity: 0; transition: opacity 1.8s ease; }
+.backdrop .bd-live.on { opacity: 1; }
+
+/* Phones and the fallback: the poster drifts in very slowly, like a long lens on a slow boat. */
+.backdrop.drift .bd-poster { animation: bd-drift 48s ease-in-out infinite alternate; transform-origin: 62% 45%; }
+@keyframes bd-drift { from { transform: scale(1.02) translate3d(0, 0, 0); } to { transform: scale(1.1) translate3d(-1.2%, 0.6%, 0); } }
+
+/* The shade: dark on the left (and at the foot) where the words sit, open where the yacht is. */
+.backdrop .bd-shade {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(90deg, rgba(3, 6, 12, 0.86) 0%, rgba(3, 6, 12, 0.62) 28%, rgba(3, 6, 12, 0.18) 52%, rgba(3, 6, 12, 0) 68%),
+    linear-gradient(0deg, rgba(3, 6, 12, 0.72) 0%, rgba(3, 6, 12, 0) 34%),
+    radial-gradient(120% 90% at 62% 46%, transparent 55%, rgba(3, 6, 12, 0.55) 100%);
+}
+/* Behind a card (the way aboard): the whole picture dimmed, a little softer. */
+.backdrop.dim .bd-shade { background: linear-gradient(rgba(3, 6, 12, 0.55), rgba(3, 6, 12, 0.72)), radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(3, 6, 12, 0.6) 100%); }
+.backdrop.dim .bd-poster { filter: blur(2px) saturate(0.9); transform: scale(1.03); }
+.backdrop.dim.drift .bd-poster { animation-name: bd-drift-dim; }
+@keyframes bd-drift-dim { from { transform: scale(1.04); } to { transform: scale(1.1) translate3d(-1%, 0.5%, 0); } }
+
+@media (max-aspect-ratio: 4/5) {
+  .backdrop .bd-poster { object-position: 50% 30%; }
+  .backdrop .bd-shade {
+    background:
+      linear-gradient(0deg, rgba(3, 6, 12, 0.94) 0%, rgba(3, 6, 12, 0.82) 34%, rgba(3, 6, 12, 0.2) 62%, rgba(3, 6, 12, 0) 78%),
+      linear-gradient(180deg, rgba(3, 6, 12, 0.35) 0%, rgba(3, 6, 12, 0) 18%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop .bd-poster { animation: none !important; }
+  .backdrop .bd-live { transition: none; }
+}

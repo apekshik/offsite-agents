@@ -1,145 +1,213 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { COMPUTER_BLURB, COMPUTER_NAME } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { scene } from "../bridge.ts";
-import { signIn, signInAvailable } from "../auth.ts";
-import { Game } from "../game/Game.tsx";
-import { Overlay } from "../overlay/Overlay.tsx";
-import { Button, Card, Chip, errorText, Face, Field, Input } from "../ui/index.tsx";
+import { Backdrop } from "../landing/Backdrop.tsx";
+import { WORLD_LIST, type WorldInfo } from "../worlds.ts";
+import { Landing } from "./Landing.tsx";
+import { Button, Chip, errorText, Face, Field, Input, OrchestratorBadge } from "../ui/index.tsx";
 import { CodeEntry, HarnessField, LoginSteps, MachineCard, Repos } from "./setup.tsx";
 import "./screens.css";
 
 // The way aboard: sign in → make your ship → meet the crew → connect your machine → your repos
 // → aboard (the game under the overlay). The machine steps can be skipped; the crew lounges
-// until a machine is connected. A ?connect=<code> link (from `offsite login`) approves that machine.
+// until a machine is connected. Machines are approved at /pair?code= (Pair.tsx); an older ?connect=<code>
+// link goes there.
+// Every step sits over the same night yacht as the front door.
 
 const skipKey = (officeId: string) => `offsite:setup-skipped:${officeId}`;
 const readSkip = (officeId: string) => { try { return localStorage.getItem(skipKey(officeId)) === "1"; } catch { return false; } };
 const writeSkip = (officeId: string) => { try { localStorage.setItem(skipKey(officeId), "1"); } catch { /* private mode */ } };
 
-function dropParam(name: string) {
-  const u = new URL(location.href);
-  u.searchParams.delete(name);
-  history.replaceState({}, "", u.toString());
+const STEPS = ["Your ship", "Your machine", "Your repos"] as const;
+
+function Stepper({ step }: { step: 1 | 2 | 3 }) {
+  return (
+    <ol className="stepper" aria-label={`Step ${step} of ${STEPS.length}`}>
+      {STEPS.map((s, i) => {
+        const n = i + 1, state = n === step ? "on" : n < step ? "done" : "todo";
+        return (
+          <li key={s} className={`st ${state}`} aria-current={state === "on" ? "step" : undefined}>
+            <span className="st-dot" aria-hidden="true">
+              {state === "done" ? <svg viewBox="0 0 16 16" width="12" height="12"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg> : n}
+            </span>
+            <span className="st-label">{s}</span>
+            {state === "done" ? <span className="sr"> (done)</span> : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
-function Shell({ step, children, wide }: { step?: 1 | 2 | 3; children: ReactNode; wide?: boolean }) {
+function Shell({ step, children, wide, label }: { step?: 1 | 2 | 3; children: ReactNode; wide?: boolean; label?: string }) {
   return (
     <div className="screen">
-      <div className="screen-sky"><i className="sun" /><i className="sea" /><i className="glint g1" /><i className="glint g2" /><i className="glint g3" /></div>
-      <div className={`screen-card ${wide ? "wide" : ""}`}>
+      <Backdrop dim />
+      <main className={`screen-card ${wide ? "wide" : ""}`} aria-label={label}>
         <div className="sc-top">
           <span className="disp wordmark">Offsite</span>
-          {step ? (
-            <span className="sc-steps">
-              {["Your ship", "Your machine", "Your repos"].map((s, i) => <span key={s} className={i + 1 === step ? "on" : i + 1 < step ? "done" : ""}>{s}</span>)}
-            </span>
-          ) : null}
+          {step ? <Stepper step={step} /> : null}
         </div>
         {children}
-      </div>
+      </main>
     </div>
   );
 }
 
 function Splash({ text }: { text?: string }) {
-  return <Shell><div className="sc-splash"><span className="dots"><i /><i /><i /></span>{text ? <span className="dim">{text}</span> : null}</div></Shell>;
+  return (
+    <div className="screen splash">
+      <Backdrop dim />
+      <div className="sc-splash" role="status">
+        <span className="disp wordmark big">Offsite</span>
+        <span className="sc-splash-line"><span className="dots"><i /><i /><i /></span>{text ? <span className="dim">{text}</span> : null}</span>
+      </div>
+    </div>
+  );
 }
 
-function SignIn() {
-  const can = signInAvailable();
+function WorldCard({ w, on, onPick }: { w: WorldInfo; on: boolean; onPick: () => void }) {
   return (
-    <Shell>
-      <div className="sc-hero">
-        <h1 className="disp">Take your agents on an offsite.</h1>
-        <p className="ink2">Your Claude Code and Codex crew, working (and lounging) on a superyacht in your browser. They run on your own machine, on your own subscriptions.</p>
-      </div>
-      {can ? <Button kind="primary" size="lg" onClick={() => void signIn()}>Sign in</Button>
-        : <p className="dim">Sign-in isn't set up on this server. Locally, open <span className="mono">?dev=yourname</span>.</p>}
-    </Shell>
+    <label className={`world ${on ? "on" : ""} ${w.ready ? "" : "soon"}`}>
+      <input type="radio" name="world" value={w.id} checked={on} disabled={!w.ready} onChange={onPick} className="world-radio" />
+      <span className="world-art"><img src={w.art} alt="" loading="lazy" decoding="async" width={720} height={405} /></span>
+      {w.ready ? (on ? <span className="world-badge pick">Your pick</span> : null) : <span className="world-badge">Coming soon</span>}
+      <span className="world-text">
+        <span className="world-name">{w.name}</span>
+        <span className="world-blurb">{w.blurb}</span>
+      </span>
+    </label>
   );
 }
 
 function MakeShip({ onMade }: { onMade: (id: string) => void }) {
   const create = useMutation(api.offices.create);
   const [name, setName] = useState("");
+  const [world, setWorld] = useState(WORLD_LIST.find((w) => w.ready)?.id ?? "yacht");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const soon = WORLD_LIST.filter((w) => !w.ready).map((w) => w.name);
   const go = async () => {
     setBusy(true);
     setErr(null);
-    try { onMade(await create({ name: name.trim() || "Sea Legs", world: "yacht" })); } catch (x) { setErr(errorText(x)); setBusy(false); }
+    try { onMade(await create({ name: name.trim() || "Sea Legs", world })); } catch (x) { setErr(errorText(x)); setBusy(false); }
   };
   return (
-    <Shell step={1}>
+    <Shell step={1} wide label="Make your ship">
       <div className="sc-hero">
         <h1 className="disp">Make your ship</h1>
-        <p className="ink2">Name it and pick where your crew works. You can change the name later.</p>
+        <p className="ink2">Name it and pick where your crew works. You can rename it later.</p>
       </div>
       <Field label="Ship's name">
         <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Sea Legs" maxLength={40} onKeyDown={(e) => { if (e.key === "Enter") void go(); }} />
       </Field>
-      <div className="worlds">
-        <Card tone="accent" className="world on">
-          <div className="world-art yacht"><i className="sun" /><i className="hull" /><i className="deck" /></div>
-          <div className="world-text">
-            <span className="world-name">The Yacht</span>
-            <span className="dim">A superyacht at golden hour: an office deck of desks, sun loungers, a pool and a bar, the bridge. New crew fly in by helicopter.</span>
-          </div>
-        </Card>
-        <Card quiet className="world off">
-          <div className="world-art soon" />
-          <div className="world-text">
-            <span className="world-name dim">More worlds</span>
-            <span className="dim">A Mars base, a space station. Later.</span>
-          </div>
-        </Card>
+      <div className="world-pick">
+        <span className="lab dim" id="world-label">Where your crew works</span>
+        <div className="worlds" role="radiogroup" aria-labelledby="world-label">
+          {WORLD_LIST.map((w) => <WorldCard key={w.id} w={w} on={w.id === world} onPick={() => setWorld(w.id)} />)}
+        </div>
+        {soon.length ? <p className="dim sc-fine">More worlds are on the way: {listOf(soon)}.</p> : null}
       </div>
-      {err ? <div className="error">{err}</div> : null}
+      {err ? <div className="error" role="alert">{err}</div> : null}
       <div className="actions"><Button kind="primary" size="lg" disabled={busy} onClick={() => void go()}>{busy ? "Launching…" : "Make the ship"}</Button></div>
     </Shell>
   );
 }
 
+const listOf = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
 function Meet({ officeId, onNext }: { officeId: string; onNext: () => void }) {
   const crew = useQuery(api.crew.list, { officeId: officeId as Id<"offices"> });
-  const sorted = [...(crew ?? [])].sort((a, b) => Number(b.role === "computer") - Number(a.role === "computer"));
+  const computah = crew?.find((c) => c.role === "computer");
+  const rest = (crew ?? []).filter((c) => c.role !== "computer");
   return (
-    <Shell step={1}>
+    <Shell step={1} label="Meet your crew">
       <div className="sc-hero">
         <h1 className="disp">Meet your crew</h1>
-        <p className="ink2">The ship's computer plans the work and hands it out. The crew do it, at desks or on loungers with laptops. Hire more whenever you like.</p>
+        <p className="ink2">{COMPUTER_NAME} runs the ship. The crew do the work, at desks or on loungers with laptops. Hire more whenever you like.</p>
       </div>
-      <div className="meet">
-        {crew === undefined ? <span className="dim">…</span> : sorted.map((c) => (
-          <div key={c._id} className="meet-row fade-up">
-            <Face avatar={c.avatar} look={c.look} computer={c.role === "computer"} size={44} />
-            <div className="meet-who">
-              <span className="meet-name">{c.name} <Chip>{c.harness === "codex" ? "Codex" : c.harness === "sim" ? "Sim crew" : "Claude Code"}</Chip></span>
-              <span className="dim">{c.role === "computer" ? "Lives at the helm on the bridge. Talk to it there, or on your phone." : c.specialty ?? "Ready for anything."}</span>
+      {crew === undefined ? <div className="sc-splash-line"><span className="dots"><i /><i /><i /></span></div> : (
+        <>
+          {computah ? (
+            <div className="computah fade-up">
+              <Face avatar={computah.avatar} look={computah.look} computer size={52} />
+              <div className="computah-who">
+                <span className="computah-name">{COMPUTER_NAME} <OrchestratorBadge /></span>
+                <span className="ink2">{COMPUTER_BLURB}</span>
+                <span className="dim computah-where">Lives at the helm on the bridge. Talk to it there, or on your phone.</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ) : null}
+          {rest.length ? (
+            <div className="meet">
+              <span className="lab dim">Your crew</span>
+              {rest.map((c) => (
+                <div key={c._id} className="meet-row fade-up">
+                  <Face avatar={c.avatar} look={c.look} size={40} />
+                  <div className="meet-who">
+                    <span className="meet-name">{c.name} <Chip>{c.harness === "codex" ? "Codex" : c.harness === "sim" ? "Sim crew" : "Claude Code"}</Chip></span>
+                    <span className="dim">{c.specialty ?? "Ready for anything."}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
+      )}
       <div className="actions"><Button kind="primary" size="lg" onClick={onNext}>Next: connect your machine</Button></div>
     </Shell>
   );
 }
 
+/** Watches for a machine that wasn't there when the step opened: then it celebrates, and moves on. */
 function Connect({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
   const machines = useQuery(api.machines.mine);
+  const known = useRef<Set<string> | null>(null);
+  const [paired, setPaired] = useState<string | null>(null);
+  const next = useRef(onNext);
+  next.current = onNext;
+  useEffect(() => {
+    if (!machines) return;
+    if (!known.current) { known.current = new Set(machines.map((m) => m._id)); return; }
+    const fresh = machines.find((m) => !known.current!.has(m._id));
+    if (fresh) setPaired((p) => p ?? fresh.name);
+  }, [machines]);
+  useEffect(() => {
+    if (!paired) return;
+    const t = setTimeout(() => next.current(), 2800);
+    return () => clearTimeout(t);
+  }, [paired]);
+  const some = !!machines?.length;
   return (
-    <Shell step={2} wide>
+    <Shell step={2} wide label="Connect your machine">
       <div className="sc-hero">
         <h1 className="disp">Connect your machine</h1>
         <p className="ink2">Your crew runs on your computer, with your own Claude Code and Codex logins. Offsite never sees them.</p>
       </div>
       <LoginSteps />
-      <CodeEntry />
-      {machines?.length ? <div className="sc-machines">{machines.map((m) => <MachineCard key={m._id} m={m} />)}</div> : null}
+      {paired ? (
+        <div className="paired-card" role="status">
+          <span className="paired-burst" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}</span>
+          <span className="paired-check" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+          <span className="paired-text"><b>{paired} is aboard.</b><span className="dim">Your crew can work there now. Next, your repos…</span></span>
+        </div>
+      ) : (
+        <div className="pairing-wait" role="status" aria-live="polite">
+          <span className="radar" aria-hidden="true"><i /><i /></span>
+          <span>Waiting for your machine…</span>
+        </div>
+      )}
+      {some && !paired ? <div className="sc-machines">{machines.map((m) => <MachineCard key={m._id} m={m} />)}</div> : null}
+      {paired ? null : (
+        <details className="have-code">
+          <summary>Have a code?</summary>
+          <CodeEntry />
+        </details>
+      )}
       <div className="actions">
-        <Button kind="primary" size="lg" disabled={!machines?.length} onClick={onNext}>Next: your repos</Button>
+        {some ? <Button kind="primary" size="lg" onClick={onNext}>Next: your repos</Button> : null}
         <Button kind="ghost" onClick={onSkip}>Skip for now and come aboard</Button>
       </div>
       <p className="dim sc-fine">Skipping is fine: the crew lounges on deck until a machine is connected. Connect one later from the phone's Ship tab.</p>
@@ -151,12 +219,12 @@ function Project({ officeId, onDone, onSkip }: { officeId: string; onDone: () =>
   const repos = useQuery(api.repos.list, { officeId: officeId as Id<"offices"> });
   const some = !!repos?.length;
   return (
-    <Shell step={3} wide>
+    <Shell step={3} wide label="Your repos">
       <div className="sc-hero">
         <h1 className="disp">Your repos</h1>
-        <p className="ink2">The folders on your machines the crew works on: one, or several (say a web app and its API). The computer puts each task in the repo it changes; a thread's work lands on one branch name in each.</p>
+        <p className="ink2">The folders on your machines the crew works on: one, or several (say a web app and its API). {COMPUTER_NAME} puts each task in the repo it changes; a thread's work lands on one branch name in each.</p>
       </div>
-      <Repos officeId={officeId} />
+      <Repos officeId={officeId} removeLast />
       {some ? <HarnessField officeId={officeId} /> : null}
       <div className="actions">
         {some ? <Button kind="primary" size="lg" onClick={onDone}>Come aboard</Button> : null}
@@ -166,35 +234,11 @@ function Project({ officeId, onDone, onSkip }: { officeId: string; onDone: () =>
   );
 }
 
-function Approve({ code, onDone }: { code: string; onDone: () => void }) {
-  const [done, setDone] = useState(false);
-  return (
-    <Shell>
-      <div className="sc-hero">
-        <h1 className="disp">Connect a machine</h1>
-        <p className="ink2">A computer running <span className="mono">offsite login</span> asked to join your ship with this code.</p>
-      </div>
-      <CodeEntry initial={code} onApproved={() => setDone(true)} />
-      <div className="actions"><Button kind={done ? "primary" : "ghost"} onClick={onDone}>{done ? "Continue" : "Not now"}</Button></div>
-    </Shell>
-  );
-}
-
-/** The world under the overlay, with a veil while the ship builds. */
-function Aboard({ officeId }: { officeId: string }) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const t = setInterval(() => { if (scene.captain()) { setReady(true); clearInterval(t); } }, 250);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <>
-      <Game officeId={officeId} />
-      <Overlay officeId={officeId} />
-      <div className={`boarding ${ready ? "gone" : ""}`}><span className="disp">Boarding</span><span className="dots"><i /><i /><i /></span></div>
-    </>
-  );
-}
+// The game and everything aboard: its own chunk (three.js, the world, the overlay), fetched once
+// you're signed in, so the front door paints without it.
+const loadAboard = () => import("./Aboard.tsx");
+const Aboard = lazy(() => loadAboard().then((m) => ({ default: m.Aboard })));
+const Boarding = () => <div className="boarding"><span className="disp">Boarding</span><span className="dots"><i /><i /><i /></span></div>;
 
 export function Gate() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -202,34 +246,42 @@ export function Gate() {
   const ensure = useMutation(api.users.ensure);
   const offices = useQuery(api.offices.mine, me ? {} : "skip");
   const machines = useQuery(api.machines.mine, me ? {} : "skip");
-  const [connect, setConnect] = useState(() => new URLSearchParams(location.search).get("connect"));
+  // An older pairing link: /?connect=CODE is now /pair?code=CODE.
+  const [connect] = useState(() => new URLSearchParams(location.search).get("connect"));
+  useEffect(() => { if (connect) location.replace(`/pair?code=${encodeURIComponent(connect)}`); }, [connect]);
   const [made, setMade] = useState<string | null>(null);
   const [stage, setStage] = useState<"meet" | "connect" | "project" | null>(null);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [ensureErr, setEnsureErr] = useState<string | null>(null);
 
+  // Signed in: start fetching the ship while the way aboard is still on screen.
+  useEffect(() => { if (isAuthenticated) void loadAboard().catch(() => {}); }, [isAuthenticated]);
+
   useEffect(() => {
     if (isAuthenticated && me === null) void ensure().catch((e) => setEnsureErr(errorText(e)));
   }, [isAuthenticated, me, ensure]);
 
-  if (isLoading) return <Splash />;
-  if (!isAuthenticated) return <SignIn />;
-  if (ensureErr) return <Shell><p className="error">{ensureErr}</p></Shell>;
-  if (!me || offices === undefined || machines === undefined) return <Splash text="Checking the manifest" />;
-  if (connect) return <Approve code={connect} onDone={() => { dropParam("connect"); setConnect(null); }} />;
+  const office = offices ? ((made ? offices.find((o) => o._id === made) : undefined) ?? offices[0]) : undefined;
+  const skippedHere = !!office && (skipped.has(office._id) || readSkip(office._id));
+  // A step the ship still needs stays on screen until you move on from it: pairing a machine
+  // celebrates before the repos, and adding a first repo doesn't whisk you aboard mid-list.
+  const need = !office || skippedHere || stage !== null || !machines ? null
+    : machines.length === 0 ? "connect" : !office.repoCount ? "project" : null;
+  useEffect(() => { if (need) setStage(need); }, [need]);
 
-  const office = (made ? offices.find((o) => o._id === made) : undefined) ?? offices[0];
+  if (isLoading) return <Landing checking />;
+  if (!isAuthenticated) return <Landing />;
+  if (ensureErr) return <Shell><p className="error" role="alert">{ensureErr}</p></Shell>;
+  if (!me || offices === undefined || machines === undefined) return <Splash text="Checking the manifest" />;
+  if (connect) return <Splash text="Opening the pairing page" />;
+
   if (!office) return <MakeShip onMade={(id) => { setMade(id); setStage("meet"); }} />;
   const id = office._id;
   const skip = () => { writeSkip(id); setSkipped((s) => new Set(s).add(id)); setStage(null); };
-  const skippedHere = skipped.has(id) || readSkip(id);
+  const current = stage ?? need;
 
-  if (stage === "meet") return <Meet officeId={id} onNext={() => setStage("connect")} />;
-  if (stage === "connect" || (!skippedHere && stage === null && machines.length === 0)) {
-    return <Connect onNext={() => setStage("project")} onSkip={skip} />;
-  }
-  if (stage === "project" || (!skippedHere && stage === null && !office.repoCount)) {
-    return <Project officeId={id} onDone={() => setStage(null)} onSkip={skip} />;
-  }
-  return <Aboard key={id} officeId={id} />;
+  if (current === "meet") return <Meet officeId={id} onNext={() => setStage("connect")} />;
+  if (current === "connect") return <Connect onNext={() => setStage("project")} onSkip={skip} />;
+  if (current === "project") return <Project officeId={id} onDone={() => setStage(null)} onSkip={skip} />;
+  return <Suspense fallback={<Boarding />}><Aboard key={id} officeId={id} /></Suspense>;
 }

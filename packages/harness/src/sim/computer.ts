@@ -2,7 +2,7 @@ import { pick } from "./random.ts";
 import { keyword, slugify } from "./repo.ts";
 import type { SimContext } from "./session.ts";
 
-// The ship's computer, scripted. Each turn it checks on the crew, then: plans the captain's request (one task, or
+// Computah, the main orchestrator, scripted. Each turn it checks on the crew, then: plans the captain's request (one task, or
 // a shared-types task first and two parts that depend on it when the ask clearly has parts); says where things
 // stand while work is out; reviews every task and finishes the thread once they have all landed.
 

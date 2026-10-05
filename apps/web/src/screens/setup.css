@@ -1,0 +1,49 @@
+/* Connecting a machine and the ship's repos (setup.tsx): on the way aboard and in the phone's Ship tab.
+   These live with the components, not the phone, so the way aboard has them before the game loads. */
+
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+
+.machine { padding: 10px 12px; display: flex; flex-direction: column; gap: 9px; }
+.machine-head { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 13px; flex-wrap: wrap; }
+.machine-name { font-weight: 600; font-size: 14px; white-space: nowrap; }
+.machine-seen { margin-left: auto; white-space: nowrap; font-size: 12px; }
+.probe { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.probe-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.probe-name { width: 96px; flex: none; }
+.probe-state { flex: 1; color: var(--ink-2); }
+.probe-ver { font-size: 11px; }
+
+/* One command, copyable. */
+.run-step { display: flex; flex-direction: column; gap: 10px; }
+.run-lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.run-fine { margin: 0; font-size: 12.5px; line-height: 1.5; }
+.run-fine code { color: var(--ink-2); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--line); white-space: nowrap; }
+.copy-cmd {
+  display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; min-width: 0;
+  border-radius: 10px; background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(79, 227, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.copy-prompt { font-family: var(--mono); color: var(--faint); user-select: none; }
+.copy-text { flex: 1; min-width: 0; font-size: 15px; color: var(--accent); white-space: nowrap; overflow-x: auto; user-select: all; scrollbar-width: none; }
+.copy-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 0; border-radius: 7px; cursor: pointer;
+  background: rgba(238, 243, 247, 0.08); color: var(--ink); font-size: 13px; font-weight: 600; transition: background 0.15s ease, color 0.15s ease;
+}
+.copy-btn:hover { background: rgba(238, 243, 247, 0.14); }
+.copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.copy-btn.done { background: rgba(109, 255, 168, 0.16); color: var(--green); }
+
+.code-entry { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.code-input { font-size: 20px !important; letter-spacing: 0.12em; max-width: 220px; }
+.code-found, .code-done { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+.project-form { display: flex; flex-direction: column; gap: 12px; }
+.repos { display: flex; flex-direction: column; gap: 8px; }
+.repo { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.repo.editing { padding: 12px; }
+.repo-head { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 13px; }
+.repo-head .chip { font-size: 11px; }
+.repo-path { flex: 1; color: var(--ink-2); }
+.repo-facts { display: flex; gap: 5px; font-size: 12px; min-width: 0; flex-wrap: wrap; }

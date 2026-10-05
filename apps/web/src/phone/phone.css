@@ -114,6 +114,7 @@
 .cr-name { font-weight: 600; font-size: 15px; }
 .cr-line { font-size: 12px; }
 .cr-sub { font-size: 11px; color: var(--dim); }
+.crew-sec { margin: 4px 0 -2px; }
 .crew-detail { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 .cd-head { display: flex; align-items: center; gap: 11px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .cd-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

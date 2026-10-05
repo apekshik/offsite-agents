@@ -33,6 +33,15 @@ describe("pairing a machine", () => {
     expect(await alice.mutation(api.machines.approve, { userCode })).toMatchObject({ ok: true, name: "Alice's Mac" });
   });
 
+  it("shows the approval screen what the machine said it runs on, and copes with runners that don't say", async () => {
+    const { t, alice } = ship();
+    await alice.mutation(api.users.ensure, {});
+    const withOs = await t.mutation(internal.machines.startCode, { name: "Studio", hostname: "studio.local", os: "macOS 26.4" });
+    expect(await alice.mutation(api.machines.lookup, { userCode: withOs.userCode })).toEqual({ ok: true, name: "Studio", hostname: "studio.local", os: "macOS 26.4" });
+    const older = await t.mutation(internal.machines.startCode, { name: "Box", hostname: "box" });
+    expect(await alice.mutation(api.machines.lookup, { userCode: older.userCode })).toEqual({ ok: true, name: "Box", hostname: "box", os: null });
+  });
+
   it("caps new codes across everyone", async () => {
     const { t } = ship();
     for (let i = 0; i < PAIRING.startsPerMinute; i++) await t.mutation(internal.machines.startCode, { name: "m", hostname: "h" });

@@ -144,6 +144,7 @@ select.input option { background: #0c1016; }
 .pill.green { background: rgba(109, 255, 168, 0.13); color: var(--green); }
 .pill.red { background: rgba(255, 93, 108, 0.14); color: var(--red); }
 .chip { display: inline-block; vertical-align: 2px; font-size: 10px; font-weight: 600; padding: 1px 6px; border: 1px solid rgba(238, 243, 247, 0.25); color: var(--dim); border-radius: 3px; letter-spacing: 0.02em; white-space: nowrap; }
+.chip.orch { border-color: rgba(79, 227, 255, 0.45); color: var(--accent); }
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--dim); }
 .dot.on { background: var(--green); }
 .dot.off { background: var(--faint); }

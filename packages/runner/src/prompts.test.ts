@@ -19,3 +19,9 @@ it("has the computer keep commits, pushes and pull requests out of its briefs: t
   // What the crew are told, so the two agree.
   expect(crewPrompt(ctx, { cwd: "/w/dark-mode", taskBranch: "offsite/dark-mode-x-dark-mode", threadBranch: "offsite/dark-mode-x", port: null })).toMatch(/Commit nothing yourself/);
 });
+
+it("introduces Computah as the main orchestrator, and tells the crew who gave them the task", () => {
+  const p = computerPrompt(ctx, "Ada", { threadBranch: "offsite/dark-mode-x", cwd: "/w/_thread", repos: ["app"] });
+  expect(p).toMatch(/^You are Computah \(@computah\), the main orchestrator on .+\. You help Ada, the captain, manage the crew\./);
+  expect(crewPrompt(ctx, { cwd: "/w/dark-mode", taskBranch: "offsite/dark-mode-x-dark-mode", threadBranch: "offsite/dark-mode-x", port: null })).toMatch(/Computah, the main orchestrator, gave you a task/);
+});

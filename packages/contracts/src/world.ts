@@ -18,9 +18,9 @@ export type SlotKind =
   | "cinema"        // a bean bag in front of a film: sitting low, facing the screen
   | "sauna"         // a bench in the sauna: sitting
   | "workshop"      // tinkering with a jet ski or the tender: standing at it
-  | "core"          // at the rail round the ship's computer core, watching it think
-  | "helm"          // the bridge console: the ship's computer's big screen
-  | "computer"      // where the ship's computer stands (its robot body)
+  | "core"          // at the rail round Computah's core, watching it think
+  | "helm"          // the bridge console: Computah's big screen
+  | "computer"      // where Computah stands (its robot body)
   | "dropoff"       // where finished work is delivered: packages pile here
   | "helipad"       // where the helicopter lands
   | "crew-spawn"    // where a new crew member steps out of the helicopter

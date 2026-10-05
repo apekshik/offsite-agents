@@ -818,7 +818,7 @@ export class Director {
     }
   }
 
-  /** The ship's computer: it hovers by the helm, and its face says how it's doing. */
+  /** Computah: it hovers by the helm, and its face says how it's doing. */
   computer(c: CrewView | undefined, now: number): ComputerDirection | null {
     if (!c) return null;
     const slot = this.slots.find((s) => s.kind === "computer")?.id ?? this.slots.find((s) => s.kind === "helm")?.id ?? null;

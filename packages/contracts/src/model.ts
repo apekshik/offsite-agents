@@ -7,13 +7,13 @@ export type Harness = z.infer<typeof Harness>;
 export const Effort = z.enum(["low", "medium", "high", "max"]);
 export type Effort = z.infer<typeof Effort>;
 
-/** The ship's computer plans and delegates; crew members do the work. */
+/** "computer" is Computah, the main orchestrator: it plans and delegates; crew members do the work. */
 export const CrewRole = z.enum(["computer", "crew"]);
 export type CrewRole = z.infer<typeof CrewRole>;
 
 /**
  * What a run is for.
- * - computer: one turn of the ship's computer in a thread (planning, delegating, reviewing).
+ * - computer: one turn of Computah (the main orchestrator) in a thread (planning, delegating, reviewing).
  * - task: one crew member working one task in its own worktree.
  * - look: designing a crew member's look from a description, on the captain's own subscription.
  */
@@ -40,7 +40,7 @@ export type ThreadState = z.infer<typeof ThreadState>;
 export const MessageKind = z.enum(["text", "report", "plan", "system"]);
 export type MessageKind = z.infer<typeof MessageKind>;
 
-/** Who said it: you (the captain), the ship's computer or a crew member, or the ship itself. */
+/** Who said it: you (the captain), Computah or a crew member, or the ship itself. */
 export type Author = { kind: "captain" } | { kind: "crew"; crewId: string } | { kind: "system" };
 
 /** Limits that keep one office's state small. */

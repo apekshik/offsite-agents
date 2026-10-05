@@ -40,7 +40,7 @@ const crew: View[] = Array.from({ length: N }, (_, i) => {
   };
 });
 crew.push({
-  _id: "computer", name: "Computer", handle: "computer", role: "computer", arrivesAt: now0 - 3_600_000,
+  _id: "computer", name: "Computah", handle: "computah", role: "computer", arrivesAt: now0 - 3_600_000,
   live: null, lastEnded: null, lastStep: null, asking: false, avatar: null, look: null,
 });
 

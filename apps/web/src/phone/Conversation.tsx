@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { audio } from "../audio/index.ts";
-import { ACTIVITY_LABEL } from "@offsite/contracts";
+import { ACTIVITY_LABEL, COMPUTER_NAME } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ui } from "../bridge.ts";
@@ -11,8 +11,8 @@ import { phone } from "./state.ts";
 import { Stats } from "../review/Review.tsx";
 import { openReview } from "../review/open.ts";
 
-// The conversation with the ship's computer, shared by the phone and the helm console: the threads,
-// one thread (your messages, the computer's replies, its plan, crew reports), and questions.
+// The conversation with Computah, shared by the phone and the helm console: the threads, one thread
+// (your messages, Computah's replies, its plan, crew reports), and questions.
 
 // ---- questions ----
 
@@ -91,7 +91,7 @@ export function threadState(t: ThreadRow, computer: CrewRow | undefined): { labe
     const d = t.tasks.total ? `${t.tasks.landed} of ${t.tasks.total} landed` : "starting";
     return { label: "Working", tone: "accent", detail: d };
   }
-  if (thinking) return { label: "Open", tone: "dim", detail: `the computer is ${(computer?.live?.step?.summary ?? "thinking").replace(/^./, (c) => c.toLowerCase())}` };
+  if (thinking) return { label: "Open", tone: "dim", detail: `${COMPUTER_NAME} is ${(computer?.live?.step?.summary ?? "thinking").replace(/^./, (c) => c.toLowerCase())}` };
   return { label: "Open", tone: "dim", detail: t.tasks.total ? `${t.tasks.landed} of ${t.tasks.total} landed` : "talking it through" };
 }
 
@@ -120,7 +120,7 @@ export function ThreadCard({ t, selected, onClick, progress }: { t: ThreadRow; s
 export function ThreadList({ selected, onSelect, progress }: { selected: string | null; onSelect: (id: string) => void; progress?: boolean }) {
   const { threads } = useShip();
   if (!threads) return <div className="empty dim">Loading threads…</div>;
-  if (!threads.length) return <div className="empty dim">No threads yet. Ask the computer for something above: “add a dark mode toggle to settings”.</div>;
+  if (!threads.length) return <div className="empty dim">No threads yet. Ask {COMPUTER_NAME} for something above: “add a dark mode toggle to settings”.</div>;
   return (
     <div className="thread-list">
       {threads.map((t) => <ThreadCard key={t._id} t={t} selected={t._id === selected} onClick={() => onSelect(t._id)} progress={progress ?? false} />)}
@@ -128,8 +128,8 @@ export function ThreadList({ selected, onSelect, progress }: { selected: string 
   );
 }
 
-/** "Ask the computer for something…": starts a thread. */
-export function NewThread({ autoFocus, onStarted, placeholder = "Ask the computer for something…", big }: { autoFocus?: boolean; onStarted?: (id: string) => void; placeholder?: string; big?: boolean }) {
+/** "Ask Computah for something…": starts a thread. */
+export function NewThread({ autoFocus, onStarted, placeholder = `Ask ${COMPUTER_NAME} for something…`, big }: { autoFocus?: boolean; onStarted?: (id: string) => void; placeholder?: string; big?: boolean }) {
   const { officeId } = useShip();
   const create = useMutation(api.threads.create);
   const [text, setText] = useState("");
@@ -223,7 +223,7 @@ function PlanCard({ tasks, grid }: { tasks: TaskRow[]; grid?: boolean }) {
   }
   return (
     <Card className="plan">
-      <span className="lab dim">Plan</span>
+      <span className="lab dim">{COMPUTER_NAME} planned {tasks.length} task{tasks.length === 1 ? "" : "s"}</span>
       {rows.map(({ t, who, st }) => (
         <div key={t._id} className="plan-row" title={t.brief}>
           <span className={`pr-icon t-${st.tone}`}>{st.icon}</span>
@@ -335,8 +335,8 @@ export function ThreadView({ threadId, big }: { threadId: string; big?: boolean 
         {qs.map((q) => <QuestionCard key={q._id} q={q} context={false} />)}
       </div>
       <form className="card composer" onSubmit={(e) => void submit(e)}>
-        <label className="sr" htmlFor={`say-${big ? "helm" : "phone"}`}>Message the computer</label>
-        <input id={`say-${big ? "helm" : "phone"}`} value={text} onChange={(e) => setText(e.target.value)} placeholder="Message the computer…" autoComplete="off" />
+        <label className="sr" htmlFor={`say-${big ? "helm" : "phone"}`}>Message {COMPUTER_NAME}</label>
+        <input id={`say-${big ? "helm" : "phone"}`} value={text} onChange={(e) => setText(e.target.value)} placeholder={`Message ${COMPUTER_NAME}…`} autoComplete="off" />
         {big ? <Button kind="primary" type="submit" disabled={!text.trim()}>Send</Button>
           : <button className="iconbtn" type="submit" aria-label="Send" disabled={!text.trim()}><SendIcon /></button>}
       </form>

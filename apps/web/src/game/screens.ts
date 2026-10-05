@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ACTIVITY_LABEL, type CrewActivity } from "@offsite/contracts";
+import { ACTIVITY_LABEL, COMPUTER_NAME, type CrewActivity } from "@offsite/contracts";
 
 // What crew screens show in the world: desk monitors, laptops on loungers, the helm's big screen.
 // Canvas painters after the agreed concepts (docs/design/interface/Desk*.dc.html, Laptop, Helm):
@@ -152,7 +152,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 function drawFace(ctx: CanvasRenderingContext2D, f: FaceColors | null, x: number, y: number, s: number) {
   if (!f) {
-    // The computer: a white robot head with cyan eyes.
+    // Computah: a white robot head with cyan eyes.
     ctx.fillStyle = "#e9eef3";
     roundRect(ctx, x, y + s * 0.05, s, s * 0.9, s * 0.27);
     ctx.fill();
@@ -489,7 +489,7 @@ export class CrewScreen {
     ctx.fillStyle = "#04060a";
     ctx.fillRect(0, 0, W, H);
     const pad = 40;
-    // Top: the ship, and what the computer is doing.
+    // Top: the ship, and what Computah is doing.
     ctx.font = `650 34px ${SANS}`;
     ctx.fillStyle = C.ink;
     ctx.fillText(c.ship, pad, 62);
@@ -500,8 +500,9 @@ export class CrewScreen {
     drawFace(ctx, null, pad, 92, 40);
     ctx.font = `600 26px ${SANS}`;
     ctx.fillStyle = c.computer.busy ? C.accent : C.dim;
-    ctx.fillText(c.computer.busy ? "Thinking" : "All quiet", pad + 58, 112);
-    const tw = ctx.measureText(c.computer.busy ? "Thinking" : "All quiet").width;
+    const mood = `${COMPUTER_NAME} · ${c.computer.busy ? "Thinking" : "All quiet"}`;
+    ctx.fillText(mood, pad + 58, 112);
+    const tw = ctx.measureText(mood).width;
     ctx.font = `500 24px ${SANS}`;
     ctx.fillStyle = C.ink2;
     ctx.fillText(clip(ctx, c.computer.busy ? c.computer.title : "Walk up and press E to talk to me", W * 0.58 - pad - 58 - tw - 16), pad + 58 + tw + 16, 112);

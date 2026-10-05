@@ -1,3 +1,4 @@
+import { COMPUTER_HANDLE, COMPUTER_NAME } from "@offsite/contracts";
 import type { RunContext } from "./backend.ts";
 
 // What each agent is told, on top of its harness's own system prompt. Short and concrete: who they are, where they
@@ -11,7 +12,7 @@ export function computerPrompt(ctx: RunContext, captain: string, place: { thread
     ? `This ship has ${all.length} repos: ${all.join(", ")}. Your working directory (${place.cwd}) holds each repo on this machine as a folder (${place.repos.map((n) => `${n}/`).join(", ")}), at the thread's branch, ${place.threadBranch}, as it stands in that repo (its default branch until a task there starts). Read them to plan with judgement. They are refreshed as work lands; don't edit them.${away.length ? ` ${away.join(", ")} ${away.length === 1 ? "is" : "are"} on another machine: you can't read ${away.length === 1 ? "it" : "them"} from here, but you can plan tasks there.` : ""}`
     : `Your working directory (${place.cwd}) holds the repo as a folder (${place.repos[0] ?? all[0] ?? "the repo"}/) at the thread's branch, ${place.threadBranch}, as it stands: read it to plan with judgement. It is refreshed as work lands; don't edit it.`;
   return [
-    `You are the ship's computer on ${ctx.office.name}, an Offsite ship. ${captain}, the captain, talks to you in threads. You plan the work and hand it to the crew: coding agents (Claude Code or Codex) who each work in their own git worktree on the captain's machine. You don't write code yourself.`,
+    `You are ${COMPUTER_NAME} (@${COMPUTER_HANDLE}), the main orchestrator on ${ctx.office.name}, an Offsite ship. You help ${captain}, the captain, manage the crew. ${captain} talks to you in threads; you plan the work, hand it to whoever is free, hire when everyone is busy, and check what the crew land before it goes in. The crew are coding agents (Claude Code or Codex) who each work in their own git worktree on the captain's machine. You don't write code yourself.`,
     "",
     where,
     "",
@@ -39,7 +40,7 @@ export function crewPrompt(ctx: RunContext, place: { cwd: string; taskBranch: st
   const deps = task.dependsOn.length ? `It builds on: ${task.dependsOn.map((d) => `"${d.title}" (${d.state})`).join(", ")}. ${many ? "Work from tasks in your repo is already on your branch; work in other repos is described in your brief." : "That work is already on your branch."}` : "";
   return [
     `You are ${ctx.crew.name} (@${ctx.crew.handle}), a crew member on ${ctx.office.name}, an Offsite ship.${ctx.crew.specialty ? ` ${ctx.crew.specialty}` : ""}`,
-    `The ship's computer gave you a task in the thread "${ctx.thread?.title ?? "untitled"}": ${task.title} (${task.key})${many && task.repo ? `, in the ${task.repo} repo` : ""}. Your brief is the next message. ${deps}`.trim(),
+    `${COMPUTER_NAME}, the main orchestrator, gave you a task in the thread "${ctx.thread?.title ?? "untitled"}": ${task.title} (${task.key})${many && task.repo ? `, in the ${task.repo} repo` : ""}. Your brief is the next message. ${deps}`.trim(),
     "",
     "How you work:",
     `- Work only in your worktree, ${place.cwd} (branch ${place.taskBranch}). Don't change files outside it.`,
@@ -48,12 +49,12 @@ export function crewPrompt(ctx: RunContext, place: { cwd: string; taskBranch: st
     "- Use your judgement. Call ask_captain only for a decision that is genuinely the captain's; it waits for their answer.",
     place.port ? `- PORT=${place.port} is yours for any dev server, so you don't collide with teammates.` : "",
     "- Before you finish, run the project's tests or checks that cover your change.",
-    "- End with a short report, a few lines: what you changed (files), how you checked it, anything the computer should know.",
+    `- End with a short report, a few lines: what you changed (files), how you checked it, anything ${COMPUTER_NAME} should know.`,
     ctx.context ? `\n${ctx.context}` : "",
   ].filter((l) => l !== "").join("\n");
 }
 
-/** The first message of a task run: the brief, the computer's notes from last time, and any messages left for them. */
+/** The first message of a task run: the brief, Computah's notes from last time, and any messages left for them. */
 export const taskMessage = (ctx: RunContext) => ctx.run.prompt;
 
 export const conflictSteer = (files: string[], threadBranch: string) =>

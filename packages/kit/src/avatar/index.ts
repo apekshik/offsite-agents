@@ -1,4 +1,4 @@
-// Avatars and their looks, held poses, props, labels, ready-made crew, the ship's computer.
+// Avatars and their looks, held poses, props, labels, ready-made crew, Computah (the ship's main orchestrator).
 export * from "./pose.ts";
 export * from "./sanitize.ts";
 export * from "./pieces.ts";

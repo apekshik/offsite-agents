@@ -1,9 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
+import { COMPUTER_NAME } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { ago, Button, Card, Chip, ConfirmButton, Dot, errorText, Field, Input, useNow } from "../ui/index.tsx";
+import "./setup.css";
 
 // Connecting a machine and the ship's repos: used by the first-run screens and the phone's Ship tab.
 
@@ -69,21 +71,55 @@ export function MachineCard({ m, chosen, onRevoke }: { m: Machine; chosen?: bool
   );
 }
 
-// The runner isn't on npm yet: it runs from a checkout of the repo, pointed at this app's backend.
-const REPO = "https://github.com/apekshik/offsite-agents.git";
-const BACKEND = (import.meta.env["CONVEX_URL"] as string | undefined) ?? "";
+/** The one command that brings a machine aboard: it signs in through this page and pairs. */
+export const RUNNER_COMMAND = "npx offsite-agents";
+/** Keeps the runner going in the background, across restarts. */
+export const RUNNER_INSTALL = "npx offsite-agents install";
 
-/** "Run this on your computer". */
+/** A command in a box, with a button that copies it. */
+export function CopyCommand({ command, label = "Copy the command" }: { command: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(command); } catch {
+      // No clipboard (an insecure page, an old browser): select the text so a keystroke copies it.
+      const el = document.getElementById(`cmd-${command}`);
+      if (el) getSelection()?.selectAllChildren(el);
+      return;
+    }
+    setCopied(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 1800);
+  };
+  return (
+    <div className="copy-cmd">
+      <span className="copy-prompt" aria-hidden="true">$</span>
+      <code id={`cmd-${command}`} className="mono copy-text">{command}</code>
+      <button type="button" className={`copy-btn ${copied ? "done" : ""}`} onClick={() => void copy()} aria-label={copied ? "Copied" : label}>
+        {copied ? (
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        ) : (
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M10.5 3.2V3a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3v5.5A1.5 1.5 0 0 0 3.5 10h.3" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+        )}
+        <span>{copied ? "Copied" : "Copy"}</span>
+      </button>
+      <span className="sr" aria-live="polite">{copied ? "Copied to the clipboard" : ""}</span>
+    </div>
+  );
+}
+
+/** "Run this on your computer": one command, and what it needs. */
 export function LoginSteps() {
   return (
-    <ol className="steps">
-      <li>On the computer that has your code and your Claude Code or Codex login (Node 22.18+ and pnpm), run
-        <pre className="mono cmd">{`git clone ${REPO}\ncd offsite-agents && pnpm install\npnpm runner login --url ${BACKEND}`}</pre>
-        <span className="dim">Already have the repo? Run the last line from it.</span>
-      </li>
-      <li>It prints a code like <span className="mono">K7QD-3MPX</span>. Enter it below, or open the link it shows. Only approve a code from a terminal you started yourself.</li>
-      <li>Then keep it running with <span className="mono">pnpm runner start</span> in that folder. Your crew works there, on your own subscriptions.</li>
-    </ol>
+    <div className="run-step">
+      <p className="run-lead">On the computer with your code and your Claude Code or Codex login, run:</p>
+      <CopyCommand command={RUNNER_COMMAND} />
+      <p className="run-fine dim">
+        It opens this site to pair: approve it there and you're done. Needs Node 22 or newer.
+        To keep it running in the background, run <code className="mono">{RUNNER_INSTALL}</code> once.
+      </p>
+    </div>
   );
 }
 
@@ -136,7 +172,7 @@ export function CodeEntry({ initial = "", onApproved }: { initial?: string; onAp
       {valid && pending ? (
         <Card tone="accent" className="code-found">
           <span>Connect <b>{pending.name}</b>{pending.hostname ? <span className="dim"> ({pending.hostname})</span> : null} to your ship?</span>
-          <span className="dim">It can then run your crew with the Claude Code and Codex logins on that computer. Offsite never sees them. Connect only a machine you just ran <span className="mono">offsite login</span> on: whoever runs it gets to work on your ship.</span>
+          <span className="dim">It can then run your crew with the Claude Code and Codex logins on that computer. Offsite never sees them. Connect only a machine you just ran <span className="mono">{RUNNER_COMMAND}</span> on: whoever runs it gets to work on your ship.</span>
           <div className="actions">
             <Button kind="primary" disabled={busy} onClick={() => void go()}>{busy ? "Connecting…" : "Connect"}</Button>
             <Button kind="ghost" onClick={() => void deny({ userCode: code }).then(() => setCode(""))}>That's not mine</Button>
@@ -187,7 +223,7 @@ export function RepoForm({ officeId, repo, onDone, onCancel, submitLabel }: { of
             {machines.map((m) => <option key={m._id} value={m._id}>{m.name}{m.online ? "" : " (offline)"}</option>)}
           </select>
         </Field>
-        <Field label="Name" hint="What the computer calls it.">
+        <Field label="Name" hint={`What ${COMPUTER_NAME} calls it.`}>
           <Input className="mono" value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder={folderName || "web"} maxLength={32} spellCheck={false} />
         </Field>
       </div>
@@ -210,7 +246,7 @@ export function RepoForm({ officeId, repo, onDone, onCancel, submitLabel }: { of
 }
 
 /** A repo on the ship, compact: its name, folder, machine and branch, with edit and remove. */
-function RepoItem({ officeId, repo, first, many }: { officeId: string; repo: RepoRow; first: boolean; many: boolean }) {
+function RepoItem({ officeId, repo, first, many, removeLast }: { officeId: string; repo: RepoRow; first: boolean; many: boolean; removeLast: boolean }) {
   const remove = useMutation(api.repos.remove);
   const [editing, setEditing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -221,13 +257,13 @@ function RepoItem({ officeId, repo, first, many }: { officeId: string; repo: Rep
         <Chip>{repo.name}</Chip>
         <span className="mono clip repo-path">{repo.path}</span>
         {repo._id ? <Button kind="ghost" size="sm" onClick={() => setEditing(true)}>Edit</Button> : null}
-        {repo._id && many ? <ConfirmButton size="sm" confirm="Remove it?" onConfirm={() => void remove({ repoId: repo._id! }).catch((x) => setErr(errorText(x)))}>Remove</ConfirmButton> : null}
+        {repo._id && (many || removeLast) ? <ConfirmButton size="sm" confirm="Remove it?" onConfirm={() => void remove({ repoId: repo._id! }).catch((x) => setErr(errorText(x)))}>Remove</ConfirmButton> : null}
       </div>
       <div className="repo-facts dim">
         <span>{repo.machine?.name ?? "A disconnected machine"}</span>
         <span>· <span className="mono">{repo.defaultBranch}</span></span>
         {repo.setupCommand ? <span className="clip">· <span className="mono">{repo.setupCommand}</span></span> : null}
-        {first && many ? <span>· the computer works here</span> : null}
+        {first && many ? <span>· {COMPUTER_NAME} works here</span> : null}
       </div>
       {err ? <div className="error">{err}</div> : null}
     </Card>
@@ -251,14 +287,14 @@ export function HarnessField({ officeId }: { officeId: string }) {
 }
 
 /** The ship's repos: each one listed, edit and remove, and a form to add another (open at once when there are none). */
-export function Repos({ officeId }: { officeId: string }) {
+export function Repos({ officeId, removeLast = false }: { officeId: string; removeLast?: boolean }) {
   const repos = useQuery(api.repos.list, { officeId: officeId as Id<"offices"> });
   const [adding, setAdding] = useState(false);
   if (!repos) return <div className="dim">…</div>;
   const none = repos.length === 0;
   return (
     <div className="repos">
-      {repos.map((r, i) => <RepoItem key={r._id ?? r.path} officeId={officeId} repo={r} first={i === 0} many={repos.length > 1} />)}
+      {repos.map((r, i) => <RepoItem key={r._id ?? r.path} officeId={officeId} repo={r} first={i === 0} many={repos.length > 1} removeLast={removeLast} />)}
       {none || adding ? (
         <Card quiet={!none} className="repo editing">
           <RepoForm officeId={officeId} onDone={() => setAdding(false)} {...(none ? {} : { onCancel: () => setAdding(false) })} />

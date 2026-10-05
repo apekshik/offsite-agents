@@ -2,8 +2,8 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 // One person's offsite: you (the captain), your ship (an office in a world), your crew (agents
-// running on your own machine and subscriptions), threads (conversations with the ship's
-// computer), the tasks it hands out, and the runs that do them.
+// running on your own machine and subscriptions), threads (conversations with Computah, the main
+// orchestrator: the crew row with role "computer"), the tasks it hands out, and the runs that do them.
 
 export const harness = v.union(v.literal("claude"), v.literal("codex"), v.literal("sim"));
 export const runState = v.union(
@@ -67,7 +67,7 @@ export default defineSchema({
     removedAt: v.union(v.number(), v.null()),
   }).index("by_office", ["officeId"]),
 
-  /** A crew member: an identity (name, look, specialty) powered by a harness on your machine. The ship's computer is crew too (role "computer"). */
+  /** A crew member: an identity (name, look, specialty) powered by a harness on your machine. Computah, the main orchestrator, is crew too (role "computer"). */
   crew: defineTable({
     officeId: v.id("offices"),
     role: v.union(v.literal("computer"), v.literal("crew")),
@@ -106,6 +106,8 @@ export default defineSchema({
     userCode: v.string(),
     name: v.string(),
     hostname: v.string(),
+    /** What the runner said it runs on ("macOS 26.4", "Linux"), for the approval screen. Absent from older runners. */
+    os: v.optional(v.string()),
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("denied")),
     ownerId: v.union(v.id("users"), v.null()),
     token: v.union(v.string(), v.null()),
@@ -119,7 +121,7 @@ export default defineSchema({
     count: v.number(),
   }).index("by_key", ["key"]).index("by_window", ["windowStart"]),
 
-  /** A conversation with the ship's computer about one piece of work. Its work lands on one branch. */
+  /** A conversation with Computah about one piece of work. Its work lands on one branch. */
   threads: defineTable({
     officeId: v.id("offices"),
     title: v.string(),

@@ -38,12 +38,12 @@ type Found = { ok: true; row: Doc<"deviceCodes"> } | { ok: false; error: string 
 async function findCode(ctx: MutationCtx, user: Doc<"users">, userCode: string): Promise<Found> {
   const key = `pair-miss:${user._id}`;
   const spent = await ctx.db.query("rateLimits").withIndex("by_key", (q) => q.eq("key", key)).unique();
-  const tooMany = { ok: false as const, error: "Too many codes that didn't match. Wait ten minutes, then run `offsite login` again for a fresh one." };
+  const tooMany = { ok: false as const, error: "Too many codes that didn't match. Wait ten minutes, then run `npx offsite-agents` again for a fresh one." };
   if (spent && Date.now() - spent.windowStart < PAIRING.missWindowMs && spent.count >= PAIRING.missesPerUser) return tooMany;
   const row = await ctx.db.query("deviceCodes").withIndex("by_user_code", (q) => q.eq("userCode", userCode.trim().toUpperCase())).first();
   if (row && row.status === "pending" && row.expiresAt >= Date.now()) return { ok: true, row };
   if (!(await limit(ctx, key, PAIRING.missesPerUser, PAIRING.missWindowMs))) return tooMany;
-  return { ok: false, error: "No machine is waiting with that code. Codes last 15 minutes; run `offsite login` again for a new one." };
+  return { ok: false, error: "No machine is waiting with that code. Codes last 15 minutes; run `npx offsite-agents` again for a new one." };
 }
 
 /** What the runner asking with this code said it is, for the approval screen. */
@@ -51,7 +51,7 @@ export const lookup = mutation({
   args: { userCode: v.string() },
   handler: async (ctx, { userCode }) => {
     const found = await findCode(ctx, await requireUser(ctx), userCode);
-    return found.ok ? { ok: true as const, name: found.row.name, hostname: found.row.hostname } : found;
+    return found.ok ? { ok: true as const, name: found.row.name, hostname: found.row.hostname, os: found.row.os ?? null } : found;
   },
 });
 
@@ -96,8 +96,8 @@ export const revoke = mutation({
 // ---- the runner's side, over HTTP (convex/http.ts) ----
 
 export const startCode = internalMutation({
-  args: { name: v.string(), hostname: v.string() },
-  handler: async (ctx, { name, hostname }) => {
+  args: { name: v.string(), hostname: v.string(), os: v.optional(v.string()) },
+  handler: async (ctx, { name, hostname, os }) => {
     // Refusing writes nothing, so throwing is fine here; http.ts answers 429.
     if (!(await limit(ctx, "device-start", PAIRING.startsPerMinute, 60_000))) fail(BUSY);
     const waiting = await ctx.db.query("deviceCodes").withIndex("by_expires", (q) => q.gt("expiresAt", Date.now())).take(PAIRING.maxPending);
@@ -105,7 +105,7 @@ export const startCode = internalMutation({
     const deviceCode = randomToken("ofd_");
     const userCode = `${randomCode(4)}-${randomCode(4)}`;
     await ctx.db.insert("deviceCodes", {
-      deviceCode, userCode, name: name.slice(0, 60) || "My machine", hostname: hostname.slice(0, 60), status: "pending", ownerId: null, token: null, expiresAt: Date.now() + CODE_TTL,
+      deviceCode, userCode, name: name.slice(0, 60) || "My machine", hostname: hostname.slice(0, 60), ...(os ? { os: os.slice(0, 40) } : {}), status: "pending", ownerId: null, token: null, expiresAt: Date.now() + CODE_TTL,
     });
     return { deviceCode, userCode, expiresIn: CODE_TTL / 1000 };
   },

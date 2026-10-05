@@ -14,7 +14,7 @@ export type CrewActivity =
   | "editing"    // edit / write
   | "running"    // bash: tests, builds, commands
   | "browsing"   // web
-  | "delegating" // the computer handing out work, or a harness subagent
+  | "delegating" // Computah handing out work, or a harness subagent
   | "asking"     // waiting on the captain
   | "landed"     // just finished well: carrying the package to the bridge
   | "failed";    // just finished badly

@@ -2,7 +2,7 @@
 // stern forward: the beach club (a bar and loungers to starboard, the tender garage with the tender
 // and two jet skis to port, a lounge between them under the stern terrace), then a corridor between
 // the spa and the engine room, the gym and the cinema, into the crew mess and its galley, and
-// through a glass wall into the server room, where the ship's computer lives (core.ts).
+// through a glass wall into the server room, where Computah (the orchestrator) lives (core.ts).
 //
 // Two stairs come down from the promenades into the server room; the beach club opens onto the
 // swim platform through the transom. Everything down here sits in the hull's shade, so it goes in
@@ -173,7 +173,7 @@ export function buildLowerDeck(s: Ship): { racks: RackSpot[] } {
     row(side * 7.0, -30.6, -12.9, side);
     row(side * 7.0, -9.2, 0.5, side);
   }
-  // A big board on the forward wall: the ship's computer's own screen (the app paints it).
+  // A big board on the forward wall: Computah (the orchestrator)'s own screen (the app paints it).
   const board = screen("core", 6.4, 2.3, helmScreenTexture(), 1.1);
   board.position.set(0, LD + 2.45, Z.fwd + 0.09);
   s.extra.push(board);

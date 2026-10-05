@@ -68,7 +68,7 @@ export function buildBridge(s: Ship): Interactable[] {
   pile.add("white", arc(R - 0.4, R + 0.42, -1.12, 1.12, D4 + 0.88, D4 + 0.94));
   for (const [a0, a1] of [[-1.0, -0.55], [-0.45, -0.3], [0.3, 0.45], [0.55, 1.0]] as const) pile.add("glowBlue", arc(R - 0.2, R + 0.15, a0, a1, D4 + 0.94, D4 + 0.955));
   col.box(-R, D4, cz - R - 0.4, R, D4 + 1.0, cz - R + 0.8);
-  // The big screen: the ship's computer, tilted back a little toward whoever stands at the helm.
+  // The big screen: Computah (the orchestrator), tilted back a little toward whoever stands at the helm.
   const big = screen("helm", 2.5, 1.06, helmScreenTexture(), 1.15);
   big.position.set(0, D4 + 1.55, cz - R + 0.05);
   big.rotation.x = -0.18;

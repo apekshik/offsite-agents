@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode } from "react";
-import { ACTIVITY_LABEL, DEFAULT_AVATAR, type CrewActivity } from "@offsite/contracts";
+import { ACTIVITY_LABEL, COMPUTER_BLURB, COMPUTER_ROLE, DEFAULT_AVATAR, type CrewActivity } from "@offsite/contracts";
 import "./ui.css";
 
 // The design system's pieces. Plain components over ui.css: no state of the ship in here.
@@ -67,6 +67,11 @@ export function Chip({ children }: { children: ReactNode }) {
   return <span className="chip">{children}</span>;
 }
 
+/** Computah's badge beside its name: it runs the crew rather than being one of them. */
+export function OrchestratorBadge() {
+  return <span className="chip orch" title={COMPUTER_BLURB}>{COMPUTER_ROLE}</span>;
+}
+
 export function Key({ children }: { children: ReactNode }) {
   return <kbd className="key">{children}</kbd>;
 }
@@ -110,7 +115,7 @@ export function faceSpec(avatar: unknown, look?: unknown): FaceSpec {
 
 /**
  * A crew member's little block head, drawn from their avatar: skin, hair colour, a few parts. The
- * ship's computer gets the robot face. `ring` outlines it in a state colour.
+ * Computah, the main orchestrator, gets the robot face. `ring` outlines it in a state colour.
  */
 export function Face({ avatar, look, computer, size = 22, ring, title }: {
   avatar?: unknown; look?: unknown; computer?: boolean; size?: number; ring?: string | undefined; title?: string | undefined;
@@ -201,7 +206,7 @@ export function errorText(e: unknown): string {
   return m?.[1] ?? msg.split("\n")[0] ?? "Something went wrong";
 }
 
-/** Text with `code` spans, ``` blocks and links: how the computer and the crew write. */
+/** Text with `code` spans, ``` blocks and links: how Computah and the crew write. */
 export function RichText({ text }: { text: string }) {
   const parts: ReactNode[] = [];
   const blocks = text.split(/```[\w-]*\n?/);

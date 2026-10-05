@@ -3,7 +3,8 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { scene, ui, useUi } from "../bridge.ts";
-import { activityTone, Button, Chip, CloseIcon, ConfirmButton, Face, Key, useNow } from "../ui/index.tsx";
+import { COMPUTER_BLURB } from "@offsite/contracts";
+import { activityTone, Button, Chip, CloseIcon, ConfirmButton, Face, Key, OrchestratorBadge, useNow } from "../ui/index.tsx";
 import { crewLine } from "../phone/Crew.tsx";
 import { phone, usePhone } from "../phone/state.ts";
 import { activityOf, harnessName, useShip } from "./ship.tsx";
@@ -57,14 +58,14 @@ export function CrewCard() {
       <div className="cc-head">
         <Face avatar={c.avatar} look={c.look} computer={c.role === "computer"} size={34} />
         <div className="cc-who">
-          <span className="cc-name">{c.name} <Chip>{harnessName(c.harness)}</Chip></span>
+          <span className="cc-name">{c.name} {c.role === "computer" ? <OrchestratorBadge /> : <Chip>{harnessName(c.harness)}</Chip>}</span>
           <span className={`cc-line clip t-${tone}`}>{line.text}</span>
           {line.sub ? <span className={`cc-sub clip ${line.mono ? "mono" : ""}`}>{line.sub}</span> : null}
         </div>
         <button className="t-x" onClick={() => ui.set({ crewCard: null })} aria-label="Close"><CloseIcon /></button>
       </div>
       {q ? <div className="mono t-amber" style={{ fontSize: 12.5 }}>{q.prompt}</div> : null}
-      {c.specialty ? <span className="cc-sub">{c.specialty}</span> : null}
+      {c.role === "computer" ? <span className="cc-sub">{COMPUTER_BLURB}</span> : c.specialty ? <span className="cc-sub">{c.specialty}</span> : null}
       {locked ? (
         <span className="cc-hint"><Key>Esc</Key> frees the mouse to use this card</span>
       ) : (

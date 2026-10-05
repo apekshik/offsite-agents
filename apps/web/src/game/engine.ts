@@ -4,7 +4,7 @@ import {
   buildAvatar, createPipeline, createRenderer, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
   type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
-import { isWorking, type AvatarSpec, type Look, type Slot, type Vec3 } from "@offsite/contracts";
+import { COMPUTER_NAME, isWorking, type AvatarSpec, type Look, type Slot, type Vec3 } from "@offsite/contracts";
 import { scene as sceneBridge, ui, type UiState } from "../bridge.ts";
 import { Director, type CrewView, type Direction, type Hangout } from "./director.ts";
 import { CrewBody, SPEED, type Stage } from "./crew.ts";
@@ -323,7 +323,7 @@ export class Game {
       this.swim = audio.emitter("pool-swim", pool, { volume: 0 });
       this.sounds.push(this.swim);
     }
-    // The ship's computer: its core (an object the world names), or the middle of the spots round it.
+    // Computah's core (an object the world names), or the middle of the spots round it.
     const core = this.world.root.getObjectByName("ship-computer");
     const hum = core
       ? (() => { const v = core.getWorldPosition(new THREE.Vector3()); return { x: v.x, y: v.y + 1.5, z: v.z }; })()
@@ -623,7 +623,7 @@ export class Game {
         .map((t) => ({ title: t.title, state: t.state, landed: t.tasks.landed, total: t.tasks.total, asking: t.openQuestions })),
       waiting: snap.questions.map((q) => {
         const c = snap.crew.find((x) => x._id === q.crewId);
-        return { name: q.crewName ?? c?.name ?? "Someone", face: c && c.role === "crew" ? faceOf(c.avatar, c.look) : null, prompt: q.prompt };
+        return { name: c?.role === "computer" ? COMPUTER_NAME : q.crewName ?? c?.name ?? "Someone", face: c && c.role === "crew" ? faceOf(c.avatar, c.look) : null, prompt: q.prompt };
       }),
       aboard: crew.map((c) => ({ name: c.name, face: faceOf(c.avatar, c.look), activity: this.activity.get(c._id) ?? "idle" })),
     };

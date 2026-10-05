@@ -3,13 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Offsite</title>
+  <title>Offsite: take your coding agents on an offsite</title>
   <meta name="theme-color" content="#05070b">
-  <meta name="description" content="Take your agents on an offsite. Your Claude Code and Codex crew, working (and lounging) on a superyacht in your browser.">
+  <meta name="description" content="Your Claude Code and Codex crew, on a superyacht in your browser. They run on your machine, on your own subscriptions. No API keys.">
+  <link rel="canonical" href="https://offsiteagents.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Offsite">
+  <meta property="og:url" content="https://offsiteagents.app/">
+  <meta property="og:title" content="Offsite: take your coding agents on an offsite">
+  <meta property="og:description" content="Your Claude Code and Codex crew, on a superyacht in your browser. They run on your machine, on your own subscriptions. No API keys.">
+  <meta property="og:image" content="https://offsiteagents.app/og.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The Offsite superyacht at night, its decks lit, under the words: Take your coding agents on an offsite.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Offsite: take your coding agents on an offsite">
+  <meta name="twitter:description" content="Your Claude Code and Codex crew, on a superyacht in your browser. They run on your machine, on your own subscriptions. No API keys.">
+  <meta name="twitter:image" content="https://offsiteagents.app/og.jpg">
+  <meta name="twitter:image:alt" content="The Offsite superyacht at night, its decks lit, under the words: Take your coding agents on an offsite.">
+  <!-- The night poster paints before any script runs: preloaded here, and drawn behind the empty root below over a
+       tiny blurred copy of itself (inline, so something shows at first paint). scripts/landing-poster.mjs remakes both. -->
+  <link rel="preload" as="image" href="/landing/night.webp" type="image/webp" media="(min-aspect-ratio: 4/5)" fetchpriority="high">
+  <link rel="preload" as="image" href="/landing/night-portrait.webp" type="image/webp" media="(max-aspect-ratio: 4/5)" fetchpriority="high">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@50..125,300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <style>html, body { margin: 0; height: 100%; background: #05070b; color: #eef3f7; overflow: hidden; }</style>
+  <style>
+    html, body { margin: 0; height: 100%; background: #05070b; color: #eef3f7; overflow: hidden; }
+    #root:empty { position: fixed; inset: 0; background: linear-gradient(90deg, rgba(3, 6, 12, 0.86), rgba(3, 6, 12, 0.62) 28%, rgba(3, 6, 12, 0.18) 52%, transparent 68%), url(/landing/night.webp) 60% 50% / cover no-repeat, #040a18 url(data:image/webp;base64,UklGRs4AAABXRUJQVlA4IMIAAAAwBgCdASowABsAPuFcpU2opSOiNVgMARAcCWQAuzPafuHQ9ksMw1eECTRxo2soYUP7B7eNqRHbA2EAAP7xnT5WpeI//4tDw7H4gCXwpvdWY26QtbRmidO7kPn2DNT85TpGh744sIqV15ey98813bmcrB1kzh4cvyjsncYO4MrQqlKhDbFFeZKSGLzmR5DkwD/s1lKA/isYyXd7KxPzZwtxrh4xe+5P7o7Fn/j7S5CbqYgJJB/qas7lZo/QonQ19kAAAA==) 60% 50% / cover no-repeat; }
+    @media (max-aspect-ratio: 4/5) { #root:empty { background: linear-gradient(0deg, rgba(3, 6, 12, 0.94), rgba(3, 6, 12, 0.82) 34%, rgba(3, 6, 12, 0.2) 62%, transparent 78%), #040a18 url(/landing/night-portrait.webp) 50% 30% / cover no-repeat; } }
+  </style>
 </head>
 <body>
   <div id="root"></div>

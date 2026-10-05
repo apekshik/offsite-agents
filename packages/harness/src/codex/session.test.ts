@@ -55,7 +55,7 @@ describe("Codex app-server adapter", () => {
   });
 
   it("keeps the computer read-only", async () => {
-    const { rpc, session } = await setup({ kind: "computer", crew: { name: "Computer", handle: "computer", role: "computer", model: "GPT-5.6", effort: "high" } });
+    const { rpc, session } = await setup({ kind: "computer", crew: { name: "Computah", handle: "computah", role: "computer", model: "GPT-5.6", effort: "high" } });
     expect(rpc.request).toHaveBeenCalledWith("thread/start", expect.objectContaining({ approvalPolicy: "never", sandbox: "read-only" }));
     await session.send("plan");
     expect(rpc.request).toHaveBeenCalledWith("turn/start", expect.objectContaining({ sandboxPolicy: { type: "readOnly", networkAccess: false } }));

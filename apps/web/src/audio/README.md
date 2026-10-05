@@ -64,7 +64,7 @@ All of it is wired; this is where, for changing it.
   `bindMuteKey()`; the loops that never move, placed from the world's slots so they follow layout
   changes: `bar-music` over the round bar (`director.barCentre`), `hot-tub` and `pool-swim` (silent
   until someone is in the water) in the middle of their slots, `server-hum` at the object named
-  `"ship-computer"` (the yacht's core). `dispose()` stops them, unbinds M and detaches.
+  `"ship-computer"` (the yacht's core, where Computah lives). `dispose()` stops them, unbinds M and detaches.
 - **Every frame** (`updateSound`): the beds four times a second, `setAmbience({ night, busy })` with
   `night` from the kit's `LIGHT.uNight` (the sky's own) and `busy` the eased `busyLevel(working, crew)`;
   each helicopter from the world's optional `aircraft(now)` (`BuiltWorld`, the yacht's flights and

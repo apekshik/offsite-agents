@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir, hostname, platform } from "node:os";
 import { dirname, join } from "node:path";
 
-/** What `offsite login` saves: where the ship's backend is, and this machine's token. Mode 600. */
+/** What pairing saves: where the ship's backend is, and this machine's token. Mode 600. */
 export interface RunnerConfig { convexUrl: string; siteUrl: string; token: string; name: string }
 
 export const offsiteHome = () => process.env["OFFSITE_HOME"] ?? join(homedir(), ".offsite");
@@ -45,14 +45,37 @@ export function envLocal(from = process.cwd()): Record<string, string> {
   }
 }
 
-/** The deployment to pair with: --url, then OFFSITE_CONVEX_URL, then CONVEX_URL from the repo's .env.local. */
-export function deployment(flagUrl?: string): { convexUrl: string; siteUrl: string } | null {
-  const env = envLocal();
-  const convexUrl = flagUrl ?? process.env["OFFSITE_CONVEX_URL"] ?? env["CONVEX_URL"] ?? env["VITE_CONVEX_URL"];
-  if (!convexUrl) return null;
-  const site = flagUrl || process.env["OFFSITE_CONVEX_URL"] ? siteFor(convexUrl) : env["CONVEX_SITE_URL"] ?? siteFor(convexUrl);
-  return { convexUrl: convexUrl.replace(/\/$/, ""), siteUrl: site.replace(/\/$/, "") };
+/** Offsite's hosted ship: what `npx offsite-agents` pairs with unless told otherwise. */
+export const PRODUCTION = { convexUrl: "https://adamant-shrimp-822.convex.cloud", siteUrl: "https://adamant-shrimp-822.convex.site", appUrl: "https://offsiteagents.app" } as const;
+
+export interface Deployment {
+  convexUrl: string;
+  siteUrl: string;
+  /** Asked for by name (--url, OFFSITE_URL), rather than the default: a saved pairing with another deployment gives way. */
+  explicit: boolean;
 }
+
+/**
+ * The deployment to pair with: --url, then OFFSITE_URL (or the older OFFSITE_CONVEX_URL), then, only when running from
+ * a checkout (`pnpm runner`, `pnpm sim`), CONVEX_URL from the repo's .env.local (the dev deployment), then Offsite's own.
+ * The published CLI never reads .env.local: a project's own CONVEX_URL is not a ship.
+ */
+export function deployment(flagUrl?: string, opts: { checkout?: boolean; env?: Record<string, string | undefined> } = {}): Deployment {
+  const env = opts.env ?? process.env;
+  const named = flagUrl || env["OFFSITE_URL"] || env["OFFSITE_CONVEX_URL"];
+  if (named) {
+    const convexUrl = named.replace(/\/$/, "");
+    return { convexUrl, siteUrl: (env["OFFSITE_SITE_URL"] || siteFor(convexUrl)).replace(/\/$/, ""), explicit: true };
+  }
+  if (opts.checkout) {
+    const local = envLocal();
+    const convexUrl = local["CONVEX_URL"] ?? local["VITE_CONVEX_URL"];
+    if (convexUrl) return { convexUrl: convexUrl.replace(/\/$/, ""), siteUrl: (local["CONVEX_SITE_URL"] ?? siteFor(convexUrl)).replace(/\/$/, ""), explicit: false };
+  }
+  return { convexUrl: PRODUCTION.convexUrl, siteUrl: PRODUCTION.siteUrl, explicit: false };
+}
+
+export const isProduction = (convexUrl: string) => convexUrl.replace(/\/$/, "") === PRODUCTION.convexUrl;
 
 /** The machine's human name: macOS's Computer Name, or the hostname. */
 export function defaultName(): string {

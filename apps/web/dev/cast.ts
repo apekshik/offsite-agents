@@ -1,10 +1,10 @@
-// The cast: every preset doing every act, with props, nameplates and bubbles, and the ship's
-// computer cycling its moods. A dev page; it brings its own renderer, lights and deck.
+// The cast: every preset doing every act, with props, nameplates and bubbles, and
+// Computah, the main orchestrator, cycling its moods. A dev page; it brings its own renderer, lights and deck.
 //
 //   /dev/cast.html                 everything
 //   /dev/cast.html?act=hammock     one act, close up (&preset=otis to pick who)
 //   /dev/cast.html?lineup=1        every preset standing in a row
-//   /dev/cast.html?bot=think       the computer, close up, in one mood
+//   /dev/cast.html?bot=think       Computah, close up, in one mood
 //   &camera=close|wide|side|x,y,z  where the camera starts
 //   &gesture=laugh                 everyone plays a gesture over their act, again and again
 
@@ -229,7 +229,7 @@ if (lineup) {
   }
 }
 
-// The ship's computer, cycling its moods.
+// Computah, cycling its moods.
 if (!lineup && (!only || botOnly)) {
   const holder = new THREE.Group();
   holder.position.set(botOnly ? 0 : 0, 0, botOnly ? 0 : 4.2);
@@ -278,7 +278,7 @@ resize();
 const timer = new THREE.Timer();
 const fr = (x: number) => x - Math.floor(x);
 let botMood = 0, botNext = 0;
-hud.textContent = only ? `act: ${only}` : lineup ? "presets" : botOnly ? "computer" : `${live.length} acts · drag to orbit`;
+hud.textContent = only ? `act: ${only}` : lineup ? "presets" : botOnly ? "Computah" : `${live.length} acts · drag to orbit`;
 
 function frame(now?: number) {
   requestAnimationFrame(frame);

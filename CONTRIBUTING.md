@@ -24,12 +24,32 @@ pnpm sim                  # a scripted crew: no claude, no codex, no spending
 ```
 
 Make a ship, add a repo (any small git repo on your machine; the sim makes small, real changes in
-its own worktrees), and ask the computer for something. The sim plans, asks questions, lands work
-and finishes threads like the real crew, so it's the quickest way to see a change to the world or
-the interface under load. `pnpm runner start --sim --speed 4` runs it faster.
+its own worktrees), and ask Computah (the main orchestrator) for something. In code Computah is the
+crew member with role `computer`, and its turns are `computer` runs. The sim plans, asks questions,
+lands work and finishes threads like the real crew, so it's the quickest way to see a change to the
+world or the interface under load. `pnpm runner start --sim --speed 4` runs it faster.
 
-For real agents: `pnpm runner login`, then `pnpm runner start`. To run a second runner on the same
-computer, give it its own home: `OFFSITE_HOME=~/.offsite-2 pnpm runner start`.
+For real agents: `pnpm runner` (pairs this machine with your dev deployment if it isn't yet, then
+starts). From a checkout it reads the dev deployment from `.env.local`; anywhere else, point it there
+yourself: `OFFSITE_URL=https://<your-dev>.convex.cloud` (or `--url`). Without either, the CLI pairs
+with offsiteagents.app. To run a second runner on the same computer, give it its own home:
+`OFFSITE_HOME=~/.offsite-2 pnpm runner start`. Only one runner works from each home at a time.
+
+## The published CLI (`npx offsite-agents`)
+
+`packages/runner` is published to npm as `offsite-agents`. `npm pack` (in `packages/runner`) builds
+`dist/offsite.mjs` with esbuild (`build.mjs`: Offsite's workspace packages bundled in, npm
+dependencies left external) and packs only that, the README, LICENSE and NOTICE. To try a change
+the way users get it, without publishing:
+
+```sh
+cd packages/runner && npm pack --pack-destination /tmp
+OFFSITE_HOME=/tmp/offsite-try OFFSITE_URL=https://<your-dev>.convex.cloud \
+  npx --yes --package=/tmp/offsite-agents-<version>.tgz offsite-agents --sim
+```
+
+Approve the code at `http://localhost:5180/pair?code=...&dev=yourname` (the dev sign-in). Bump
+`version` in `packages/runner/package.json` before publishing (`npm publish` from `packages/runner`).
 
 ## Tests
 
@@ -56,7 +76,8 @@ happen. It never reads Offsite's state; the app decides who goes where.
 1. Copy `worlds/yacht/package.json` and export a `WorldModule` (`packages/kit/src/world.ts`): `id`,
    `name`, `blurb`, and `build(ctx)` returning the scene root, colliders, interactables and layout.
 2. Mark the layout (`packages/contracts/src/world.ts`): slots by kind (desks, loungers, the helm,
-   the computer, the drop-off, the helipad, spawn points and places to hang out) and a walking graph.
+   the `computer` slot where Computah floats, the drop-off, the helipad, spawn points and places
+   to hang out) and a walking graph.
    `ACTIVITY_SPOTS` there says which kinds each activity uses.
 3. Give the helm an interactable with the id `helm`, fly new crew in from `setArrivals`, and show
    how busy the ship is in `setBusy` if you like.

@@ -3,7 +3,7 @@
 //   (needs `node scripts/devauth.mjs` once)
 //   node scripts/captain.mjs offices                    → your offices
 //   node scripts/captain.mjs setup <repoPath> [--harness claude|codex|sim]   → prints { officeId } (default: sim, so nothing is spent)
-//   node scripts/captain.mjs harness <crew> <claude|codex|sim> [--office <officeId>]   → switch a crew member (handle, name or id; "computer" too)
+//   node scripts/captain.mjs harness <crew> <claude|codex|sim> [--office <officeId>]   → switch a crew member (handle, name or id; "computah" or "computer" for Computah)
 //   node scripts/captain.mjs approve <userCode>        → approves the runner's device code, prints machineId
 //   node scripts/captain.mjs repo <officeId> <machineId> <repoPath> [setupCommand]   (adds or updates the repo on that path)
 //   node scripts/captain.mjs addrepo <officeId> <machineId> <repoPath> [name] [setupCommand]
@@ -53,7 +53,8 @@ if (cmd === "offices") {
   const found = [];
   for (const o of offices) {
     for (const c of await client.query(api.crew.list, { officeId: o._id })) {
-      if (c._id === who || c.handle.toLowerCase() === want || c.name.toLowerCase() === want) found.push({ ...c, officeId: o._id });
+      const orchestrator = c.role === "computer" && (want === "computah" || want === "computer");
+      if (c._id === who || orchestrator || c.handle.toLowerCase() === want || c.name.toLowerCase() === want) found.push({ ...c, officeId: o._id });
     }
   }
   if (!found.length) { console.error(`Nobody called "${who}" aboard${flags.office ? " that ship" : " your ships"}.`); process.exit(1); }

@@ -256,7 +256,7 @@ describe("talking to a working crew member", () => {
     const thread = ship.createThread("Something small");
     await settled(ship, () => thread.state === "done" && ended(ship));
     await runner.stop(1000);
-    expect(await sh(repo, "show", `${thread.branch}:second.txt`)).toBe("From the computer: the API landed, sync_with_team");
+    expect(await sh(repo, "show", `${thread.branch}:second.txt`)).toBe("From Computah: the API landed, sync_with_team");
     expect(ship.inbox.every((m) => m.delivered)).toBe(true);
   }, 30_000);
 });
@@ -300,7 +300,7 @@ function replay(input: StartSession, recorded: RunEvent[], shape: "codex" | "cla
     for (const e of recorded) {
       if (stopped) return;
       if (e.type === "turn.started") { await sent(++turn); text = ""; }
-      if (e.type === "steer.received") { const before = sends.length; await steer(e.text.replace(/^From the computer: /, "")); await sent(before + 1); continue; }
+      if (e.type === "steer.received") { const before = sends.length; await steer(e.text.replace(/^From (the computer|Computah): /, "")); await sent(before + 1); continue; }
       if (e.type === "content.delta") text += e.delta;
       if (e.type === "content.final") { if (shape === "codex") events.push({ type: "content.final", text }); continue; }
       if (e.type === "turn.completed" && shape === "claude" && text) events.push({ type: "content.final", text });

@@ -21,7 +21,7 @@ function Panel({ officeId }: { officeId: Id<"offices"> }) {
     <div style={{ position: "fixed", right: 12, top: 12, width: 320, maxHeight: "90vh", overflow: "auto", background: "rgba(4,7,11,.78)", padding: 12, fontSize: 12 }}>
       <b>{snap.office.name}</b> {snap.office.hasRepo ? "" : "· no project set"}
       <form onSubmit={(e) => { e.preventDefault(); if (text.trim()) void create({ officeId, text }); setText(""); }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask the computer…" style={{ width: "100%", marginTop: 8 }} />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask Computah…" style={{ width: "100%", marginTop: 8 }} />
       </form>
       {snap.questions.map((q) => (
         <div key={q._id} style={{ marginTop: 8, color: "#ffc861" }}>

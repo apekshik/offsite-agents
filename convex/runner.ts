@@ -364,7 +364,7 @@ async function endRun(ctx: MutationCtx, run: Doc<"runs">, outcome: "landed" | "f
     const missed = (await ctx.db.query("inbox").withIndex("by_crew", (q) => q.eq("crewId", run.crewId).eq("deliveredAt", null)).collect()).filter((m) => m.runId === run._id);
     for (const m of missed) await ctx.db.patch(m._id, { deliveredAt: now });
     if (missed.length && outcome !== "interrupted") await queueComputer(ctx, thread, missed.map((m) => m.text).join("\n\n"));
-    if (outcome === "failed" && error) await post(ctx, thread._id, { author: { kind: "system" }, kind: "system", text: `The computer stopped: ${error}` });
+    if (outcome === "failed" && error) await post(ctx, thread._id, { author: { kind: "system" }, kind: "system", text: `Computah stopped: ${error}` });
   }
   await tick(ctx, run.officeId);
 }
