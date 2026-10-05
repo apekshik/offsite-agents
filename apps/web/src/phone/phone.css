@@ -9,13 +9,7 @@
   font-size: 14px;
 }
 
-/* ---- the cover ---- */
-.phone-cover-wrap {
-  position: fixed; right: 4vw; bottom: 50%; z-index: 30;
-  transform-origin: 100% 50%;
-  transform: translateY(50%) scale(var(--s, 1));
-}
-.device.cover { width: 420px; height: 600px; padding: 26px 20px 22px; display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
+/* ---- the cover (the back of the left leaf) ---- */
 .cover-screen { display: contents; cursor: pointer; }
 .cv-top { display: flex; justify-content: space-between; align-items: center; }
 .status-line { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--dim); white-space: nowrap; min-width: 0; }
@@ -34,18 +28,9 @@
 .phone-backdrop { position: fixed; inset: 0; z-index: 29; background: radial-gradient(ellipse at center, rgba(3, 5, 8, 0.35), rgba(3, 5, 8, 0.05) 75%); animation: ui-fade-in 0.3s ease-out both; }
 .phone-backdrop.deep { background: rgba(3, 5, 8, 0.5); }
 @keyframes ui-fade-in { from { opacity: 0; } }
-.phone-open-wrap {
-  position: fixed; left: 50%; top: 50%; z-index: 30;
-  transform: translate(-50%, calc(-50% + 10px)) scale(var(--s, 1));
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-}
-.device.open {
-  width: 1036px; height: 740px; display: flex; overflow: hidden; position: relative;
-  perspective: 2400px; background: transparent; border: 0; box-shadow: none; border-radius: 0;
-}
 .leaf { position: relative; background: #05070b; border: 7px solid #1c212a; height: 100%; backface-visibility: hidden; min-width: 0; }
-.leaf-left { width: 511px; flex: none; border-right: 0; border-radius: 34px 0 0 34px; box-shadow: -1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, 0 30px 80px rgba(0, 0, 0, 0.5); transform-origin: 100% 50%; }
-.leaf-right { flex: 1; border-left: 0; border-radius: 0 34px 34px 0; box-shadow: 1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, 0 30px 80px rgba(0, 0, 0, 0.5); transform-origin: 0 50%; }
+.leaf-left { border-right: 0; border-radius: 34px 0 0 34px; box-shadow: -1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, 0 30px 80px rgba(0, 0, 0, 0.5); transform-origin: 100% 50%; }
+.leaf-right { width: 511px; flex: none; border-left: 0; border-radius: 0 34px 34px 0; box-shadow: 1px 0 0 #2c323d, 0 -1px 0 #2c323d, 0 1px 0 #2c323d, 0 30px 80px rgba(0, 0, 0, 0.5); transform-origin: 0 50%; }
 .hinge { width: 14px; flex: none; height: 100%; background: #030406; border-top: 7px solid #1c212a; border-bottom: 7px solid #1c212a; box-shadow: inset 1px 0 0 #10141b, inset -1px 0 0 #10141b, 0 -1px 0 #2c323d, 0 1px 0 #2c323d; }
 .pane { height: 100%; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .pane.left { padding: 9px 7px 7px 9px; }
@@ -61,28 +46,6 @@
 .empty-thread .disp { font-size: 20px; }
 .note { font-size: 12.5px; color: var(--dim); line-height: 1.45; }
 
-/* ---- transitions ---- */
-@keyframes phone-up { from { opacity: 0; translate: 0 60px; } }
-@keyframes phone-down { to { opacity: 0; translate: 0 60px; } }
-@keyframes leaf-open { from { transform: rotateY(178deg); } }
-@keyframes leaf-close { to { transform: rotateY(178deg); } }
-@keyframes right-open { from { opacity: 0; transform: scaleX(0.55); } 40% { opacity: 1; } }
-@keyframes right-close { 60% { opacity: 1; } to { opacity: 0; transform: scaleX(0.55); } }
-@keyframes cover-out { to { opacity: 0; scale: 0.96; } }
-@keyframes cover-in { from { opacity: 0; scale: 0.96; } }
-.enter-up { animation: phone-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.leave-down { animation: phone-down 0.24s ease-in both; pointer-events: none; }
-.leave-to-open { animation: cover-out 0.16s ease-in both; pointer-events: none; }
-.enter-from-open { animation: cover-in 0.22s 0.18s ease-out both; }
-.unfolding .leaf-left { animation: leaf-open 0.5s cubic-bezier(0.25, 0.9, 0.3, 1) both; }
-.unfolding .leaf-right { animation: right-open 0.32s ease-out both; }
-.folding { pointer-events: none; }
-.folding .leaf-left { animation: leaf-close 0.36s cubic-bezier(0.5, 0, 0.8, 0.4) both; }
-.folding .leaf-right { animation: right-close 0.36s ease-in both; }
-.folding .device-hint { opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .enter-up, .leave-down, .leave-to-open, .enter-from-open, .unfolding .leaf-left, .unfolding .leaf-right, .folding .leaf-left, .folding .leaf-right { animation-duration: 0.01s; }
-}
 
 /* ---- threads ---- */
 .thread-list { display: flex; flex-direction: column; gap: 8px; }
@@ -212,3 +175,49 @@
 .off-duty .od-title { position: relative; font-size: 30px; line-height: 1; }
 .off-duty .od-where { position: relative; font-size: 14px; color: #a9c4dc; }
 .off-duty .od-back { position: relative; font-size: 12px; color: #6f8ba6; }
+
+/* ---- the device: one book-style foldable ---- */
+.phone-wrap {
+  position: fixed; left: 50%; top: 50%; z-index: 30;
+  transform: translate(-50%, calc(-50% + 10px)) scale(var(--s, 1));
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  animation: phone-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.phone-wrap.leaving { animation: phone-down 0.24s ease-in both; pointer-events: none; }
+@keyframes phone-up { from { opacity: 0; translate: 0 70px; } }
+@keyframes phone-down { to { opacity: 0; translate: 0 70px; } }
+
+/* 511 + 14 + 511: two leaves and the hinge. Folded, the visible half (the cover over the right leaf)
+   is centred by sliding the whole book left by half a leaf and half the hinge. */
+.book {
+  --fold: 0.6s cubic-bezier(0.32, 0.72, 0.24, 1);
+  width: 1036px; height: 740px; display: flex; position: relative; color: var(--ink); font-size: 14px;
+  perspective: 2600px; transform-style: preserve-3d;
+  transition: transform var(--fold);
+}
+.phone-wrap.cover .book { transform: translateX(-262px); }
+
+/* The left leaf turns on the hinge's centre line (its right edge plus half the hinge). */
+.flip {
+  width: 511px; flex: none; height: 100%; position: relative; z-index: 2;
+  transform-style: preserve-3d; transform-origin: calc(100% + 7px) 50%;
+  transition: transform var(--fold);
+}
+.phone-wrap.cover .flip { transform: rotateY(-180deg); }
+.leaf-face { position: absolute; left: 0; top: 0; width: 100%; height: 100%; box-sizing: border-box; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.leaf-face.back { transform: rotateY(180deg); }
+.leaf-cover {
+  border-radius: 34px; padding: 26px 20px 22px; display: flex; flex-direction: column; gap: 16px; overflow: hidden;
+  box-shadow: 0 0 0 1px #2c323d, 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+/* Whatever faces away can't be clicked. */
+.phone-wrap.cover .leaf-left, .phone-wrap.cover .leaf-right { pointer-events: none; }
+.phone-wrap.open .leaf-cover { pointer-events: none; }
+/* The inner screens dim as the phone closes over them, and light up as it opens. */
+.leaf-right > .pane, .leaf-left > .pane { transition: opacity 0.35s ease; }
+.phone-wrap.cover .leaf-right > .pane { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .book, .flip { transition-duration: 0.01s; }
+  .phone-wrap, .phone-wrap.leaving { animation-duration: 0.01s; }
+}

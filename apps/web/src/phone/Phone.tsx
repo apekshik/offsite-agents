@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { isWorking } from "@offsite/contracts";
 import { ui, useUi } from "../bridge.ts";
 import { ActivityLabel, ago, Button, Card, clock, Dot, Face, Key, partOfDay, useNow } from "../ui/index.tsx";
@@ -81,7 +81,6 @@ function Cover() {
           </div>
         ))}
       </div>
-      <div className="cv-foot"><Key>F</Key><Key>F</Key> unfold <Key>F</Key> put away</div>
     </div>
   );
 }
@@ -140,42 +139,44 @@ function RightPane({ tab }: { tab: PhoneTab }) {
   return <div className="pane right">{body}</div>;
 }
 
-function OpenPhone() {
+/**
+ * One device, hinged like a book. The left leaf has two faces: the threads (or crew, or ship) pane on
+ * its front, the cover screen on its back. Folded, the leaf lies flipped over the right half, so you
+ * see the cover; unfolding swings it open on the hinge while the phone slides to centre. It is one
+ * continuous movement, never one phone swapped for another.
+ */
+function Book() {
   const tab = usePhone((s) => s.tab);
   return (
-    <>
-      <div className="leaf leaf-left"><LeftPane tab={tab} /></div>
+    <div className="book">
+      <div className="flip">
+        <div className="leaf leaf-left leaf-face"><LeftPane tab={tab} /></div>
+        <div className="leaf leaf-cover leaf-face back"><Cover /></div>
+      </div>
       <div className="hinge" />
       <div className="leaf leaf-right"><RightPane tab={tab} /></div>
-    </>
+    </div>
   );
 }
 
-// ---- the device, with its transitions ----
-
-const COVER = { w: 320, h: 760 };
-const OPEN = { w: 1000, h: 740 };
+const OPEN = { w: 1036, h: 740 };
 
 export function Phone() {
   const fold = usePhone((s) => s.fold);
   const creator = usePhone((s) => s.creator);
   const { threads } = useShip();
-  const [view, setView] = useState<Fold>(fold);
-  const [leaving, setLeaving] = useState<{ from: Fold; to: Fold } | null>(null);
-  const [from, setFrom] = useState<Fold>("away");
-  const coverScale = useFit(COVER.w, COVER.h, 24);
-  const openScale = useFit(OPEN.w, OPEN.h + 30, 28);
-
-  const timer = useRef(0);
+  const scale = useFit(OPEN.w, OPEN.h + 30, 28);
+  // Stay mounted for a moment after going away, so it can slide down out of view.
+  const [shown, setShown] = useState<Exclude<Fold, "away"> | null>(fold === "away" ? null : fold);
+  const [leaving, setLeaving] = useState(false);
   useEffect(() => {
-    if (fold === view) return;
-    setLeaving({ from: view, to: fold });
-    setFrom(view);
-    setView(fold);
-    clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setLeaving(null), 420);
-  }, [fold, view]);
-  useEffect(() => () => clearTimeout(timer.current), []);
+    if (fold !== "away") { setShown(fold); setLeaving(false); return; }
+    if (!shown) return;
+    setLeaving(true);
+    const t = window.setTimeout(() => { setShown(null); setLeaving(false); }, 260);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fold]);
 
   // Unfolding with nothing chosen: open the thread that needs you, else the newest.
   useEffect(() => {
@@ -184,25 +185,18 @@ export function Phone() {
     ui.set({ threadId: pick._id });
   }, [fold, threads]);
 
-  const cover = (cls: string) => (
-    <div className={`phone-cover-wrap ${cls}`} style={{ "--s": coverScale } as CSSProperties}>
-      <div className="device cover"><Cover /></div>
-    </div>
-  );
-  const open = (cls: string) => (
-    <div className={`phone-open-wrap ${cls}`} style={{ "--s": openScale } as CSSProperties}>
-      <div className="device open"><OpenPhone /></div>
-      <div className="device-hint"><Key>F</Key> half view <Key>Esc</Key> put away</div>
-    </div>
-  );
-
+  if (!shown) return null;
   return (
     <>
-      {view === "open" ? <div className={`phone-backdrop ${creator ? "deep" : ""}`} onClick={() => phone.putAway()} /> : null}
-      {leaving?.from === "cover" ? cover(leaving.to === "open" ? "leave-to-open" : "leave-down") : null}
-      {leaving?.from === "open" ? open(leaving.to === "cover" ? "folding" : "leave-down") : null}
-      {view === "cover" ? cover(from === "open" ? "enter-from-open" : "enter-up") : null}
-      {view === "open" ? open(from === "cover" ? "unfolding" : "unfolding enter-up") : null}
+      {shown === "open" && !leaving ? <div className={`phone-backdrop ${creator ? "deep" : ""}`} onClick={() => phone.putAway()} /> : null}
+      <div className={`phone-wrap ${shown} ${leaving ? "leaving" : ""}`} style={{ "--s": scale } as CSSProperties}>
+        <Book />
+        <div className="device-hint">
+          {shown === "open"
+            ? <><Key>F</Key> half view <Key>Esc</Key> put away</>
+            : <><Key>F</Key><Key>F</Key> unfold <Key>F</Key> put away</>}
+        </div>
+      </div>
     </>
   );
 }
