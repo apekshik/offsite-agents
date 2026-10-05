@@ -1,6 +1,6 @@
 // You: walking the decks in first or third person, using things with E, clicking the crew,
 // taking the phone out. Puts the controller, the camera rig, the avatar and the first-person
-// hands together.
+// hands together. In first person you see your own body below you, without the head (self.ts).
 //
 //   const input = new Input({ element: canvas, suspended: ui.typing });
 //   const captain = new Captain({ camera, collision, avatar: buildAvatar(spec, look), input });
@@ -28,16 +28,16 @@ import { FirstPersonHands } from "./hands.ts";
 import type { Input } from "./input.ts";
 import { nearestInteractable } from "./interact.ts";
 import { standSpot, type CaptainSeat } from "./seat.ts";
-
-/** The layer the captain's own body moves to in first person: the camera doesn't see it. Enable
- * it on the sun's shadow camera (light.shadow.camera.layers.enable(SELF_LAYER)) to keep its shadow. */
-export const SELF_LAYER = 1;
+import { OwnBody, selfHidden, type SelfHidden } from "./self.ts";
 
 /** How a walk the autopilot was doing ended: there, no way there (or gave up), or taken back. */
 export type WalkOutcome = "arrived" | "failed" | "stopped";
 
 const angleDelta = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 const ease = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+
+/** How far the first-person eye leans out over the chest in a seat, metres (seatLean). */
+const SEAT_LEAN = 0.13;
 
 /** What E offers while you're in a seat. */
 const GET_UP: Interactable = { id: "get-up", label: "Get up", at: new THREE.Vector3(), radius: 0 };
@@ -111,13 +111,17 @@ export class Captain {
   private eyeLocal: THREE.Vector3 | null = null;
   private _eyes = new THREE.Vector3();
   private speed = 0;
-  private selfHidden = false;
+  private own: OwnBody;
+  private hidden: SelfHidden = { head: false, arms: false };
   private off: (() => void)[] = [];
   private pilot: { auto: Autopilot; done: ((o: WalkOutcome, why?: PilotFailure) => void) | null } | null = null;
   /** Seconds the autopilot leaves the camera alone (someone looked around by hand). */
   private steerPause = 0;
   private _chest = new THREE.Vector3();
   private _fwd = new THREE.Vector3();
+  private _hand = new THREE.Vector3();
+  private _head = new THREE.Vector3();
+  private _lean = new THREE.Vector3();
 
   constructor(o: CaptainOptions) {
     this.camera = o.camera;
@@ -131,6 +135,7 @@ export class Captain {
     this.cameraRig = new CameraRig(o.camera, o.collision, o.look);
     this.object.name = "captain";
     this.object.add(this.avatar.root);
+    this.own = new OwnBody(this.avatar);
     const spec = CAPTAIN_PRESET.spec;
     this.hands = o.hands === undefined ? new FirstPersonHands({ skin: spec.skin, sleeve: spec.top }) : o.hands;
     if (this.hands) o.camera.add(this.hands.object);
@@ -358,16 +363,16 @@ export class Captain {
     this.avatar.animate(dt, seat
       ? { speed: 0, act: seat.act, seat: seat.slot.seat ?? null }
       : { speed: this.speed, air: !c.onGround && !this.inSeat, act: this.phoneOut ? "phone" : null }, time);
-    // Hidden once the camera has glided in to the eyes, shown as soon as it heads out.
-    this.setSelfHidden(first && !this.cameraRig.gliding);
 
     // The camera's children (the hands) only draw if the camera is in the scene.
     if (this.hands && !this.camera.parent && this.object.parent) this.object.parent.add(this.camera);
-    this.cameraRig.update(dt, c.position, this.avatar.eyeY, this.speed, this.eyes());
+    const eyes = this.eyes();
+    this.cameraRig.update(dt, c.position, this.avatar.eyeY, this.speed, eyes, eyes && this.seatLean());
     if (this.hands) {
       this.hands.setOut(this.phoneOut && first);
       this.hands.update(dt, time, this.speed);
     }
+    this.showOwnBody(first);
 
     // What E would use: in a seat, getting up.
     this._chest.set(c.position.x, c.position.y + 1.1, c.position.z);
@@ -393,11 +398,28 @@ export class Captain {
     return head.localToWorld(this._eyes.copy(this.eyeLocal));
   }
 
-  // First person: the body moves to a layer the camera doesn't draw (its shadow can stay).
-  private setSelfHidden(on: boolean) {
-    if (on === this.selfHidden) return;
-    this.selfHidden = on;
-    this.avatar.root.traverse((o) => { if (on) o.layers.set(SELF_LAYER); else o.layers.set(0); });
+  /**
+   * In a seat, the first-person eye leans out along the chest's front, the way you'd lift your chin to look down at
+   * yourself: over the chest rather than behind the tops of the shoulders. Eased in and out with the way in and out.
+   */
+  private seatLean(): THREE.Vector3 {
+    const s = this.inSeat!;
+    const k = s.phase === "in" ? ease(s.u) : s.phase === "out" ? 1 - ease(s.u) : 1;
+    return this.avatar.bones.chest.getWorldDirection(this._lean).multiplyScalar(SEAT_LEAN * k);
+  }
+
+  // First person: your body without the head, and without the arms when they'd be in your face (self.ts).
+  private showOwnBody(first: boolean) {
+    const rig = this.cameraRig, eyes = rig.eyePoint;
+    const camToEyes = this.camera.position.distanceTo(eyes);
+    let handToHead = Infinity;
+    if (first || rig.gliding) {
+      const { hands, head } = this.avatar.bones;
+      head.getWorldPosition(this._head);
+      for (const h of hands) handToHead = Math.min(handToHead, h.getWorldPosition(this._hand).distanceTo(this._head));
+    }
+    selfHidden({ view: this.view, gliding: rig.gliding, camToEyes, phoneHands: !!this.hands?.showing, handToHead }, this.hidden);
+    this.own.set(this.hidden);
   }
 
   dispose() {

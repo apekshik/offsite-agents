@@ -558,6 +558,8 @@ export interface AvatarRig {
   /** Standing eye height, metres: where a first-person camera goes. */
   readonly eyeY: number;
   readonly bones: RigBones;
+  /** The neck (on the chest, below the head joint): a camera at the eyes hides it with the head. */
+  readonly neck: THREE.Object3D;
   /** What the current act holds, if anything (a Laptop, FoldPhone…). */
   readonly prop: Prop | null;
   /** Override the act's prop: a kind, null for empty hands, undefined for the act's own. */
@@ -656,7 +658,7 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
     const m3 = add(hand, rbox(0.08 * hw, 0.1 * hw, 0.07 * hw, 0.03), M.skin, 0, -0.04 * hw, 0);
     upperArms.push(ua); forearms.push(fa); hands.push(hand); armMeshes.push([m1, m2, m3]);
   }
-  add(chest, new THREE.CylinderGeometry(0.05 * hw, 0.055 * hw, 0.12 * T, 12), M.skin, 0, 0.29 * T, 0);
+  const neck = add(chest, new THREE.CylinderGeometry(0.05 * hw, 0.055 * hw, 0.12 * T, 12), M.skin, 0, 0.29 * T, 0);
   // headSize scales the head joint, so the head and everything worn on it grow together.
   const head = group(chest, 0, D.head, 0);
   head.scale.setScalar(Hs);
@@ -990,7 +992,7 @@ export function buildAvatar(specIn: AvatarSpec, lookIn: Look | null = null): Ava
     root, animate,
     topY, hipY: D.hip * spec.height,
     eyeY: (D.hip + D.chest + D.head + headInfo.faceY * Hs) * spec.height,
-    bones,
+    bones, neck,
     get prop() { return prop; },
     get emote() { return emoteOn && emote ? emote.def.id : null; },
     lead: 0,
