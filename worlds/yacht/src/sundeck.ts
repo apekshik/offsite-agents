@@ -178,6 +178,8 @@ export function buildSunDeck(s: Ship) {
   plan.link("mid-stair-p:high", "sun-port0", "sun-port-mid", "sun-port1", "sun-tub", A(39.5));
   plan.node("sun-aft", 0.6, D3, 47.7);
   plan.node("sun-aftP", -2.6, D3, 46.6);
+  // The captain starts out here, between the pool and the loungers, looking forward over the ship.
+  plan.slot("captain-spawn", "captain-spawn", [2.0, D3, 33.5], Math.PI, { tags: ["sundeck"] });
   plan.link(B(46.4), "sun-aft", "sun-aftP", "sun-tubE");
   plan.link("mid-stair-p:high", A(23.2), B(23.2), "mid-stair-s:high");
   plan.link("up-stair-p:low", A(23.2));

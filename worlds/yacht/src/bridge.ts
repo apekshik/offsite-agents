@@ -111,7 +111,6 @@ export function buildBridge(s: Ship): Interactable[] {
   plan.slot("helm", "helm", [HELM.x, D4, HELM.z], Math.PI, { nav: "bridge-helm", tags: ["bridge", "indoors"] });
   plan.slot("computer", "computer", [comp.x, D4, comp.z], yawOf(-comp.x, -22.5 - comp.z), { nav: "bridge-s", tags: ["bridge", "indoors"] });
   plan.slot("dropoff", "dropoff", [-3.65, D4, zA - 1.55], 0, { nav: "bridge-p", tags: ["bridge", "indoors"] });
-  plan.slot("captain-spawn", "captain-spawn", [0, D4, -23.2], Math.PI, { nav: "bridge-mid", tags: ["bridge", "indoors"] });
 
   return [{ id: "helm", label: "Open the helm console", at: new THREE.Vector3(HELM.x, D4 + 1.3, HELM.z - 0.6), radius: 2.4 }];
 }

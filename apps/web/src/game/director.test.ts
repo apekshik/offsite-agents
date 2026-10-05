@@ -51,6 +51,26 @@ describe("the director", () => {
     expect(done!.props).toContain("box");
   });
 
+  it("finishes a delivery even when \"just landed\" runs out on the way", () => {
+    const d = new Director(SLOTS);
+    const done = person("otis", { lastEnded: { state: "landed", endedAt: T0 - 1000, taskTitle: "Theme types" } });
+    expect(d.plan([done], T0)[0]!.target).toEqual({ kind: "slot", slotId: "drop" });
+    // A minute later, still walking: still delivering.
+    const late = d.plan([done], T0 + 60_000)[0]!;
+    expect(late.activity).toBe("landed");
+    expect(late.label).toBe("Delivered · Theme types");
+    d.delivered("otis", T0 + 61_000);
+    expect(d.plan([done], T0 + 62_000)[0]!.activity).toBe("landed");
+    expect(d.plan([done], T0 + 61_000 + Director.CELEBRATE_MS + 1)[0]!.activity).toBe("idle");
+  });
+
+  it("drops a delivery for new work", () => {
+    const d = new Director(SLOTS);
+    d.plan([person("otis", { lastEnded: { state: "landed", endedAt: T0 - 1000 } })], T0);
+    const busy = d.plan([person("otis", { live: working("edit") })], T0 + 30_000)[0]!;
+    expect(busy.activity).toBe("editing");
+  });
+
   it("keeps new arrivals in the helicopter until they step out", () => {
     const d = new Director(SLOTS);
     const [inbound] = d.plan([person("wren", { arrivesAt: T0 + 5000 })], T0);

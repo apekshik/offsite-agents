@@ -101,6 +101,15 @@ export class Director {
   private readonly byId = new Map<string, Slot>();
   /** crewId → the slot they hold, and whether it is a work seat or a leisure spot. */
   private readonly seats = new Map<string, { slotId: string; mode: "work" | "leisure" | "dropoff"; since: number }>();
+  /** A delivery in progress: it finishes (walk there, celebrate a moment) even if "just landed" runs out on the way. */
+  private readonly errands = new Map<string, { deliveredAt: number | null }>();
+  static readonly CELEBRATE_MS = 6000;
+
+  /** The game says they reached the drop-off with their package. */
+  delivered(crewId: string, now: number) {
+    const e = this.errands.get(crewId);
+    if (e && e.deliveredAt === null) e.deliveredAt = now;
+  }
 
   private readonly slots: Slot[];
 
@@ -134,6 +143,7 @@ export class Director {
   plan(crew: CrewView[], now: number): Direction[] {
     const present = new Set(crew.map((c) => c._id));
     for (const id of [...this.seats.keys()]) if (!present.has(id)) this.seats.delete(id);
+    for (const id of [...this.errands.keys()]) if (!present.has(id)) this.errands.delete(id);
     const out: Direction[] = [];
     // Workers choose first, so a desk is never taken by someone just sunbathing.
     const order = [...crew.filter((c) => c.role === "crew")].sort((a, b) => Number(!!b.live) - Number(!!a.live));
@@ -142,7 +152,7 @@ export class Director {
   }
 
   private direct(c: CrewView, now: number): Direction {
-    const activity = crewActivity({
+    let activity = crewActivity({
       now,
       arrivesAt: c.arrivesAt,
       live: c.live && { state: c.live.state as RunState },
@@ -150,9 +160,20 @@ export class Director {
       asking: c.asking,
       lastEnded: c.lastEnded && { state: c.lastEnded.state as RunState, endedAt: c.lastEnded.endedAt },
     });
+    // New work or a question beats a delivery; otherwise a delivery under way keeps going.
+    const errand = this.errands.get(c._id);
+    if (activity === "landed" && !errand) this.errands.set(c._id, { deliveredAt: null });
+    else if (errand && activity !== "landed") {
+      const done = errand.deliveredAt !== null && now - errand.deliveredAt > Director.CELEBRATE_MS;
+      if (isWorking(activity) || activity === "asking" || done) this.errands.delete(c._id);
+      else activity = "landed";
+    }
     const title = c.live?.taskTitle ?? c.live?.threadTitle ?? null;
     const short = title && title.length > 26 ? `${title.slice(0, 25).replace(/\s+\S*$/, "")}…` : title;
-    const label = short && isWorking(activity) ? `${ACTIVITY_LABEL[activity]} · ${short}` : ACTIVITY_LABEL[activity];
+    const doneTitle = c.lastEnded?.taskTitle;
+    const label = short && isWorking(activity) ? `${ACTIVITY_LABEL[activity]} · ${short}`
+      : activity === "landed" && doneTitle ? `${ACTIVITY_LABEL.landed} · ${doneTitle.length > 26 ? `${doneTitle.slice(0, 25).replace(/\s+\S*$/, "")}…` : doneTitle}`
+      : ACTIVITY_LABEL[activity];
     const recentArrival = now - c.arrivesAt < 90_000;
     const spawn = recentArrival ? this.slots.find((s) => s.kind === "crew-spawn")?.id ?? null : null;
     const visible = now >= c.arrivesAt + ARRIVAL.stepOutMs;

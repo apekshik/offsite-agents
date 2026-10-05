@@ -15,6 +15,8 @@ export function Game({ officeId }: { officeId: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const engine = useRef<Engine | null>(null);
   const snapshot = useQuery(api.world.snapshot, { officeId: officeId as Id<"offices"> });
+  const latest = useRef(snapshot);
+  latest.current = snapshot;
   const me = useQuery(api.users.me);
   const world = snapshot?.office.world;
   const ready = me !== undefined && !!world;
@@ -28,6 +30,8 @@ export function Game({ officeId }: { officeId: string }) {
       if (!live) { g.dispose(); return; }
       started = g;
       engine.current = g;
+      // The world takes a moment to build; catch up on whatever arrived meanwhile.
+      if (latest.current) g.setSnapshot(latest.current);
     });
     return () => { live = false; started?.dispose(); engine.current = null; };
     // The world is built once per ship and captain; everything else streams in through setSnapshot.

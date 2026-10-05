@@ -122,7 +122,8 @@ export class Game {
       camera, collision: this.collision, input: this.input,
       avatar: buildAvatar(me?.avatar ? spec(me.avatar) : CAPTAIN_PRESET.spec, me?.avatar ? look(me.look) : CAPTAIN_PRESET.look),
       interactables: this.world.interactables,
-      ...(spawn ? { spawn: { pos: spawn.pos, facing: spawn.facing } } : {}),
+      // A little above the floor: starting exactly on it can miss it and drop you a deck.
+      ...(spawn ? { spawn: { pos: [spawn.pos[0], spawn.pos[1] + 0.3, spawn.pos[2]], facing: spawn.facing } } : {}),
       view: ui.get().view,
     });
     scene.add(this.captain.object);
@@ -146,6 +147,8 @@ export class Game {
 
     addEventListener("resize", this.resize);
     this.resize();
+    // For poking at it from the console while developing.
+    if (import.meta.env.DEV) Object.assign(window, { offsite: { game: this, captain: this.captain, world: this.world, ui } });
     this.loop();
   }
 
@@ -198,7 +201,8 @@ export class Game {
   private makeBody(view: Snapshot["crew"][number], d: Direction): Body {
     const fig = new CrewFigure({ spec: spec(view.avatar), look: look(view.look), name: view.name, seed: hash(view._id) % 1000 });
     fig.water = this.waterY;
-    const walker = new Walker(fig.object, { floor: (x, y, z) => this.collision.floorBelow(x, y + 0.6, z, 1.6) });
+    // A brisk walk: the ship is 140 m long.
+    const walker = new Walker(fig.object, { speed: 2.0, floor: (x, y, z) => this.collision.floorBelow(x, y + 0.6, z, 1.6) });
     const start = (d.spawnSlot && this.slots.get(d.spawnSlot)) || (d.target.kind === "slot" ? this.slots.get(d.target.slotId) : null)
       || this.world.layout.slots.find((s) => s.kind === "crew-spawn");
     if (start) fig.object.position.set(...start.pos);
@@ -252,6 +256,7 @@ export class Game {
         walker.goTo(this.world.layout.nav, slot, () => {
           body!.arrived = true;
           fig.setBackpack(false);
+          if (slot.kind === "dropoff") this.director.delivered(body!.id, Date.now());
           const now = body!.dir;
           if (now) fig.setAct(ACT[now.act], this.propOpt(now));
         });
@@ -345,6 +350,34 @@ export class Game {
 
   // ---- the bridge's per-frame answers ----
 
+  /**
+   * Name tags show through nothing: one hidden behind a wall or a deck, or far off, is hidden.
+   * Anyone who needs you, or whom you pinged, always shows.
+   */
+  private labelsAt = 0;
+  private updateLabels(t: number) {
+    if (t - this.labelsAt < 0.25) return;
+    this.labelsAt = t;
+    const eye = this.camera.getWorldPosition(new THREE.Vector3());
+    const at = new THREE.Vector3();
+    const dir = new THREE.Vector3();
+    const pinged = ui.get().ping?.crewId;
+    for (const b of this.bodies.values()) {
+      if (!b.fig.object.visible) continue;
+      b.fig.plate.sprite.getWorldPosition(at);
+      const dist = at.distanceTo(eye);
+      const always = b.dir?.marker === "asking" || b.id === pinged;
+      let seen = always || dist < 70;
+      if (seen && !always) {
+        dir.subVectors(at, eye).normalize();
+        const hit = this.collision.raycast(eye, dir, dist);
+        seen = !hit || hit.t > dist - 0.6;
+      }
+      // Bubbles keep their own visibility (it is how they fade); they only show up close anyway.
+      b.fig.plate.sprite.visible = seen;
+    }
+  }
+
   private v = new THREE.Vector3();
   private locate(id: string) {
     const body = this.bodies.get(id);
@@ -378,6 +411,7 @@ export class Game {
     this.bot?.bot.update(dt, this.camera.position);
     for (const m of this.monitors.values()) m.update(dt);
     this.updatePing(t);
+    this.updateLabels(t);
     this.pipeline.render(dt);
   };
 
