@@ -44,7 +44,7 @@ interface Body {
 const ACT: Record<Act, ActId | null> = {
   type: "type", laptop: "laptop", "lounge-laptop": "lounge-laptop", sunbathe: "sunbathe", hammock: "hammock",
   fish: "fish", carry: "carry", slump: "slump", think: "think", celebrate: "celebrate", rail: "rail",
-  swim: "swim", stool: "stool", wave: "wave", stand: null,
+  swim: "swim", soak: "sofa", stool: "stool", wave: "wave", stand: null,
 };
 const PROP: Record<string, PropKind> = { laptop: "laptop", box: "box", rod: "rod", drink: "drink" };
 

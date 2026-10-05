@@ -62,9 +62,10 @@ export function buildSunDeck(s: Ship) {
     pile.rod("chrome", new THREE.Vector3(x, D3 + 0.85, POOL.z0 + 0.12), new THREE.Vector3(x, D3 + 0.85, POOL.z0 - 0.3), 0.025);
     pile.rod("chrome", new THREE.Vector3(x, D3 + 0.85, POOL.z0 - 0.3), new THREE.Vector3(x, D3, POOL.z0 - 0.3), 0.025);
   }
-  // In the water: standing on the bottom, the surface at the chest.
+  // In the water: the slot sits at the surface (the swim pose holds the shoulders just under it).
+  const surface = D3 - 0.12;
   [[-2.2, 26.2, 0.6], [-2.0, 29.4, -2.2], [-4.9, 31.0, 1.2], [-2.4, 33.8, 3.0], [-3.6, 36.4, -2.8]].forEach(([x, z, f], i) =>
-    plan.slot("pool", `pool-${i + 1}`, [x!, floorY, z!], f!, { tags: ["water"] }));
+    plan.slot("pool", `pool-${i + 1}`, [x!, surface, z!], f!, { tags: ["water"] }));
 
   // ---- the hot tub: a teak drum, a tiled bowl with a bench round it ----
   const ring = (r: number, y0: number, y1: number, inward: boolean) => band(circle(TUB.x, TUB.z, r, 40), y0, y1, { inward });

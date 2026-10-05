@@ -28,7 +28,7 @@ export interface CrewView {
 /** Poses the kit knows (packages/kit/src/avatar acts); the game maps any it lacks to the nearest. */
 export type Act =
   | "type" | "laptop" | "lounge-laptop" | "sunbathe" | "hammock" | "fish" | "carry" | "slump" | "think"
-  | "celebrate" | "rail" | "swim" | "stool" | "wave" | "stand";
+  | "celebrate" | "rail" | "swim" | "soak" | "stool" | "wave" | "stand";
 
 export type Prop = "laptop" | "box" | "rod" | "drink";
 
@@ -87,7 +87,8 @@ function workAct(kind: SlotKind | undefined, activity: CrewActivity): Act {
 function leisureAct(kind: SlotKind | undefined): { act: Act; props: Prop[] } {
   switch (kind) {
     case "lounger": return { act: "sunbathe", props: [] };
-    case "pool": case "hot-tub": return { act: "swim", props: [] };
+    case "pool": return { act: "swim", props: [] };
+    case "hot-tub": return { act: "soak", props: [] }; // sitting on the bench inside, the water at the chest
     case "bar-stool": return { act: "stool", props: ["drink"] };
     case "hammock": return { act: "hammock", props: [] };
     case "fishing": return { act: "fish", props: ["rod"] };
