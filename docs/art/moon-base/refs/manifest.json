@@ -1,0 +1,73 @@
+{
+  "project": "Offsite",
+  "location": "Moon base (terraced crater)",
+  "canonical_layout": "00-masterplan/terraced-crater-masterplan.png",
+  "precedence": "Masterplan wins over zone shots when they disagree",
+  "files": [
+    {
+      "path": "00-masterplan/terraced-crater-masterplan.png",
+      "role": "canonical layout",
+      "source": "https://v3b.fal.media/files/b/0aad30c3/ob7U3UEc4dB7MjjOwxw4L_y7K474e6.png"
+    },
+    {
+      "path": "01-zones/01-work-hall.png",
+      "role": "zone: main work hall",
+      "source": "https://v3b.fal.media/files/b/0aad3140/8GGYJpXP8fGztgzu59BGl_qiAx22lr.png"
+    },
+    {
+      "path": "01-zones/02-hub-dome.png",
+      "role": "zone: hub dome",
+      "source": "https://v3b.fal.media/files/b/0aad3140/jCEV1kPFBzWsAWY67-2Lc_erqypIru.png"
+    },
+    {
+      "path": "01-zones/03-greenhouse.png",
+      "role": "zone: greenhouse",
+      "source": "https://v3b.fal.media/files/b/0aad3140/mk2w3uDBNtJciZYJiEs_2_h87tw42E.png"
+    },
+    {
+      "path": "01-zones/04-rover-garage.png",
+      "role": "zone: rover garage",
+      "source": "https://v3b.fal.media/files/b/0aad3140/Yc7RFdlnxMJIqFl3asknw_9NHkKQ5B.png"
+    },
+    {
+      "path": "01-zones/05-landing-pad.png",
+      "role": "zone: landing pad arrival",
+      "source": "https://v3b.fal.media/files/b/0aad3140/neg8aSMN6x_-wSod7d9U3_bicjbrod.png"
+    },
+    {
+      "path": "01-zones/06-mining-ice-rig.png",
+      "role": "zone: mining and ice rig",
+      "source": "https://v3b.fal.media/files/b/0aad3140/K0tDE8HOThfXzF7UFQKfI_VaAQ0Y9F.png"
+    },
+    {
+      "path": "01-zones/07-sports-dome-lookout.png",
+      "role": "zone: sports dome and rim lookout",
+      "source": "https://v3b.fal.media/files/b/0aad3140/8lo4TE9bUqPyjwl4kaVp4_6uP7z9OZ.png"
+    },
+    {
+      "path": "01-zones/08-night-overview.png",
+      "role": "zone: night overview / lighting",
+      "source": "https://v3b.fal.media/files/b/0aad3140/_sh7eA_wIoWVxO0YPAWgO_Jtzvhkw2.png"
+    },
+    {
+      "path": "02-style-references/hab-interior-style.png",
+      "role": "style reference: interior materials, crew outfits",
+      "source": "https://v3b.fal.media/files/b/0aad1e10/0kye5HWq5PJ0hIzHmHYzR_MJDukhuP.png"
+    },
+    {
+      "path": "02-style-references/small-base-exterior-style.png",
+      "role": "style reference: hab shapes, airlocks, rover, suits",
+      "source": "https://v3b.fal.media/files/b/0aad1e56/vqdX7OjiibyM9S1YPrn-B_aQ394xbq.png"
+    },
+    {
+      "path": "99-archive-not-canonical/rejected-layout-radial-hub.png",
+      "role": "rejected layout, do not build",
+      "source": "https://v3b.fal.media/files/b/0aad30c3/wlQ8BWVTRPsH1Ehc-xxgW_cv1XYMMQ.png"
+    },
+    {
+      "path": "99-archive-not-canonical/rejected-layout-canyon-street.png",
+      "role": "rejected layout, do not build",
+      "source": "https://v3b.fal.media/files/b/0aad30c3/4vMyij1DXhj_JSUrB5RAa_MWNT0q1z.png"
+    }
+  ]
+}
