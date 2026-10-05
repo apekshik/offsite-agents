@@ -18,6 +18,7 @@
     "test:backend": "vitest run --config convex/vitest.config.ts"
   },
   "dependencies": {
+    "@offsite/contracts": "workspace:*",
     "convex": "^1.46.0",
     "zod": "^4.6.5"
   },
@@ -27,6 +28,7 @@
     "convex-test": "^0.0.60",
     "playwright-core": "^1.63.0",
     "typescript": "^5.9.0",
+    "vite": "^8.3.2",
     "vitest": "^3.2.0"
   }
 }

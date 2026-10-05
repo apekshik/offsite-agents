@@ -164,7 +164,7 @@ export default defineSchema({
     .index("by_thread", ["threadId"])
     .index("by_task", ["taskId"])
     .index("by_crew", ["crewId", "createdAt"])
-    .index("by_state", ["state"]),
+    .index("by_machine", ["machineId", "state"]),
 
   /** Normalized events (RunEvent in @offsite/contracts), in order. */
   runEvents: defineTable({
@@ -205,6 +205,8 @@ export default defineSchema({
     options: v.union(v.array(v.string()), v.null()),
     answer: v.union(v.string(), v.null()),
     answeredAt: v.union(v.number(), v.null()),
+    /** When the runner handed the answer to the agent. */
+    deliveredAt: v.union(v.number(), v.null()),
     createdAt: v.number(),
   }).index("by_office_open", ["officeId", "answeredAt"]).index("by_run", ["runId"]),
 });

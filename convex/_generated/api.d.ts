@@ -8,13 +8,47 @@
  * @module
  */
 
+import type * as crew from "../crew.js";
+import type * as crewlib from "../crewlib.js";
+import type * as flow from "../flow.js";
+import type * as http from "../http.js";
+import type * as lib from "../lib.js";
+import type * as machines from "../machines.js";
+import type * as messages from "../messages.js";
+import type * as offices from "../offices.js";
+import type * as questions from "../questions.js";
+import type * as runner from "../runner.js";
+import type * as runs from "../runs.js";
+import type * as tasks from "../tasks.js";
+import type * as threads from "../threads.js";
+import type * as tools from "../tools.js";
+import type * as users from "../users.js";
+import type * as world from "../world.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
 
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  crew: typeof crew;
+  crewlib: typeof crewlib;
+  flow: typeof flow;
+  http: typeof http;
+  lib: typeof lib;
+  machines: typeof machines;
+  messages: typeof messages;
+  offices: typeof offices;
+  questions: typeof questions;
+  runner: typeof runner;
+  runs: typeof runs;
+  tasks: typeof tasks;
+  threads: typeof threads;
+  tools: typeof tools;
+  users: typeof users;
+  world: typeof world;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.
