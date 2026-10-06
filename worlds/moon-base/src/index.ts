@@ -18,6 +18,7 @@ import { codeTexture, disposeStill, screenMesh, scrollingCode } from "./screens.
 import { createLanders, type LanderView } from "./lander.ts";
 import { PAD_YAW } from "./floor.ts";
 import { buildLife } from "./life.ts";
+import { dress } from "./dress.ts";
 
 export { MOON_HOUR, sunAt } from "./sky.ts";
 export { LANDER } from "./lander.ts";
@@ -142,6 +143,7 @@ export async function buildMoonBase(ctx: WorldContext, { hour = MOON_HOUR, busy:
     daylight,
     screens,
     captain: MOON_GRAVITY,
+    dress,
     soundscape: { sea: false, wildlife: false, aircraft: "none" },
     get busy() { return busy; },
     setHour: (h) => sky.setHour(h),

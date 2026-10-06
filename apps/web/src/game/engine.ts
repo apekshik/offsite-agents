@@ -124,6 +124,8 @@ export class Game {
   private director!: Director;
   private slots = new Map<string, Slot>();
   private bodies = new Map<string, CrewBody>();
+  /** Each crew member's own look, and what the world has them wearing now (dress). */
+  private outfits = new Map<string, { spec: AvatarSpec; look: Look | null; outfit: string }>();
   private stage!: Stage;
   private effects: Effect[] = [];
   /** Banter lines already said (group:round:line), so each is said once. */
@@ -634,6 +636,7 @@ export class Game {
       this.direct(view, d, snap.questions.find((q) => q.crewId === d.crewId)?.prompt ?? null);
     }
     for (const [id, b] of this.bodies) if (!seen.has(id)) this.removeBody(b);
+    this.redress();
     this.paintScreens(snap, directions);
     this.directComputer(snap.crew.find((c) => c.role === "computer"), now);
     this.directions = directions;
@@ -642,12 +645,16 @@ export class Game {
   }
 
   private makeBody(view: Snapshot["crew"][number], d: Direction): CrewBody {
-    const fig = new CrewFigure({ spec: spec(view.avatar), look: look(view.look), name: view.name, seed: hash(view._id) % 1000 });
+    const start = (d.spawnSlot && this.slots.get(d.spawnSlot)) || (d.target.kind === "slot" ? this.director.slot(d.target.slotId) : null)
+      || this.world.layout.slots.find((s) => s.kind === "crew-spawn");
+    // What they wear here (the world says, by where they are: the moon base's suits outdoors).
+    const own = { spec: spec(view.avatar), look: look(view.look) };
+    const worn = start && this.world.dress ? this.world.dress(own.spec, own.look, start.pos) : null;
+    const fig = new CrewFigure({ spec: worn?.spec ?? own.spec, look: worn ? worn.look : own.look, name: view.name, seed: hash(view._id) % 1000 });
+    this.outfits.set(view._id, { ...own, outfit: worn?.outfit ?? "" });
     fig.water = this.waterY;
     // A brisk walk: the ship is 140 m long.
     const walker = new Walker(fig.object, { speed: SPEED.walk, floor: (x, y, z) => this.collision.floorBelow(x, y + 0.6, z, 1.6) });
-    const start = (d.spawnSlot && this.slots.get(d.spawnSlot)) || (d.target.kind === "slot" ? this.director.slot(d.target.slotId) : null)
-      || this.world.layout.slots.find((s) => s.kind === "crew-spawn");
     if (start) fig.object.position.set(...start.pos);
     if (d.spawnSlot) fig.setBackpack(true);
     this.scene.add(fig.object);
@@ -661,6 +668,21 @@ export class Game {
     return body;
   }
 
+  /** Crew whose surroundings call for something else to wear (in from outdoors) change into it. */
+  private redress() {
+    const dress = this.world.dress;
+    if (!dress) return;
+    for (const b of this.bodies.values()) {
+      const o = this.outfits.get(b.id);
+      if (!o || !b.fig.object.visible) continue;
+      const p = b.fig.object.position;
+      const worn = dress(o.spec, o.look, [p.x, p.y, p.z]);
+      if (worn.outfit === o.outfit) continue;
+      o.outfit = worn.outfit;
+      b.fig.setLook(worn.spec, worn.look);
+    }
+  }
+
   private removeBody(b: CrewBody) {
     this.stepAt.delete(b.id);
     this.typists.get(b.id)?.stop(0);
@@ -668,6 +690,7 @@ export class Game {
     this.scene.remove(b.fig.object);
     b.dispose();
     this.bodies.delete(b.id);
+    this.outfits.delete(b.id);
   }
 
   private direct(view: Snapshot["crew"][number], d: Direction, question: string | null) {
