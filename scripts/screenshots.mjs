@@ -28,7 +28,7 @@ const SIZES = { desktop: { width: 1280, height: 800 }, phone: { width: 390, heig
 // The gallery's cells, by name (src/gallery/cells.tsx), and demo mode's states worth a picture (src/demo/states.ts).
 const CELLS = [
   "phone-cover", "phone-threads-empty", "phone-thinking", "phone-plan", "phone-computah-asks", "phone-question", "phone-finished",
-  "phone-crew-watch", "phone-crew-off", "phone-hire", "phone-ship", "phone-review",
+  "phone-crew-watch", "phone-crew-off", "phone-hire", "phone-ship", "phone-review", "phone-hire-moon", "phone-ship-moon",
   "hud-no-machine", "toasts", "crew-card", "crew-card-asking", "helm", "helm-review", "creator",
   "landing", "onboarding-ship", "onboarding-meet", "onboarding-machine", "onboarding-paired", "onboarding-repos", "onboarding-browse",
   "empty-no-machine-thread", "empty-ship-tab", "error-diff", "error-offline", "empty-scan", "error-scan",
@@ -37,6 +37,7 @@ const CELLS = [
 // desktop size only. The helm, the review and the rest of the interface are in the gallery, on the poster.
 const STATES = [
   { name: "aboard", world: true, sizes: ["desktop"] }, { name: "night", world: true, sizes: ["desktop"] }, { name: "phone-open", world: true, sizes: ["desktop"] },
+  { name: "aboard", as: "moon-aboard", query: "&world=moon-base", world: true, sizes: ["desktop"] },
   { name: "landing", world: false }, { name: "onboarding-repos", world: false },
 ];
 
@@ -154,7 +155,8 @@ for (const size of Object.keys(SIZES)) {
   for (const c of CELLS) jobs.push({ kind: "cell", name: c, size, path: `/gallery.html?cell=${c}`, file: `gallery-${c}-${size}` });
   for (const s of STATES) {
     if (s.sizes && !s.sizes.includes(size)) continue;
-    jobs.push({ kind: "state", name: s.name, size, world: s.world, path: `/?state=${s.name}&hold=3${s.world ? "&quality=low" : ""}`, file: `demo-${s.name}-${size}` });
+    const name = s.as ?? s.name;
+    jobs.push({ kind: "state", name, size, world: s.world, path: `/?state=${s.name}&hold=3${s.world ? "&quality=low" : ""}${s.query ?? ""}`, file: `demo-${name}-${size}` });
   }
 }
 const todo = only ? jobs.filter((j) => j.file.includes(only)) : jobs;

@@ -5,6 +5,7 @@ import type { api } from "../../../../convex/_generated/api";
 import type { Id, TableNames } from "../../../../convex/_generated/dataModel";
 import type { CrewRow, MachineRow, MessageRow, QuestionRow, TaskRow, ThreadRow } from "../overlay/ship.tsx";
 import { API_FILES, API_PATCH, diffAt, eventsAt, OFFICE, REPOS as STORY_REPOS, shipAt, SWEEP_FILES, SWEEP_PATCH, type ShipState } from "../film/story.ts";
+import { worldInfo, worldOf } from "../worlds.ts";
 
 // Demo mode's ship: everything the interface asks Convex for, answered in the browser, in real time, from what you do.
 //
@@ -46,8 +47,16 @@ export interface DemoSetup {
   failDiffs?: boolean;
   /** The folder scan finds no repos. */
   noRepos?: boolean;
+  /** The ship's world (default: the yacht, or another ready world named in the address, ?world=moon-base). */
+  world?: string;
   /** The runner can't look in folders: this error. */
   folderError?: string;
+}
+
+/** The world the demo's ship is in: the yacht, or another ready world named in the address (?world=moon-base). */
+export function demoWorld(): string {
+  const asked = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("world");
+  return asked && worldInfo(asked)?.ready ? asked : "yacht";
 }
 
 /** The starting crew a new ship gets (offices.ts STARTING_CREW), from the film's cast. */
@@ -111,6 +120,7 @@ export class DemoShip {
   // The ship and its people.
   private officeMade: boolean;
   private officeName = "Sea Legs";
+  private world: string;
   private defaultHarness: "claude" | "codex" | "sim" = "claude";
   private cast: Set<string> | null;
   private me = { name: "Captain", avatar: null as unknown, look: null as unknown };
@@ -133,6 +143,7 @@ export class DemoShip {
   private baseCache: { key: string; state: ShipState } | null = null;
 
   constructor(setup: DemoSetup, clock: () => number = () => Date.now()) {
+    this.world = setup.world && worldInfo(setup.world)?.ready ? setup.world : demoWorld();
     this.clock = clock;
     this.t0 = clock();
     this.scene = setup.scene;
@@ -342,7 +353,8 @@ export class DemoShip {
       t.crewId = hid;
     });
     const names = th.tasks.map((t) => `**${this.crewName(t.crewId)}**`);
-    const hired = !th.hiredCrew.length ? "" : /\bhire\b/i.test(title) ? ` As asked, I've hired ${names.at(-1)}; they're on the helicopter.` : ` Everyone else is busy, so I've hired ${names.at(-1)}; they're on the helicopter.`;
+    const on = `they're on the ${worldOf(this.world).words.vehicle}`;
+    const hired = !th.hiredCrew.length ? "" : /\bhire\b/i.test(title) ? ` As asked, I've hired ${names.at(-1)}; ${on}.` : ` Everyone else is busy, so I've hired ${names.at(-1)}; ${on}.`;
     const where = (t: DTask) => (this.repos.length > 1 ? ` in **${t.repo}**` : "");
     th.reply = single
       ? `On it. ${names[0]} builds it${where(th.tasks[0]!)}, and ${names[1]} covers it with tests once there's something to test.${hired}`
@@ -565,7 +577,7 @@ export class DemoShip {
     const first = this.repos[0];
     const machine = first ? this.machines.find((m) => m._id === first.machineId) : undefined;
     return {
-      _id: id<"offices">(OFFICE), _creationTime: this.t0 - 86_400_000 * 30, ownerId: USER, name: this.officeName, world: "yacht",
+      _id: id<"offices">(OFFICE), _creationTime: this.t0 - 86_400_000 * 30, ownerId: USER, name: this.officeName, world: this.world,
       defaultHarness: this.defaultHarness, createdAt: this.t0 - 86_400_000 * 30,
       role: "owner", owner: { _id: USER, name: this.me.name }, membersCanAsk: true,
       repos: this.repos.map((r) => ({ _id: r._id, name: r.name, machineId: r.machineId, path: r.path, defaultBranch: r.defaultBranch, setupCommand: r.setupCommand })),
@@ -578,7 +590,7 @@ export class DemoShip {
     const storyQs = this.storyOn() ? this.base().snapshot.questions.filter((q) => !this.answeredStory.has(q._id)) : [];
     const mine = this.views().flatMap(({ v }) => v.questions);
     return {
-      office: { _id: id<"offices">(OFFICE), name: this.officeName, world: "yacht", hasRepo: this.repos.length > 0, repos: this.repos.map((r) => r.name) },
+      office: { _id: id<"offices">(OFFICE), name: this.officeName, world: this.world, hasRepo: this.repos.length > 0, repos: this.repos.map((r) => r.name) },
       crew,
       questions: [...storyQs, ...mine].sort((a, b) => a.createdAt - b.createdAt),
     } as R<typeof api.world.snapshot>;
@@ -708,6 +720,7 @@ export class DemoShip {
       case "offices:create": {
         this.officeMade = true;
         this.officeName = String(a["name"] ?? "").trim() || "Sea Legs";
+        if (typeof a["world"] === "string" && worldInfo(a["world"])?.ready) this.world = a["world"];
         if (a["defaultHarness"]) this.defaultHarness = a["defaultHarness"] as typeof this.defaultHarness;
         return OFFICE;
       }
@@ -854,7 +867,7 @@ export class DemoShip {
     return this.invite ? { ...this.invite, used: 0 } as R<typeof api.invites.current> : null;
   }
   /** @internal */ _peek(): R<typeof api.invites.peek> {
-    return { ok: true, officeId: id<"offices">(OFFICE), ship: this.officeName, world: "yacht", captain: { name: "Captain", avatar: null, look: null }, expiresAt: this.now() + 86_400_000, role: "owner" } as R<typeof api.invites.peek>;
+    return { ok: true, officeId: id<"offices">(OFFICE), ship: this.officeName, world: this.world, captain: { name: "Captain", avatar: null, look: null }, expiresAt: this.now() + 86_400_000, role: "owner" } as R<typeof api.invites.peek>;
   }
   /** @internal */ _editor(rid: string): R<typeof api.diffs.editorRequest> {
     const at = this.editors.get(rid);

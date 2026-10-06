@@ -17,6 +17,7 @@
   "dependencies": {
     "@offsite/contracts": "workspace:*",
     "@offsite/kit": "workspace:*",
+    "@offsite/world-moon-base": "workspace:*",
     "@offsite/world-yacht": "workspace:*",
     "@workos-inc/authkit-js": "^0.20.4",
     "convex": "^1.46.0",

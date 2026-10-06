@@ -1,5 +1,5 @@
 import type * as THREE from "three";
-import type { WorldLayout } from "@offsite/contracts";
+import type { AvatarSpec, Look, Vec3, WorldLayout } from "@offsite/contracts";
 
 // The contract between the app and a world (worlds/yacht, later Mars, a space station…).
 // A world builds its whole place: geometry, sky, water, lights, sounds. It marks where things can
@@ -33,9 +33,10 @@ export interface BuiltWorld {
   colliders: THREE.Object3D[];
   interactables: Interactable[];
   /**
-   * Helicopter arrivals, as touchdown times (ms since epoch, the server's crew.arrivesAt).
-   * The world flies one in for each time within ARRIVAL's window (@offsite/contracts) and away
-   * again; it decides nothing else. Called whenever the crew list changes.
+   * Arrivals by air (the yacht's helicopter, the moon base's lander), as touchdown times (ms
+   * since epoch, the server's crew.arrivesAt). The world flies one in for each time within
+   * ARRIVAL's window (@offsite/contracts) and away again (planFlights, arrivals.ts, groups them);
+   * it decides nothing else. Called whenever the crew list changes.
    */
   setArrivals(touchdowns: number[]): void;
   /**
@@ -49,6 +50,22 @@ export interface BuiltWorld {
    * lift-off times (ms) and the object that flies it, so the app can place their sound.
    */
   aircraft?(now: number): { object: THREE.Object3D; land: number; leave: number }[];
+  /**
+   * Optional: how the captain moves here (the controller's options: gravity, take-off speed…).
+   * Absent: the kit's defaults, the yacht's. A world in low gravity jumps higher and floats down.
+   */
+  captain?: { gravity?: number; jump?: number; walk?: number; sprint?: number };
+  /**
+   * Optional: what crew wear here, by where they are (the moon base: coveralls indoors, a suit and
+   * helmet outdoors). Given someone's own look and where they stand, returns the outfit's name and
+   * the look to draw; the app redraws them when the name changes. Absent: everyone as they are.
+   */
+  dress?(spec: AvatarSpec, look: Look | null, at: Vec3): { outfit: string; spec: AvatarSpec; look: Look | null };
+  /**
+   * Optional: what the place sounds like, for the app's beds and one-shots. Absent: the yacht's
+   * (the sea and a breeze, gulls and dolphins, helicopters). `aircraft: "none"` keeps arrivals silent.
+   */
+  soundscape?: { sea?: boolean; wildlife?: boolean; aircraft?: "helicopter" | "none" };
   /** Called every frame. now is ms since epoch (server-aligned), dt is seconds. */
   update(dt: number, now: number): void;
   dispose(): void;

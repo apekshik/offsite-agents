@@ -8,6 +8,7 @@
 //   &t=21.5 (or &hour=)    hold the sky at an hour: about 19.0 is sunset, 21.5 night
 //   &busy=0.8              how busy the ship is (0 off duty .. 1 the whole crew working), eased in
 //   &swell=0               hold the ship still on the swell (default 1)
+//   &world=moon-base       the moon base instead of the yacht (its own views: aerial, hub, hall…)
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
@@ -17,6 +18,7 @@ import {
   CAPTAIN_PRESET, CREW_PRESETS, Captain, Collision, CrewFigure, Input, SELF_LAYER, Walker, actFor, buildAvatar, createPipeline, createRenderer, formatHour, type Quality,
 } from "@offsite/kit";
 import { buildYacht } from "@offsite/world-yacht";
+import { buildMoonBase } from "@offsite/world-moon-base";
 
 const params = new URLSearchParams(location.search);
 const quality: Quality = params.get("quality") === "low" ? "low" : "high";
@@ -71,6 +73,26 @@ const VIEWS: Record<string, View> = {
   sternon: { pos: [0, 14, 140], at: [0, 9, 40], fov: 40 },
   wake: { pos: [70, 70, 240], at: [0, 0, 90] },
 };
+// The moon base's views, after the concept art's cameras (docs/art/moon-base/refs).
+const MOON_VIEWS: Record<string, View> = {
+  aerial: { pos: [0, 50, 125], at: [0, 0, -110], fov: 42 },
+  masterplan: { pos: [4, 96, 150], at: [0, 4, -28], fov: 50 },
+  night: { pos: [0, 50, 125], at: [0, 0, -110], fov: 42 },
+  hub: { pos: [2.5, 2.3, 14.5], at: [-3, 5, -20], fov: 62 },
+  console: { pos: [0.4, 2.5, 3.6], at: [0, 2.2, -10], fov: 60 },
+  hall: { pos: [-5.3, 4.2, -87.6], at: [-25.1, 4.6, -70.1], fov: 66 },
+  hallfloor: { pos: [-14.9, 7.8, -70.2], at: [-17.4, 2.8, -81.9], fov: 70 },
+  greenhouse: { pos: [-17.2, 19.7, -90.8], at: [-2.4, 19.4, -92.6], fov: 64 },
+  garage: { pos: [36, 2.6, 30], at: [50, 2.4, 24], fov: 60 },
+  pad: { pos: [8, 2.2, -14], at: [11.5, 6, -36], fov: 56 },
+  rig: { pos: [-40, 7, 42], at: [-18, -2, 18], fov: 58 },
+  sports: { pos: [45.3, 19.9, -78.7], at: [60.2, 20.3, -77.4], fov: 70 },
+  lookout: { pos: [-90.6, 25.9, -58.7], at: [-80.0, 29.1, -75.7], fov: 66 },
+  quarters: { pos: [-43.6, 7.8, -58.9], at: [-53.5, 6.4, -59.1], fov: 70 },
+  crater: { pos: [-60, 40, 90], at: [0, 8, -10], fov: 50 },
+};
+const which = params.get("world") === "moon-base" ? "moon-base" : "yacht";
+if (which === "moon-base") { for (const k of Object.keys(VIEWS)) delete VIEWS[k]; Object.assign(VIEWS, MOON_VIEWS); VIEWS.hero = MOON_VIEWS.aerial!; }
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.maxDistance = 1500;
@@ -98,7 +120,9 @@ setView(viewSel.value);
 
 // ---------- the world ----------
 const t0 = performance.now();
-const world = await buildYacht({ renderer, scene, camera, quality, assets: "/" }, params.has("busy") ? { busy: Number(params.get("busy")) } : {});
+const ctx = { renderer, scene, camera, quality, assets: "/" };
+const busyOpt = params.has("busy") ? { busy: Number(params.get("busy")) } : {};
+const world = which === "moon-base" ? await buildMoonBase(ctx, busyOpt) : await buildYacht(ctx, busyOpt);
 scene.add(world.root);
 const buildMs = performance.now() - t0;
 (window as unknown as Record<string, unknown>).__world = { world, scene, camera, renderer, pipeline, THREE };
@@ -119,6 +143,7 @@ if (walking) {
     avatar: buildAvatar(CAPTAIN_PRESET.spec, CAPTAIN_PRESET.look),
     spawn: { pos: start, facing: ((Number(params.get("yaw") ?? 180)) * Math.PI) / 180 },
     view: params.get("view") === "first" ? "first" : "third",
+    ...(world.captain ? { move: world.captain } : {}),
   });
   if (params.has("pitch")) captain.cameraRig.pitch = Number(params.get("pitch"));
   world.daylight.sun.shadow.camera.layers.enable(SELF_LAYER);
@@ -153,9 +178,9 @@ if (params.has("crew")) {
 }
 
 const hour = $("hour") as HTMLInputElement, hourText = $("hourText"), clock = $("clock") as HTMLInputElement;
-const startHour = params.has("t") ? Number(params.get("t")) : params.has("hour") ? Number(params.get("hour")) : 18.4;
+const startHour = params.has("t") ? Number(params.get("t")) : params.has("hour") ? Number(params.get("hour")) : which === "moon-base" ? (viewSel.value === "night" ? 21.5 : 10.2) : 18.4;
 if (params.has("busy")) world.setBusy(Number(params.get("busy")));
-if (params.has("swell")) world.setSwell(Number(params.get("swell")));
+if (params.has("swell") && "setSwell" in world) world.setSwell(Number(params.get("swell")));
 hour.value = String(startHour);
 clock.checked = params.get("clock") === "1";
 const applyHour = () => world.setHour(clock.checked ? null : Number(hour.value));
@@ -262,25 +287,19 @@ function check(layout: WorldLayout): string {
   if (far.length) lines.push(`slots far from their node: ${far.join(", ")}`);
   // Walk each edge in short steps, following the floor (decks, stair ramps): every step needs a
   // floor under it, no step up taller than 0.45 m, and nothing in the way at knee or head height.
-  const ray = new THREE.Raycaster();
-  const meshes = world.colliders;
+  // Against the colliders' BVH (the kit's Collision): a big world's colliders are too many
+  // triangles to raycast one by one.
+  const col = new Collision().add(...world.colliders).build();
   const blocked: string[] = [];
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), d = new THREE.Vector3(), DOWN = new THREE.Vector3(0, -1, 0);
-  const floorAt = (x: number, y: number, z: number) => {
-    ray.set(a.set(x, y + 1.0, z), DOWN);
-    ray.far = 2.4;
-    const hit = ray.intersectObjects(meshes, false)[0];
-    return hit ? hit.point.y : null;
-  };
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), d = new THREE.Vector3();
+  const floorAt = (x: number, y: number, z: number) => col.floorBelow(x, y + 1.0, z, 2.4);
   const clear = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) => {
     for (const h of [0.5, 1.6]) {
       a.set(x0, y0 + h, z0);
       b.set(x1, y1 + h, z1);
       const len = d.subVectors(b, a).length();
       if (len < 1e-4) continue;
-      ray.set(a, d.normalize());
-      ray.far = len;
-      if (ray.intersectObjects(meshes, false).length) return false;
+      if (col.raycast(a, d.normalize(), len)) return false;
     }
     return true;
   };

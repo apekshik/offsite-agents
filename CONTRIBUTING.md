@@ -71,7 +71,8 @@ Demo mode is a second entry to the same app: [apps/web/demo.html](apps/web/demo.
   `onboarding-machine`, `onboarding-repos`, `working`, `question`, `phone-open`, `phone-crew`, `phone-ship`, `review`,
   `finished`, `helm`, `crew-card`, `hire`, `creator`, `night` and more ([src/demo/states.ts](apps/web/src/demo/states.ts)).
   **Reset** starts the state over. `&t=21.5` sets the hour, `&quality=low` draws the world cheaply, `&hold=3` stops
-  the ship's clock three seconds in (for steady screenshots).
+  the ship's clock three seconds in (for steady screenshots). `&world=moon-base` puts the demo's ship in another ready
+  world (`/?world=moon-base&state=night`); the states keep it as you click through them.
 - **The gallery** ([apps/web/gallery.html](apps/web/gallery.html), cells in
   [src/gallery/cells.tsx](apps/web/src/gallery/cells.tsx)) renders the real components on fixture data, one state
   per cell, without the 3D world: the phone's tabs, the cover, crew cards, toasts, the helm, the diff viewer, each step
@@ -110,25 +111,30 @@ The interface never imports the 3D game and the game never imports the interface
 ## Adding a world
 
 A world is a workspace package in `worlds/<name>` that builds a place and marks where things can happen. It never
-reads Offsite's state; the app decides who goes where. The yacht ([worlds/yacht](worlds/yacht)) is the example.
+reads Offsite's state; the app decides who goes where. There are two to learn from: the yacht
+([worlds/yacht](worlds/yacht)) and the moon base ([worlds/moon-base](worlds/moon-base), whose layout builds and is
+tested without a browser).
 
 1. Copy `worlds/yacht/package.json` and export a `WorldModule` ([packages/kit/src/world.ts](packages/kit/src/world.ts)):
    `id`, `name`, `blurb`, and `build(ctx)` returning the scene root, colliders, interactables and layout.
 2. Mark the layout ([packages/contracts/src/world.ts](packages/contracts/src/world.ts)): slots by kind (desks,
    loungers, the helm, the `computer` slot where Computah floats, the drop-off, the helipad, spawn points and places to
    hang out) and a walking graph. `ACTIVITY_SPOTS` there says which kinds each activity uses.
-3. Give the helm an interactable with the id `helm`, fly new crew in from `setArrivals`, and show how busy the ship is
-   in `setBusy` if you like.
-4. Register it in `WORLDS` in [apps/web/src/game/Game.tsx](apps/web/src/game/Game.tsx) and in the picker
-   ([apps/web/src/worlds.ts](apps/web/src/worlds.ts), shown by `screens/Gate.tsx`).
+3. Give the helm an interactable with the id `helm`, fly new crew in from `setArrivals` (the kit's `planFlights`
+   groups the touchdowns into flights), and show how busy the ship is in `setBusy` if you like. A world can also say
+   how the captain moves there (`captain`: the moon's low gravity) and what it sounds like (`soundscape`).
+   Slot tags the app reads: `leisure` (time off only), `low-g`, `place:<where>` and `pastime:<what>`.
+4. Register it in `WORLDS` in [apps/web/src/game/Game.tsx](apps/web/src/game/Game.tsx), in the picker
+   ([apps/web/src/worlds.ts](apps/web/src/worlds.ts), shown by `screens/Gate.tsx`, with the words the interface uses
+   for it) and in `ARRIVES_BY` in [convex/crewlib.ts](convex/crewlib.ts), so a ship can be made in it.
 5. Check it in the **world viewer**, `http://localhost:5190/dev/world.html` (with `pnpm dev:demo` running; source in
    [apps/web/dev/world.ts](apps/web/dev/world.ts)): slots (`&slots=1`), the walking graph (`&nav=1`), the time of day,
    crew seated for scale (`&crew=all`). Its **nav check** reports unreachable nodes and edges that walk through a
-   collider, on the page and in the console; it should say nothing is wrong. It builds the yacht today; point it at
-   yours.
-6. Try it with the crew aboard in demo mode once it's registered.
+   collider, on the page and in the console; it should say nothing is wrong. It builds the yacht, or the moon base
+   with `&world=moon-base` (its own camera presets: `&view=aerial`, `hub`, `hall`, `night`…); add yours the same way.
+6. Try it with the crew aboard in demo mode once it's registered: `http://localhost:5190/?world=<id>`.
 
-Worlds are welcome. Mars and an orbital station are the obvious next ones (use the
+Worlds are welcome. An orbital station and the airship are the obvious next ones (use the
 [new world issue template](.github/ISSUE_TEMPLATE/new_world.yml) to say you're on it).
 
 ## Running the real backend

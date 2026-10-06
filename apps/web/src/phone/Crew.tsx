@@ -13,12 +13,13 @@ import { phone } from "./state.ts";
 import { walkToCrew, walkToPerson } from "../overlay/walk.tsx";
 import { useAboard } from "../people/people.ts";
 import { MuteButton, PersonRow } from "./Friends.tsx";
+import { worldOf, type WorldWords } from "../worlds.ts";
 
 // The crew tab: Computah, then everyone aboard, and one of them up close (what they are doing, their live work,
 // Walk over, Find, Message, Stop, their look and specialty). Hiring lives here too.
 
 /** "Editing · Settings page" / "Off duty · in a hammock, promenade" / "Needs you · walking to you". */
-export function crewLine(c: CrewRow, now: number): { text: string; sub: string | null; mono: boolean } {
+export function crewLine(c: CrewRow, now: number, words: WorldWords = worldOf(null).words): { text: string; sub: string | null; mono: boolean } {
   const a = activityOf(c, now);
   const title = workTitle(c);
   if (c.role === "computer") {
@@ -28,13 +29,13 @@ export function crewLine(c: CrewRow, now: number): { text: string; sub: string |
       : { text: "At the helm · all quiet", sub: null, mono: false };
   }
   if (a === "asking") return { text: `${ACTIVITY_LABEL.asking} · walking to you`, sub: c.live?.step?.summary ?? null, mono: true };
-  if (a === "arriving") return { text: "Arriving by helicopter", sub: null, mono: false };
+  if (a === "arriving") return { text: `Arriving by ${words.vehicle}`, sub: null, mono: false };
   if (isWorking(a)) {
     const place = placeOf(c._id);
     const step = c.live?.step?.summary ?? null;
     return { text: title ? `${ACTIVITY_LABEL[a]} · ${title}` : ACTIVITY_LABEL[a], sub: step ?? (place ? place.charAt(0).toUpperCase() + place.slice(1) : null), mono: !!step };
   }
-  if (a === "landed") return { text: `Delivered · ${c.lastEnded?.taskTitle ?? "their task"}`, sub: "Carrying it to the bridge", mono: false };
+  if (a === "landed") return { text: `Delivered · ${c.lastEnded?.taskTitle ?? "their task"}`, sub: `Carrying it ${words.dropoff}`, mono: false };
   if (a === "failed") return { text: `Stuck · ${c.lastEnded?.taskTitle ?? "their task"}`, sub: c.lastStep, mono: true };
   const place = placeOf(c._id);
   return { text: place ? `Off duty · ${place}` : "Off duty", sub: null, mono: false };
@@ -44,7 +45,7 @@ export function CrewRowCard({ c, selected, onClick }: { c: CrewRow; selected: bo
   const now = useNow(2000);
   const a = activityOf(c, now);
   const tone = activityTone(a);
-  const line = crewLine(c, now);
+  const line = crewLine(c, now, useShip().world.words);
   const computer = c.role === "computer";
   return (
     <div className={`card crew-row ${selected ? "accent" : tone === "amber" ? "amber" : "quiet"}`} onClick={onClick} role="button" tabIndex={0}
@@ -258,7 +259,7 @@ function EditCrew({ c, onDone }: { c: CrewRow; onDone: () => void }) {
 }
 
 export function CrewDetail({ crewId, compact }: { crewId: string; compact?: boolean }) {
-  const { byId, questions } = useShip();
+  const { byId, questions, world } = useShip();
   const interrupt = useMutation(api.runs.interrupt);
   const atHelm = useUi((s) => s.helm);
   const now = useNow(1000);
@@ -290,7 +291,7 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
             <span className="dim cd-thread">{[c.live.taskTitle ? c.live.threadTitle : null, c.live.startedAt ? ago(now - c.live.startedAt) : null].filter(Boolean).join(" · ")}</span>
           </>
         ) : computer ? null
-          : a === "arriving" ? <span className="cd-task">On the helicopter, {ago(c.arrivesAt - now)} out</span>
+          : a === "arriving" ? <span className="cd-task">On the {world.words.vehicle}, {ago(c.arrivesAt - now)} out</span>
           : (
             <span className="dim cd-thread">
               {c.lastEnded ? `${c.lastEnded.state === "landed" ? "Last delivered" : c.lastEnded.state === "failed" ? "Got stuck on" : "Last worked on"} ${c.lastEnded.taskTitle ? `“${c.lastEnded.taskTitle}”` : "a thread"} ${ago(now - c.lastEnded.endedAt)} ago.` : "Nothing yet. They'll get the next task that suits them."}
@@ -304,7 +305,7 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
       {mode === "edit" ? <EditCrew c={c} onDone={() => setMode("watch")} />
         : mode === "message" ? <MessageBox c={c} onDone={() => setMode("watch")} />
         : c.live ? <Watch runId={c.live.runId} compact={compact ?? false} />
-        : computer ? <><div className="note">Lives at the helm on the bridge. Talk to {c.name} there, or on your phone: every thread is a conversation with {c.name}.</div><div className="cd-spacer" /></>
+        : computer ? <><div className="note">Lives at the helm {world.words.helm}. Talk to {c.name} there, or on your phone: every thread is a conversation with {c.name}.</div><div className="cd-spacer" /></>
         : a === "idle" || a === "landed" ? <OffDuty name={c.name} place={place} landed={a === "landed"} />
         : <div className="cd-spacer" />}
       {mode !== "edit" ? (
@@ -325,7 +326,7 @@ export function CrewDetail({ crewId, compact }: { crewId: string; compact?: bool
 // ---- hiring ----
 
 export function HireForm({ onHired, onCancel }: { onHired: (id: string) => void; onCancel: () => void }) {
-  const { officeId, office, crew } = useShip();
+  const { officeId, office, crew, world } = useShip();
   const hire = useMutation(api.crew.hire);
   const update = useMutation(api.crew.update);
   const [name, setName] = useState("");
@@ -352,7 +353,7 @@ export function HireForm({ onHired, onCancel }: { onHired: (id: string) => void;
     <form className="hire" onSubmit={(e) => void submit(e)}>
       <div className="hire-head">
         <span className="cd-name">Hire someone</span>
-        <span className="dim">They fly in by helicopter and land on the helipad.</span>
+        <span className="dim">They fly in by {world.words.vehicle} and land on the {world.words.pad}.</span>
       </div>
       <Field label="Look">
         <div className="preset-row">
@@ -381,7 +382,7 @@ export function HireForm({ onHired, onCancel }: { onHired: (id: string) => void;
       </Field>
       {err ? <div className="error">{err}</div> : null}
       <div className="actions">
-        <Button kind="primary" type="submit" disabled={busy}>{busy ? "Calling the helicopter…" : "Hire"}</Button>
+        <Button kind="primary" type="submit" disabled={busy}>{busy ? `Calling the ${world.words.vehicle}…` : "Hire"}</Button>
         <Button kind="ghost" onClick={onCancel}>Cancel</Button>
       </div>
     </form>

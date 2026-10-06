@@ -82,9 +82,14 @@ export async function freeCrew(ctx: Ctx, officeId: Id<"offices">, reserved: Set<
   return free.sort((a, b) => a.since - b.since).map((f) => f.c);
 }
 
+/** The worlds a ship can be in, and how new crew get there (the world flies them in). */
+export const ARRIVES_BY: Record<string, string> = { yacht: "helicopter", "moon-base": "lander" };
+/** How new crew arrive in a ship's world: "helicopter", "lander". */
+export const arrivesBy = (world: string) => ARRIVES_BY[world] ?? "helicopter";
+
 /**
- * Bring someone aboard. They arrive by helicopter: hires close together share one flight, so a
- * burst of hiring is one helicopter dropping off a few people.
+ * Bring someone aboard. They arrive by air (the yacht's helicopter, the moon base's lander): hires
+ * close together share one flight, so a burst of hiring is one flight dropping off a few people.
  */
 export async function hire(
   ctx: MutationCtx,

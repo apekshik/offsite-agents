@@ -1,7 +1,8 @@
 import { ARRIVAL } from "@offsite/contracts";
 
 // A helicopter flight's phase at a moment, from the same timings the world flies it by
-// (ARRIVAL; a flight is { land, leave } as worlds/yacht's planFlights makes them).
+// (ARRIVAL; a flight is { land, leave } as the kit's planFlights makes them, for the yacht's helicopter or the
+// moon base's lander).
 
 export type FlightPhase = "away" | "approach" | "ground" | "depart";
 

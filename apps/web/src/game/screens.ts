@@ -68,12 +68,18 @@ const AREA: Record<string, string> = {
   terrace: "aft terrace", stern: "stern", bridge: "bridge", bar: "sun deck",
 };
 
-/** "in a hammock on the promenade": where a slot is, said plainly. */
+/**
+ * "in a hammock on the promenade": where a slot is, said plainly. A world can say it itself with
+ * its slots' tags: "place:in the hub dome" for where, "pastime:tending the plants" for what.
+ */
 export function describeSlot(kind: string, id: string, tags: readonly string[] = []): string {
+  const said = (prefix: string) => tags.find((t) => t.startsWith(prefix))?.slice(prefix.length) || null;
+  const place = said("place:"), pastime = said("pastime:");
+  if (pastime) return place && kind !== "dropoff" ? `${pastime} ${place}` : pastime;
   const area = tags.map((t) => AREA[t]).find(Boolean);
-  const on = (s: string) => (area ? `${s} on the ${area}` : s);
+  const on = (s: string) => (place ? `${s} ${place}` : area ? `${s} on the ${area}` : s);
   switch (kind) {
-    case "desk": return `at desk ${/(\d+)$/.exec(id)?.[1] ?? ""} on the office deck`;
+    case "desk": return `at desk ${/(\d+)$/.exec(id)?.[1] ?? ""} ${place ?? "on the office deck"}`;
     case "lounger": return on("on a lounger");
     case "hammock": return on("in a hammock");
     case "deck-chair": return on(id.startsWith("sofa") ? "on a sofa" : "in a deck chair");

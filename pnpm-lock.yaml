@@ -48,6 +48,9 @@ importers:
       '@offsite/kit':
         specifier: workspace:*
         version: link:../../packages/kit
+      '@offsite/world-moon-base':
+        specifier: workspace:*
+        version: link:../../worlds/moon-base
       '@offsite/world-yacht':
         specifier: workspace:*
         version: link:../../worlds/yacht
@@ -167,6 +170,22 @@ importers:
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
+
+  worlds/moon-base:
+    dependencies:
+      '@offsite/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@offsite/kit':
+        specifier: workspace:*
+        version: link:../../packages/kit
+      three:
+        specifier: ^0.186.1
+        version: 0.186.1
+    devDependencies:
+      '@types/three':
+        specifier: ^0.186.0
+        version: 0.186.0
 
   worlds/yacht:
     dependencies:

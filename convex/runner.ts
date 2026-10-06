@@ -3,7 +3,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import type { Doc, Id } from "./_generated/dataModel";
 import { LIMITS, Look, RunEvent, isLive, type RunState } from "@offsite/contracts";
 import { fail, requireMachine, requireOwnRun } from "./lib";
-import { crewOf, liveRunOf } from "./crewlib";
+import { arrivesBy, crewOf, liveRunOf } from "./crewlib";
 import { askedOfFor, closeStream, post, queueComputer, tick } from "./flow";
 import { computerMachine, ensureRepos, repoOfTask, reposOf } from "./repolib";
 import { changeStats } from "./schema";
@@ -98,13 +98,13 @@ async function renderTranscript(ctx: QueryCtx, thread: Doc<"threads">, crew: Doc
   return lines.join("\n\n");
 }
 
-async function rosterText(ctx: QueryCtx, crew: Doc<"crew">[]): Promise<string> {
+async function rosterText(ctx: QueryCtx, crew: Doc<"crew">[], world: string): Promise<string> {
   const now = Date.now();
   const lines = [];
   for (const c of crew.filter((x) => x.role === "crew")) {
     const live = await liveRunOf(ctx, c._id);
     const task = live?.taskId ? await ctx.db.get(live.taskId) : null;
-    const doing = now < c.arrivesAt ? "arriving by helicopter" : task ? `working on "${task.title}"` : live ? "busy" : "free";
+    const doing = now < c.arrivesAt ? `arriving by ${arrivesBy(world)}` : task ? `working on "${task.title}"` : live ? "busy" : "free";
     lines.push(`- @${c.handle} (${c.name}, ${c.harness}${c.specialty ? `, ${c.specialty}` : ""}): ${doing}`);
   }
   return lines.join("\n") || "- nobody yet (assign with \"any\" and someone is hired)";
@@ -166,7 +166,7 @@ export const claim = mutation({
           ? `People aboard (they all talk to you in threads; every message below is labelled with who said it, so address people by name, and ask_captain goes to whoever spoke last):\n${people.map((p) => `- ${p.name}${p.role === "captain" ? " (the captain: the ship, its machines and the crew's subscriptions are theirs; only they allow permissions)" : " (a friend the captain invited)"}`).join("\n")}${asked ? `\n${asked} started this thread.` : ""}`
           : "",
         `Repos:\n${repos.map((r) => `- ${r.name}: ${r.path} (default branch ${r.defaultBranch})${r.machineId === machine._id ? "" : `, on ${machineNames.get(r.machineId)}: you can't read it from here, but you can plan tasks in it`}`).join("\n")}`,
-        `Crew aboard:\n${await rosterText(ctx, crew)}`,
+        `Crew aboard:\n${await rosterText(ctx, crew, office!.world)}`,
         `Tasks in this thread:\n${await tasksText(ctx, thread._id, crew, repos)}`,
         `The thread so far:\n${await renderTranscript(ctx, thread, crew, office!, people)}`,
       ].filter(Boolean).join("\n\n");

@@ -37,7 +37,12 @@ export interface Slot {
   seat?: number;
   /** The id of the nav node nearest this slot; bodies walk the graph to it, then step onto pos. */
   nav: string;
-  /** Free-form tags a world can use: "shade", "upper-deck", "office". */
+  /**
+   * Free-form tags a world can use: "shade", "upper-deck", "office". A few the app reads:
+   * "leisure" (only for time off: nobody is sent there to work), "low-g" (standing there, people
+   * hop), "place:in the hub dome" (how to say where it is) and "pastime:tending the plants"
+   * (what someone off duty there is doing).
+   */
   tags?: string[];
 }
 

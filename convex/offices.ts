@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { COMPUTER_HANDLE, COMPUTER_NAME } from "@offsite/contracts";
 import { fail, requireAboard, requireOffice, requireUser } from "./lib";
-import { crewOf, hire } from "./crewlib";
+import { ARRIVES_BY, crewOf, hire } from "./crewlib";
 
 /** How many crew a new ship starts with. */
 export const STARTING_CREW = 7;
@@ -47,7 +47,8 @@ export const get = query({
   },
 });
 
-const WORLDS = ["yacht"];
+/** The worlds a ship can be made in (apps/web/src/worlds.ts lists them for the picker). */
+const WORLDS = Object.keys(ARRIVES_BY);
 
 /** A new ship: Computah at the helm and a starting crew already aboard. */
 export const create = mutation({

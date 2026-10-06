@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { worldOf, type WorldInfo } from "../worlds.ts";
 import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { COMPUTER_NAME, crewActivity, type CrewActivity, type RunState } from "@offsite/contracts";
@@ -31,6 +32,8 @@ export interface Ship {
   byId: Map<string, CrewRow>;
   /** The machine Computah works on (the first repo's), or the first one online. */
   machine: MachineRow | undefined;
+  /** The ship's world: its name, and how it says where crew arrive and where the helm is. */
+  world: WorldInfo;
 }
 
 const Ctx = createContext<Ship | null>(null);
@@ -58,6 +61,7 @@ export function ShipProvider({ officeId, children }: { officeId: string; childre
       questions: (snap?.questions ?? []).map((q) => (byId.get(q.crewId)?.role === "computer" ? { ...q, crewName: COMPUTER_NAME } : q)),
       byId,
       machine,
+      world: worldOf(snap?.office.world),
     };
   }, [id, office, snap, threads, mine, me]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
