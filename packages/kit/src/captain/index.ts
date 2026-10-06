@@ -4,6 +4,7 @@ export * from "./collision.ts";
 export * from "./input.ts";
 export * from "./controller.ts";
 export * from "./camera.ts";
+export * from "./hold.ts";
 export * from "./hands.ts";
 export * from "./interact.ts";
 export * from "./autopilot.ts";

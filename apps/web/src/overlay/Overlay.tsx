@@ -13,7 +13,8 @@ import { stopWalking, WalkKeys } from "./walk.tsx";
 // Everything drawn over the world: the HUD, the foldable phone, the helm console, crew cards,
 // questions, the customizer. Talks to the game only through src/bridge.ts.
 //
-// Keys: F takes the phone out, unfolds it, puts it away (not while typing). Esc closes the
+// Keys: F takes the phone out, unfolds it, puts it away (not while typing); V, with it out, switches
+// between first and third person (it moves between your hands and the screen). Esc closes the
 // customizer, then stops a walk, then closes the helm, then the phone, then a crew card. With the
 // phone out and not typing, H walks to the helm and 1–9 to the crew (walk.tsx).
 
@@ -34,6 +35,12 @@ function useKeys() {
         else return;
         if (editable(e.target)) (e.target as HTMLElement).blur();
         e.preventDefault();
+        return;
+      }
+      // V with the phone out (the game isn't listening to the keyboard then): the view switches, the phone goes with it.
+      if (e.code === "KeyV" && !e.repeat && !editable(e.target) && phone.get().fold !== "away" && !phone.get().creator && !ui.get().helm) {
+        e.preventDefault();
+        ui.set({ view: ui.get().view === "first" ? "third" : "first" });
         return;
       }
       if (e.code === "KeyF" && !e.repeat && !editable(e.target)) {

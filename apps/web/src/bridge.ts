@@ -20,6 +20,7 @@ export interface UiState {
   phoneUnfolded: boolean;
   /** The big console on the bridge, opened by walking up to the helm and pressing E. */
   helm: boolean;
+  /** Written by the game; the interface switches it too (V while the phone is out and has the keyboard). */
   view: "first" | "third";
   /** A crew member to find: the world shows a marker over them and a path to walk. */
   ping: { crewId: string; at: number } | null;
@@ -114,6 +115,41 @@ export const scene = {
    * you). Written by the game; read by the interface for "in a hammock, promenade".
    */
   where: (_crewId: string): { slotId: string; kind: string; tags: string[] } | null => null,
+  /** Wheel notches (positive: out) caught by the interface round the open phone: the game zooms, all the way in is first person. */
+  zoom: (_notches: number): void => {},
+};
+
+/** A rectangle on screen: its centre and size, CSS pixels. */
+export interface ScreenRect { x: number; y: number; w: number; h: number }
+/** One of the phone's screens on screen: its corners (top left, top right, bottom right, bottom left, CSS pixels, as seen
+ * from the front of the glass) and whether that front faces you. */
+export interface HeldQuad { corners: [number, number][]; front: boolean }
+/** The phone's screens this frame: the cover, the inside of the half that swings, and the whole inside spread. */
+export interface HeldFrame { cover: HeldQuad; left: HeldQuad; spread: HeldQuad; /** 0 folded … 1 flat open, as it moves. */ open: number }
+
+/**
+ * First person, the phone in your hands shows the interface's own phone on its glass. The interface says where it
+ * would draw its screens (its overlay's places: `want`) and whether to hold still (typing); the game holds the 3D
+ * phone up so its screens land about there and, every frame it's up in first person, says where they are (`frame`,
+ * null otherwise). The interface lies its pages over those corners, in the same frame, before it's drawn.
+ */
+export const held = {
+  /** The game draws the phone in your hands this session (false in the film rig and the gallery). */
+  live: false,
+  want: null as { view: { w: number; h: number }; cover: ScreenRect; open: ScreenRect } | null,
+  still: false,
+  frame: null as HeldFrame | null,
+  listeners: new Set<(f: HeldFrame | null) => void>(),
+  /** The game, from its frame loop: where the screens are now (null: not up in first person). */
+  publish(f: HeldFrame | null) {
+    if (!f && !held.frame) return;
+    held.frame = f;
+    for (const fn of held.listeners) fn(f);
+  },
+  subscribe(fn: (f: HeldFrame | null) => void): () => void {
+    held.listeners.add(fn);
+    return () => { held.listeners.delete(fn); };
+  },
 };
 
 /** React: re-renders when the selected slice changes. */

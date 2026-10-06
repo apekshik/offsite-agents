@@ -1,6 +1,7 @@
 // Keyboard and mouse for the captain. Keys are by position (KeyboardEvent.code), so WASD works on
 // any layout. While the interface owns the keyboard (`suspended`: the phone or the helm console
-// is open) nothing here reacts, held keys are let go and the pointer is released. F and Escape
+// is open) nothing here reacts but the wheel over the world (zoom, and with it the view), held keys
+// are let go and the pointer is released. F and Escape
 // belong to the interface: they are never bound or swallowed here.
 
 import * as THREE from "three";
@@ -84,8 +85,8 @@ export class Input {
       }
       for (const fn of this.clickFns) fn(ndc, e.button);
     });
+    // The wheel zooms even while the interface has the keyboard: it only reaches the canvas over the world itself.
     on(element, "wheel", (e: WheelEvent) => {
-      if (this.suspended()) return;
       e.preventDefault();
       this.wheel += Math.sign(e.deltaY);
     }, { passive: false });

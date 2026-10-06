@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { COMPUTER_NAME, isWorking } from "@offsite/contracts";
-import { ui, useUi } from "../bridge.ts";
+import { held, scene, ui, useUi } from "../bridge.ts";
 import { ActivityLabel, ago, Button, Card, clock, Dot, Face, Key, partOfDay, useNow } from "../ui/index.tsx";
 import { activityOf, useShip } from "../overlay/ship.tsx";
 import { NewThread, QuestionCard, ThreadList, ThreadView } from "./Conversation.tsx";
@@ -11,9 +11,11 @@ import { forMe, useAboard } from "../people/people.ts";
 import { Review, Stats } from "../review/Review.tsx";
 import { closeReview, openReview } from "../review/open.ts";
 import { HelmIcon, walkToHelm } from "../overlay/walk.tsx";
-import { phoneScale, useViewport } from "./fit.ts";
+import { heldScreens, phoneScale, useViewport } from "./fit.ts";
+import { HeldPhone } from "./held.ts";
 import "./phone.css";
 import "./spread.css";
+import "./held.css";
 
 // The foldable phone. F takes it out (the cover screen: who needs you, the latest delivery, the
 // crew); a double F unfolds it on a hinge into Computah's interface (threads, the crew, the ship);
@@ -188,20 +190,45 @@ function Book() {
 export function Phone() {
   const fold = usePhone((s) => s.fold);
   const creator = usePhone((s) => s.creator);
+  const view = useUi((s) => s.view);
   const { threads } = useShip();
   const vp = useViewport();
   const fit = phoneScale(vp.w, vp.h);
   // Stay mounted for a moment after going away, so it can slide down out of view.
   const [shown, setShown] = useState<Exclude<Fold, "away"> | null>(fold === "away" ? null : fold);
   const [leaving, setLeaving] = useState(false);
+  // Just taken out: it slides up (once; switching view later doesn't replay it).
+  const [entering, setEntering] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const holder = useRef<HeldPhone | null>(null);
   useEffect(() => {
     if (fold !== "away") { setShown(fold); setLeaving(false); return; }
     if (!shown) return;
     setLeaving(true);
-    const t = window.setTimeout(() => { setShown(null); setLeaving(false); }, 260);
+    const gone = () => { setShown(null); setLeaving(false); };
+    // In first person it goes down with the hands, until they've lowered it out of sight.
+    if (holder.current?.holding) return holder.current.whenLowered(gone);
+    const t = window.setTimeout(gone, 260);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fold]);
+
+  // First person: where the hands should hold the phone's screens (where the overlay draws them, a little low).
+  useEffect(() => {
+    held.want = { view: { w: vp.w, h: vp.h }, ...heldScreens(vp.w, vp.h) };
+  }, [vp.w, vp.h]);
+  useEffect(() => () => { held.want = null; }, []);
+  // While it's out, lie its pages on the 3D phone's glass whenever the game holds it up (held.ts).
+  const out = shown !== null;
+  useLayoutEffect(() => {
+    if (!out || !wrap.current) return;
+    const h = new HeldPhone(wrap.current);
+    holder.current = h;
+    const stop = h.start(ui.get().view === "first");
+    setEntering(true);
+    const t = window.setTimeout(() => setEntering(false), 320);
+    return () => { stop(); clearTimeout(t); holder.current = null; };
+  }, [out]);
 
   // Unfolding with nothing chosen: open the thread that needs you, else the newest.
   useEffect(() => {
@@ -211,15 +238,18 @@ export function Phone() {
   }, [fold, threads]);
 
   if (!shown) return null;
+  // In your hands (first person), the way back to the screen (the HUD's own hints are hidden then).
+  const first = view === "first" ? <><Key>V</Key> third person</> : null;
   return (
     <>
-      {shown === "open" && !leaving ? <div className={`phone-backdrop ${creator ? "deep" : ""}`} onClick={() => phone.putAway()} /> : null}
-      <div className={`phone-wrap ${shown} ${leaving ? "leaving" : ""}`} style={{ "--s": shown === "open" ? fit.open : fit.cover } as CSSProperties}>
+      {/* Round the open phone: a click puts it away, the wheel zooms the view (all the way in is first person). */}
+      {shown === "open" && !leaving ? <div className={`phone-backdrop ${creator ? "deep" : ""}`} onClick={() => phone.putAway()} onWheel={(e) => scene.zoom(Math.sign(e.deltaY))} /> : null}
+      <div ref={wrap} className={`phone-wrap ${shown} ${entering ? "entering" : ""} ${leaving ? "leaving" : ""}`} style={{ "--s": shown === "open" ? fit.open : fit.cover } as CSSProperties}>
         <Book />
         <div className="device-hint">
           {shown === "open"
-            ? <><Key>F</Key> half view <Key>Esc</Key> put away <span className="dh-walk" title="Walk there; the phone stays open"><Key>H</Key> helm · <Key>1–9</Key> crew</span></>
-            : <><Key>F</Key> twice to unfold <Key>F</Key> put away</>}
+            ? <><Key>F</Key> half view <Key>Esc</Key> put away {first} <span className="dh-walk" title="Walk there; the phone stays open"><Key>H</Key> helm · <Key>1–9</Key> crew</span></>
+            : <><Key>F</Key> twice to unfold <Key>F</Key> put away {first}</>}
         </div>
       </div>
     </>

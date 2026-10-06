@@ -1,0 +1,32 @@
+/* First person: the pages lie on the 3D phone's glass (held.ts sets data-held and each page's matrix3d, every frame).
+   The book's own fold, frame and spine are the 3D phone's now: the overlay's transforms and transitions are off, and
+   each page is placed from the window's corner, at its screen's size, without the bezel. */
+
+.phone-wrap[data-held] { left: 0; top: 0; transform: none; animation: none; transition: none; pointer-events: none; }
+.phone-wrap[data-held="wait"] { visibility: hidden; }
+.phone-wrap[data-held] .book,
+.phone-wrap[data-held] .flip,
+.phone-wrap[data-held] .leaf-face.back { transform: none; transition: none; perspective: none; transform-style: flat; }
+/* No stacking context of its own: the pages' z-index decides which lies over which as the phone folds. */
+.phone-wrap[data-held] .flip { z-index: auto; }
+.phone-wrap[data-held] .hinge,
+.phone-wrap[data-held] .leaf-right { visibility: hidden; }
+.phone-wrap[data-held] .leaf-cover,
+.phone-wrap[data-held] .leaf-left,
+.phone-wrap[data-held] .spread {
+  position: fixed; left: 0; top: 0; transform-origin: 0 0; box-sizing: border-box;
+  border: 0; box-shadow: none; transition: none; backface-visibility: visible; -webkit-backface-visibility: visible;
+}
+/* The glass's own size (PHONE_GLASS in the kit is drawn to these), with a little rounding at the corners. */
+.phone-wrap[data-held] .leaf-cover { width: 497px; height: 726px; border-radius: 14px; }
+.phone-wrap[data-held] .leaf-left { width: 511px; height: 726px; border-radius: 14px 0 0 14px; }
+.phone-wrap[data-held] .spread { width: 1022px; height: 726px; border-radius: 14px; }
+.phone-wrap[data-held] .leaf-left > .still,
+.phone-wrap[data-held] .leaf-left > .pane { transition: none; }
+/* The keys, along the bottom of the window, under the hands. */
+.phone-wrap[data-held] .device-hint { position: fixed; left: 50%; bottom: 12px; translate: -50% 0; }
+
+/* Back in the overlay's own layout after first person: it lands in place, without transitions from where it was. */
+.phone-wrap[data-settle], .phone-wrap[data-settle] .book, .phone-wrap[data-settle] .flip,
+.phone-wrap[data-settle] .hinge, .phone-wrap[data-settle] .spread, .phone-wrap[data-settle] .leaf > .pane,
+.phone-wrap[data-settle] .leaf-left > .still { transition: none !important; }

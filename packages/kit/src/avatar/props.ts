@@ -357,6 +357,19 @@ export type PhoneDraw = (ctx: CanvasRenderingContext2D, w: number, h: number, wh
 /** One half of the foldable (the cover screen's size): about 0.7 wide to 1 tall, so it opens to ~1.4:1, wider than tall. */
 export const PHONE = { w: 0.088, h: 0.126, half: 0.0068 } as const;
 
+/**
+ * The glass, in metres: drawn to the interface's own phone (apps/web/src/phone: the open spread is 1022 × 726 CSS
+ * pixels, the cover screen 497 × 726) at one scale, so the interface can lie its pages exactly over these in first
+ * person. `gap` is the bare strip either side of the hinge.
+ */
+export const PHONE_GLASS = (() => {
+  const px = 0.12 / 726;
+  return { spread: { w: 1022 * px, h: 726 * px }, cover: { w: 497 * px, h: 726 * px }, gap: 0.0015 };
+})();
+
+/** A screen to draw over: an object at its middle (+z out of the glass, +y up the page) and its size, metres. */
+export interface PhoneFace { object: THREE.Object3D; w: number; h: number }
+
 function defaultPhoneScreen(ctx: CanvasRenderingContext2D, w: number, h: number, which: "cover" | "inner") {
   ctx.fillStyle = "#05070b";
   ctx.fillRect(0, 0, w, h);
@@ -421,6 +434,14 @@ export class FoldPhone implements Prop {
   private leaf = new THREE.Group(); // the left half, swinging on the hinge
   private inner: { canvas: HTMLCanvasElement; tex: THREE.CanvasTexture };
   private cover: { canvas: HTMLCanvasElement; tex: THREE.CanvasTexture };
+  /**
+   * The screens as pages, for the interface to draw over (first person): the cover; the inside of the swinging half
+   * (from its outer edge to the hinge's middle line: the left half of the spread); and the whole inside spread, in
+   * the fixed half's plane (flat across both halves once open).
+   */
+  readonly faces: { cover: PhoneFace; left: PhoneFace; spread: PhoneFace };
+  private screens: { mesh: THREE.Mesh; lit: THREE.Material }[] = [];
+  private dark = new THREE.MeshBasicMaterial({ color: "#05070b", toneMapped: false });
   private openAmt = 0;
   private want = 0;
   private minute = -1;
@@ -447,16 +468,25 @@ export class FoldPhone implements Prop {
       tex.needsUpdate = true;
       return new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
     };
-    const rightScreen = mesh(this.body, new THREE.PlaneGeometry(w - 0.004, h - 0.006), innerMat(0.5), w / 2 + 0.001, 0, t + 0.0004);
+    // Each half's glass runs from beside the hinge to near its outer edge; the two make the spread.
+    const { spread, cover, gap } = PHONE_GLASS;
+    const half = spread.w / 2;
+    const rightScreen = mesh(this.body, new THREE.PlaneGeometry(half - gap, spread.h), innerMat(0.5), (half + gap) / 2, 0, t + 0.0004);
     rightScreen.castShadow = false;
     this.leaf.position.set(0, 0, t);
     this.body.add(this.leaf);
     mesh(this.leaf, new RoundedBoxGeometry(w, h, t, 2, 0.003), shell, -w / 2, 0, -t / 2);
-    const leftScreen = mesh(this.leaf, new THREE.PlaneGeometry(w - 0.004, h - 0.006), innerMat(0), -w / 2 - 0.001, 0, 0.0004);
+    const leftScreen = mesh(this.leaf, new THREE.PlaneGeometry(half - gap, spread.h), innerMat(0), -(half + gap) / 2, 0, 0.0004);
     leftScreen.castShadow = false;
     // The cover screen is on the outside of the left half: it faces you when the phone is shut.
-    const coverScreen = mesh(this.leaf, new THREE.PlaneGeometry(w - 0.008, h - 0.012), new THREE.MeshBasicMaterial({ map: this.cover.tex, toneMapped: false }), -w / 2, 0, -t - 0.0004, 0, Math.PI, 0);
+    const coverScreen = mesh(this.leaf, new THREE.PlaneGeometry(cover.w, cover.h), new THREE.MeshBasicMaterial({ map: this.cover.tex, toneMapped: false }), -w / 2, 0, -t - 0.0004, 0, Math.PI, 0);
     coverScreen.castShadow = false;
+    for (const m of [rightScreen, leftScreen, coverScreen]) this.screens.push({ mesh: m, lit: m.material as THREE.Material });
+    this.faces = {
+      cover: { object: coverScreen, w: cover.w, h: cover.h },
+      left: { object: grip(this.leaf, -half / 2, 0, 0.0004), w: half, h: spread.h },
+      spread: { object: grip(this.body, 0, 0, t + 0.0004), w: spread.w, h: spread.h },
+    };
     mesh(this.leaf, new THREE.CylinderGeometry(0.003, 0.003, 0.002, 10), std("#05060a"), -w / 2, h / 2 - 0.01, -t - 0.0006, Math.PI / 2, 0, 0); // camera
     this.grips = [grip(this.object, 0, 0, 0), grip(this.object, 0, 0, 0)];
     this.openAmt = this.want = open ? 1 : 0;
@@ -465,8 +495,27 @@ export class FoldPhone implements Prop {
   }
 
   get open() { return this.want === 1; }
-  /** Unfold (true) or fold (false). */
-  setOpen(open: boolean) { this.want = open ? 1 : 0; }
+  /** Unfold (true) or fold (false): swinging on the hinge, or at once. */
+  setOpen(open: boolean, now = false) {
+    this.want = open ? 1 : 0;
+    if (now && this.openAmt !== this.want) { this.openAmt = this.want; this.layout(); }
+  }
+  /** How far open the phone is now, as it moves: 0 folded … 1 flat. */
+  get unfolded() { const e = this.openAmt; return e * e * (3 - 2 * e); }
+
+  /** Plain dark glass (true), for when something else draws the screens; or the phone's own pictures (false). */
+  setGlass(plain: boolean) {
+    for (const s of this.screens) s.mesh.material = plain ? this.dark : s.lit;
+  }
+
+  /**
+   * The middle of the screen you look at, in the phone's own frame (its origin is the middle of the back face): the
+   * cover's folded, the spread's open, and between the two as it moves.
+   */
+  screenMiddle(out: THREE.Vector3): THREE.Vector3 {
+    const t = PHONE.half;
+    return out.set(0, 0, t + 0.0004 + 0.5 * t * (1 - this.unfolded));
+  }
 
   /** Repaint the screens now. */
   refresh() {
@@ -504,6 +553,8 @@ export class FoldPhone implements Prop {
   }
 
   dispose() {
+    this.setGlass(false);
+    this.dark.dispose();
     this.inner.tex.dispose();
     this.cover.tex.dispose();
     disposeTree(this.object);

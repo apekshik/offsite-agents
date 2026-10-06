@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FILL, OPEN, fillScale, phoneScale, shrinkToFit } from "./fit.ts";
+import { COVER, FILL, OPEN, SPREAD, fillScale, heldScreens, overlayScreens, phoneScale, shrinkToFit } from "./fit.ts";
 
 const DESKTOPS: [number, number][] = [[1280, 800], [1440, 900], [1920, 1080], [2560, 1440]];
 
@@ -43,6 +43,33 @@ describe("phoneScale", () => {
     }
     const big = phoneScale(2560, 1440);
     expect(big.cover).toBeLessThan(big.open - 0.2);
+  });
+});
+
+describe("where the screens are", () => {
+  it("in the overlay: the spread inside the book's frame, the cover folded over the right half, centred", () => {
+    for (const [w, h] of DESKTOPS) {
+      const s = phoneScale(w, h), o = overlayScreens(w, h);
+      expect(o.open.w).toBeCloseTo(SPREAD.w * s.open, 9);
+      expect(o.open.h).toBeCloseTo(SPREAD.h * s.open, 9);
+      // The book's top, 7px of frame, then the glass.
+      expect(o.open.y - o.open.h / 2).toBeCloseTo(h / 2 + 10 - ((OPEN.h + 40) * s.open) / 2 + 7 * s.open, 6);
+      expect(o.cover.w / o.cover.h).toBeCloseTo(COVER.w / COVER.h, 9);
+      expect(Math.abs(o.cover.x - w / 2)).toBeLessThan(10 * s.cover);
+    }
+  });
+
+  it("held up in first person: just as big, a little lower, and the open phone's foot still on screen", () => {
+    for (const [w, h] of [...DESKTOPS, [1024, 768], [1366, 640]] as [number, number][]) {
+      const o = overlayScreens(w, h), held = heldScreens(w, h);
+      for (const k of ["open", "cover"] as const) {
+        expect(held[k].w).toBe(o[k].w);
+        expect(held[k].h).toBe(o[k].h);
+        expect(held[k].x).toBe(w / 2);
+        expect(held[k].y).toBeGreaterThanOrEqual(o[k].y);
+        expect(held[k].y + held[k].h * 0.53).toBeLessThanOrEqual(h - 4 + 1e-9);
+      }
+    }
   });
 });
 

@@ -5,7 +5,7 @@ import {
   type AutopilotGoal, type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
 import { COMPUTER_NAME, isWorking, type AvatarSpec, type Look, type PersonAct, type Slot, type Vec3 } from "@offsite/contracts";
-import { scene as sceneBridge, ui, type UiState, type WalkTarget } from "../bridge.ts";
+import { held, scene as sceneBridge, ui, type UiState, type WalkTarget } from "../bridge.ts";
 import { Director, type CrewView, type Direction, type Hangout } from "./director.ts";
 import { CrewBody, SPEED, type Stage } from "./crew.ts";
 import { Splash, type Effect } from "./fx.ts";
@@ -332,6 +332,7 @@ export class Game {
       const p = this.captain.position;
       return { x: p.x, y: p.y, z: p.z };
     };
+    sceneBridge.zoom = (n) => this.captain.zoom(n);
     sceneBridge.where = (id) => {
       const t = this.bodies.get(id)?.dir?.target;
       if (t?.kind === "captain") return { slotId: "captain", kind: "captain", tags: [] };
@@ -456,10 +457,13 @@ export class Game {
     const phoneNow = `${s.phone}:${s.phoneUnfolded}`;
     if (phoneNow !== this.phoneWas) {
       this.phoneWas = phoneNow;
-      this.captain.setPhoneOut(s.phone === "open", s.phoneUnfolded);
+      // Put away as it is: it goes down with the pages still on it.
+      this.captain.setPhoneOut(s.phone === "open", s.phone === "open" ? s.phoneUnfolded : null);
       if (s.phone === "open" && document.pointerLockElement) document.exitPointerLock();
     }
     if (s.helm && document.pointerLockElement) document.exitPointerLock();
+    // V pressed while the phone has the keyboard: the interface switches the view.
+    if (s.view !== this.captain.view) this.captain.view = s.view;
     if (s.ping !== this.pingWas) {
       this.pingWas = s.ping;
       this.setPing(s.ping);
@@ -1175,6 +1179,30 @@ export class Game {
     return { x: ((p.x + 1) / 2) * innerWidth, y: ((1 - p.y) / 2) * innerHeight, onScreen, distance };
   }
 
+  // ---- the phone in your hands, first person (bridge.held) ----
+
+  private calm = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+
+  /** Before the captain moves: where the interface wants the phone's screens, and whether to hold still. */
+  private holdPhone() {
+    const hands = this.captain.hands;
+    // The film rig draws the interface its own way, over its own cameras.
+    held.live = !!hands && !this.film;
+    if (!hands) return;
+    const want = held.live ? held.want : null;
+    if (want !== this.heldWant) hands.setHold((this.heldWant = want));
+    hands.still = held.still;
+    hands.calm = !!this.calm?.matches;
+  }
+  private heldWant: typeof held.want = null;
+
+  /** After the camera has moved: where the phone's screens are this frame, for the interface to draw on. */
+  private showHeldPhone() {
+    const hands = this.captain.hands;
+    if (!hands || !hands.reading || !hands.showing || this.captain.view !== "first") { held.publish(null); return; }
+    held.publish(hands.screens(this.camera, innerWidth, innerHeight));
+  }
+
   // ---- the loop ----
 
   private loop = (now?: number) => {
@@ -1187,8 +1215,10 @@ export class Game {
     // Time moves people too (afterglow ends, the helicopter lands, idle crew wander).
     if (wall - this.lastPlan > 1000) this.plan(wall);
     this.world.update(dt, wall);
+    this.holdPhone();
     this.captain.update(dt, t);
     if (this.film?.camera?.(this.camera, dt)) this.pipeline.cut();
+    this.showHeldPhone();
     for (const b of this.bodies.values()) {
       if (!b.fig.object.visible) continue;
       b.update(dt, t, wall, this.camera);
@@ -1222,7 +1252,10 @@ export class Game {
     sceneBridge.locate = () => null;
     sceneBridge.captain = () => null;
     sceneBridge.where = () => null;
+    sceneBridge.zoom = () => {};
     sceneBridge.locatePerson = () => null;
+    held.live = false;
+    held.publish(null);
     this.people?.dispose();
     this.stopSound();
     for (const b of [...this.bodies.values()]) this.removeBody(b);

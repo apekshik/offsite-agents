@@ -111,6 +111,9 @@ export class Captain {
   private eyeLocal: THREE.Vector3 | null = null;
   private _eyes = new THREE.Vector3();
   private speed = 0;
+  /** Last frame's: the hands holding the phone up, and the phone out. */
+  private handsUp = false;
+  private phoneWas = false;
   private own: OwnBody;
   private hidden: SelfHidden = { head: false, arms: false };
   private off: (() => void)[] = [];
@@ -164,6 +167,12 @@ export class Captain {
     this.viewChanged(v, !!changed);
   }
 
+  /** Wheel notches (positive: out), from the canvas or passed on by the interface: all the way in is first person. */
+  zoom(notches: number) {
+    const switched = this.cameraRig.zoom(notches);
+    if (switched) this.viewChanged(switched, true);
+  }
+
   private viewChanged(v: View, changed: boolean) {
     this.input.lockOnClick = v === "first" || this.lockInThird;
     if (v === "third" && !this.lockInThird) this.input.unlock();
@@ -184,11 +193,11 @@ export class Captain {
     this.object.position.copy(this.controller.position);
   }
 
-  /** The phone out of the pocket (in both hands, unfolded unless open is false) or away. */
-  setPhoneOut(out: boolean, open = true) {
+  /** The phone out of the pocket (in both hands, unfolded unless open is false) or away (null: as it is, open or not). */
+  setPhoneOut(out: boolean, open: boolean | null = true) {
     this.phoneOut = out;
-    this.hands?.setOut(out);
-    this.hands?.setOpen(open);
+    // The hands raise it (in first person) on the next update.
+    if (open !== null) this.hands?.setOpen(open);
   }
 
   setInteractables(list: Interactable[]) {
@@ -324,8 +333,7 @@ export class Captain {
     const look = input.takeLook();
     if (look.dx || look.dy) { this.cameraRig.look(look.dx, look.dy); this.steerPause = 1.2; }
     this.steerPause = Math.max(0, this.steerPause - dt);
-    const switched = this.cameraRig.zoom(look.wheel);
-    if (switched) this.viewChanged(switched, true);
+    this.zoom(look.wheel);
 
     const m = input.move();
     const jump = input.jump && !input.isSuspended;
@@ -369,7 +377,12 @@ export class Captain {
     const eyes = this.eyes();
     this.cameraRig.update(dt, c.position, this.avatar.eyeY, this.speed, eyes, eyes && this.seatLean());
     if (this.hands) {
-      this.hands.setOut(this.phoneOut && first);
+      // Taking the phone out or putting it away raises and lowers it. Switching view with it out hands it across at
+      // once: up as you glide in, and kept up while you glide out (the interface carries the pages between the two).
+      const up = this.phoneOut && (first || this.cameraRig.gliding);
+      this.hands.setOut(up, up !== this.handsUp && this.phoneOut === this.phoneWas);
+      this.handsUp = up;
+      this.phoneWas = this.phoneOut;
       this.hands.update(dt, time, this.speed);
     }
     this.showOwnBody(first);

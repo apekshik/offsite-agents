@@ -85,7 +85,8 @@ export function Hud() {
   const { questions: all, officeId } = useShip();
   const aboard = useAboard(officeId);
   const questions = all.filter((q) => aboard.loading || forMe(q, aboard.me, aboard.isOwner));
-  const busy = helm || fold === "open" || creator !== null;
+  // In first person the phone, even folded, is up in your hands in the middle of the view: nothing else goes over it.
+  const busy = helm || fold === "open" || (fold !== "away" && view === "first") || creator !== null;
   return (
     <>
       {!busy ? <Status /> : null}
