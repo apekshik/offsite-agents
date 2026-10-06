@@ -553,6 +553,20 @@ export const hoop: Prefab<MatKey> = prefab("hoop", (p) => {
   p.add("white", turned(net.clone()));
 });
 
+/** A cargo cart: a white flatbed on four wheels with cases on it, 2.4 m long along z. */
+export const cart: Prefab<MatKey> = prefab("cart", (p) => {
+  soft(p, "white", 0, 0.5, 0, 1.3, 0.3, 2.4, 0, 0, 0.06);
+  p.box("orange", -0.66, 0.42, -1.2, 0.66, 0.5, 1.2);
+  p.box("dark", -0.5, 0.25, -1.0, 0.5, 0.36, 1.0);
+  for (const sx of [-1, 1]) for (const sz of [-0.8, 0.8]) disc(p, "rubber", V(sx * 0.58, 0.24, sz), "x", 0.24, 0.18, 12);
+  p.box("white", -0.6, 0.65, 0.9, 0.6, 1.4, 1.1);
+  p.box("lamp", -0.4, 1.2, 1.1, 0.4, 1.3, 1.12);
+  soft(p, "crate", -0.3, 0.96, -0.45, 0.6, 0.6, 0.9, 0, 0, 0.05);
+  soft(p, "crate", 0.32, 0.96, -0.3, 0.55, 0.6, 0.62, 0, 0, 0.05);
+  soft(p, "crate", 0.0, 1.5, -0.4, 0.6, 0.5, 0.6, 0.3, 0, 0.05);
+  soft(p, "cushion", 0.1, 0.9, 0.45, 0.9, 0.5, 0.6, 0, 0, 0.05);
+});
+
 /** A coffee machine for the cafe counter, facing +z. */
 export const coffeeMachine: Prefab<MatKey> = prefab("coffeeMachine", (p) => {
   p.box("steel", -0.3, 0, -0.22, 0.3, 0.42, 0.18);

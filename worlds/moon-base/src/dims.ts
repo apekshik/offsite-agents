@@ -134,4 +134,4 @@ export const LOOKOUT = { x: polar(deg(-56), 108)[0], z: polar(deg(-56), 108)[1],
 export const TOWER = { x: polar(deg(-40), 80.8)[0], z: polar(deg(-40), 80.8)[1], w: 5.2, top: 46 };
 
 /** Where Earth hangs: north-east, low over the rim. Direction (unit) and how big it looks (radians across). */
-export const EARTH = { az: deg(32), el: deg(16), size: deg(4.8) };
+export const EARTH = { az: deg(36), el: deg(11), size: deg(4.8) };

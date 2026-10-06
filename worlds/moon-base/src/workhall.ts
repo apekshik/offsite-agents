@@ -7,7 +7,7 @@
 
 import * as THREE from "three";
 import { TIER_Y, WORK_HALL, dugFrame, facadeTop } from "./dims.ts";
-import { DESK, PORCH, bigCrate, bigPlant, crate, desk, lockers, loungeSeat, lowTable, porch, stool, suit } from "./furniture.ts";
+import { DESK, PORCH, bigCrate, bigPlant, cart, crate, desk, lockers, loungeSeat, lowTable, porch, stool, suit } from "./furniture.ts";
 import { facade, joinRoad, rail, steps, workstation, type Base, type Hole } from "./parts.ts";
 
 /** The hall's own measurements, in its frame (x along the facade, z into the hill). */
@@ -154,7 +154,13 @@ export function buildWorkHall(s: Base) {
     f.cbox(col, x - 0.6, F, z - 0.5, x + 0.6, F + (big ? 0.86 : 0.62), z + 0.5);
   }
 
-  // ---- light: the panels, and real lights over the floor at night (brighter with work on) ----
+  // A cart of cases parked under the mezzanine, strips of light along the floor.
+  { const [kx, kz] = f.at(-4.6, 2.2); innerProps.put(cart, kx, F, kz, f.yaw(Math.PI / 2)); f.cbox(col, -5.9, F, 1.5, -3.3, F + 1.5, 2.9); }
+  f.box(inner, "amber", -H + 0.4, F + 0.005, HALL.mezD + 0.25, -16.4, F + 0.02, HALL.mezD + 0.35);
+  f.box(inner, "amber", -12.6, F + 0.005, HALL.mezD + 0.25, 12.6, F + 0.02, HALL.mezD + 0.35);
+  f.box(inner, "amber", 16.4, F + 0.005, HALL.mezD + 0.25, H - 0.4, F + 0.02, HALL.mezD + 0.35);
+
+  // ---- light: the panels, and real lights over the floor (brighter with work on) ----
   // Underground: the lights are on day and night, brighter with work under way.
   for (const x of [-7, 7]) { const p = f.v(x, C - 1.0, 12); s.rooms.push({ x: p.x, y: p.y, z: p.z, intensity: 16, distance: 22, color: "#ffe9d0", busy: 0.4, always: true }); }
 
