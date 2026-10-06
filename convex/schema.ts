@@ -56,6 +56,8 @@ export default defineSchema({
     /** Friends aboard (members) can start threads and talk to Computah. Unset: they can. */
     membersCanAsk: v.optional(v.boolean()),
     createdAt: v.number(),
+    /** When the captain last moved the ship to another world (offices.relocate). Unset: it never moved. */
+    relocatedAt: v.optional(v.number()),
   }).index("by_owner", ["ownerId"]),
 
   /**

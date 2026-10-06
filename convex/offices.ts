@@ -138,6 +138,28 @@ export const update = mutation({
 });
 
 /**
+ * Move the ship to another world. Everything comes along (crew, threads, repos, machines, friends aboard, history):
+ * only `world` changes, and `relocatedAt` says when, so everyone aboard sees the arrival. Nothing else stored means a
+ * place in a world: where crew sit is the app's to decide each time it builds one, and the words for a world (how
+ * crew arrive) are read from `world` when they're said. Crew still on their way keep their time and come in by the new
+ * world's vehicle. Crew at work keep working (runs are on the captain's machine); they take desks in the new world.
+ */
+export const relocate = mutation({
+  args: { officeId: v.id("offices"), world: v.string() },
+  handler: async (ctx, { officeId, world }) => {
+    const { office } = await requireOffice(ctx, officeId);
+    if (!WORLDS.includes(world)) fail(`No world called "${world}" to move to`);
+    if (office.world === world) fail(`${office.name} is already there`);
+    await ctx.db.patch(officeId, { world, relocatedAt: Date.now() });
+    // Positions on deck were in the old world: drop them, so nobody is drawn inside a wall of the new one. Each tab
+    // rebuilds the world and comes back on deck at its spawn (apps/web/src/net).
+    const onDeck = await ctx.db.query("presence").withIndex("by_office", (q) => q.eq("officeId", officeId)).collect();
+    for (const p of onDeck) await ctx.db.delete(p._id);
+    return { world };
+  },
+});
+
+/**
  * Bring a ship that started smaller up to `to` crew (STARTING_CREW by default). The newcomers fly in by helicopter like
  * any hire. Run from the CLI: npx convex run offices:topUpCrew '{"officeId":"…"}'.
  */
