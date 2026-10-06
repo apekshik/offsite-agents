@@ -112,16 +112,24 @@ function busyGlow(m: THREE.MeshStandardMaterial, key: string, rest: number, full
  */
 function litGlass(color: string, opacity: number, glow: string, amount: number, day = 0.12): THREE.MeshPhysicalMaterial {
   const m = glass({ color, opacity });
-  // Big curved panes catch the sun: a softer glint than a yacht's windows, so it doesn't blind.
-  m.specularIntensity = 0.22;
-  m.roughness = 0.22;
+  // Big curved panes: a softer glint than a yacht's windows, and kept sharp, so the room's own lights don't haze them over.
+  m.specularIntensity = 0.6;
+  m.roughness = 0.05;
   m.emissive.set(glow);
   m.emissiveIntensity = amount;
   return patch(m, `litglass:${glow}:${day}`, (sh) => {
     sh.uniforms.uNight = LIGHT.uNight;
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", "#include <common>\nuniform float uNight;")
-      .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>\ntotalEmissiveRadiance *= (${day.toFixed(3)} + ${(1 - day).toFixed(3)} * uNight) * (gl_FrontFacing ? 1.0 : 0.12);`);
+      .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+        {
+          // Its outside: the front faces (three draws see-through double-sided glass back faces first, flipped).
+          bool outside = gl_FrontFacing;
+          #ifdef FLIP_SIDED
+            outside = !outside;
+          #endif
+          totalEmissiveRadiance *= (${day.toFixed(3)} + ${(1 - day).toFixed(3)} * uNight) * (outside ? 1.0 : 0.1);
+        }`);
   }) as THREE.MeshPhysicalMaterial;
 }
 
@@ -201,7 +209,7 @@ export function makeMaterials() {
     floor,
     // Pads, roads and the court: smooth sintered regolith.
     pad: skin(regolith("#6f6c69", { bands: 0, mottle: 0.4, rough: 0.85 })),
-    hubGlass: litGlass("#a9c6d8", 0.12, "#ffcf8f", 0.18),
+    hubGlass: litGlass("#51626d", 0.12, "#ffcf8f", 0.25),
     greenGlass: litGlass("#c4dccf", 0.12, "#d8f59a", 0.6, 0.03),
     sportsGlass: litGlass("#b7cce0", 0.14, "#bfe2ff", 0.22),
     lookGlass: litGlass("#a9c6d8", 0.12, "#ffcf8f", 0.15),

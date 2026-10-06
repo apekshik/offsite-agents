@@ -88,7 +88,7 @@ export function buildHub(s: Base): Interactable[] {
   }
   const crown = domeAt(0.93);
   pile.cyl("white", HUB.x, crown.y - 0.2, HUB.z, crown.r + 0.3, 0.5, 24);
-  pile.cyl("lamp", HUB.x, crown.y - 0.24, HUB.z, crown.r + 0.1, 0.04, 24);
+  ring(pile, "amber", new THREE.Vector3(HUB.x, crown.y - 0.22, HUB.z), "y", crown.r + 0.15, 0.05, 32);
   // The dome as a collider (coarse), and the sill all round.
   {
     const cp: number[] = [], ci: number[] = [];
@@ -293,7 +293,7 @@ export function buildHub(s: Base): Interactable[] {
   }
 
   // ---- light: warm, from the crown and round the walls ----
-  s.rooms.push({ x: HUB.x, y: 7.5, z: HUB.z, intensity: 14, distance: 22, color: "#ffd6a6" });
+  s.rooms.push({ x: HUB.x, y: 5.5, z: HUB.z, intensity: 9, distance: 18, color: "#ffd6a6" });
   s.rooms.push({ x: bx, y: 3.4, z: bz, intensity: 6, distance: 8, color: "#ffc98c" });
   for (const ad of [0, 90, 180, 270]) {
     const [x, z] = H(...polar(deg(ad + 45), HUB.r - 0.7));
