@@ -60,6 +60,11 @@ export function buildQuarters(s: Base) {
     ids.push(nav);
     plan.slot("hammock", `sling-${i + 1}`, [wx, Y, wz], yaw, { seat: SLING.seat, nav, tags: ["quarters", "leisure", "indoors", "place:in the quarters", "pastime:napping"] });
   });
+  // A soft warm light, on day and night (it's underground).
+  {
+    const p = f.v(0, C - 0.8, 5);
+    s.rooms.push({ x: p.x, y: p.y, z: p.z, intensity: 5, distance: 11, color: "#ffcf9c", always: true });
+  }
   // Lockers by the door, a plant, a case.
   for (const sx of [-1, 1]) {
     const [lx, lz] = f.at(sx * 4.6, 1.0);
