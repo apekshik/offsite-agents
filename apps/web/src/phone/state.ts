@@ -16,15 +16,17 @@ export interface PhoneState {
   hiring: boolean;
   /** The customizer, over everything: whose look ("captain" for you). */
   creator: string | null;
+  /** The Places menu (src/places), over the phone or the helm: move this offsite, or make a new one. */
+  places: boolean;
 }
 
-let state: PhoneState = { fold: "away", tab: "threads", crewId: null, hiring: false, creator: null };
+let state: PhoneState = { fold: "away", tab: "threads", crewId: null, hiring: false, creator: null, places: false };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<PhoneState>) {
   state = { ...state, ...patch };
   // The game releases the mouse and ignores WASD while the phone is out, or the customizer is open.
-  const out = state.fold !== "away" || (state.creator !== null && !ui.get().helm);
+  const out = state.fold !== "away" || ((state.creator !== null || state.places) && !ui.get().helm);
   ui.set({ phone: out ? "open" : "closed", phoneUnfolded: state.fold === "open" });
   for (const fn of listeners) fn();
 }
@@ -61,6 +63,8 @@ export const phone = {
   },
   editLook: (who: string) => set({ creator: who }),
   closeCreator: () => set({ creator: null }),
+  openPlaces: () => set({ places: true }),
+  closePlaces: () => set({ places: false }),
 };
 
 export function usePhone<T>(select: (s: PhoneState) => T): T {

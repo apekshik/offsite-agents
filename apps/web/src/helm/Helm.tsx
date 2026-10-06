@@ -9,11 +9,12 @@ import { fillScale, shrinkToFit, useViewport } from "../phone/fit.ts";
 import { planName } from "../screens/setup.tsx";
 import { Review } from "../review/Review.tsx";
 import { closeReview } from "../review/open.ts";
+import { PlacesButton } from "../places/Places.tsx";
 import "./helm.css";
 
 // The helm console on the bridge: Computah's interface, the same as the phone's, big. Threads on the
 // left, the conversation in the middle, the ship on the right (what waits on you, who's aboard,
-// pull requests). The game opens it (walk up to the helm, E); Esc steps away.
+// pull requests), and Change location (src/places). The game opens it (walk up to the helm, E); Esc steps away.
 
 interface ProbeRow { harness: string; installed: boolean; auth: string; plan: string | null; profile: string | null }
 const NAME: Record<string, string> = { claude: "Claude Code", codex: "Codex" };
@@ -90,6 +91,7 @@ export function Helm() {
         <div className="hm-top">
           <span className="disp hm-ship">{office?.name ?? "Your ship"}</span>
           <span className="lab t-accent">Bridge</span>
+          <PlacesButton />
           <span style={{ flex: 1 }} />
           <span className="hm-acct"><Dot tone={machine?.online ? "on" : machine ? "off" : "amber"} />{machine ? `${machine.name} · ${machine.online ? "online" : "offline"}` : "No machine connected"}</span>
           <Accounts />

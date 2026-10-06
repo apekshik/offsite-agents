@@ -51,6 +51,8 @@ export interface DemoSetup {
   world?: string;
   /** The runner can't look in folders: this error. */
   folderError?: string;
+  /** Aboard a friend's ship, not your own: its captain's name (you're a member there: Places has no Move). */
+  friendOf?: string;
 }
 
 /** The world the demo's ship is in: the yacht, or another ready world named in the address (?world=moon-base). */
@@ -73,6 +75,8 @@ const HELI_MS = 14_000;
 const HIRES = ["Ezra", "Rumi", "Zola", "Felix", "Iris", "Milo", "Saga", "Bea", "Cass", "Dex", "Echo", "Ada"];
 const COMPUTER = id<"crew">("crew_computer");
 const USER = id<"users">("user_captain");
+/** The captain of a friend's ship you're aboard (DemoSetup.friendOf). */
+const FRIEND = id<"users">("user_friend");
 
 // ---- what you add ----
 
@@ -116,11 +120,15 @@ export class DemoShip {
   private readonly clock: () => number;
   private folderDelay: number;
   private fixtures: { offline: boolean; failDiffs: boolean; noRepos: boolean; folderError: string | null };
+  /** Aboard someone else's ship (DemoSetup.friendOf): its captain's name. */
+  private friendOf: string | null;
 
   // The ship and its people.
   private officeMade: boolean;
   private officeName = "Sea Legs";
   private world: string;
+  /** When the captain last moved the ship to another world (offices.relocate). */
+  private relocatedAt: number | null = null;
   private defaultHarness: "claude" | "codex" | "sim" = "claude";
   private cast: Set<string> | null;
   private me = { name: "Captain", avatar: null as unknown, look: null as unknown };
@@ -150,6 +158,7 @@ export class DemoShip {
     this.officeMade = setup.office;
     this.cast = setup.cast === undefined ? (setup.office ? null : new Set(STARTING_CAST)) : setup.cast && new Set(setup.cast);
     this.folderDelay = setup.folderDelayMs ?? 1600;
+    this.friendOf = setup.friendOf ?? null;
     this.fixtures = { offline: !!setup.offline, failDiffs: !!setup.failDiffs, noRepos: !!setup.noRepos, folderError: setup.folderError ?? null };
     if (setup.machine) this.machines.push({ _id: id<"machines">("machine_studio"), name: "Studio", hostname: "studio.local", pairedAt: this.t0 - 86_400_000 });
     if (setup.repos && setup.machine) {
@@ -233,6 +242,15 @@ export class DemoShip {
       const askAt = this.taskStart(th, t, i) + 9000;
       th.questions.set(t.key, { id: `question_${t.key}`, askAt, answeredAt: askAt + 1500, answer: "allow", kind: "approval", prompt: t.question.prompt, options: t.question.options });
     });
+  }
+
+  /** The captain moves the ship to another ready world (offices.relocate), as a friend aboard would see it happen. */
+  moveTo(world: string): { world: string } {
+    if (!worldInfo(world)?.ready) throw new Error(`No world called "${world}" to move to`);
+    if (world === this.world) throw new Error(`${this.officeName} is already there`);
+    this.world = world;
+    this.relocatedAt = this.now();
+    return { world };
   }
 
   /** Brings someone aboard by helicopter, landing in `inSeconds`. */
@@ -577,9 +595,9 @@ export class DemoShip {
     const first = this.repos[0];
     const machine = first ? this.machines.find((m) => m._id === first.machineId) : undefined;
     return {
-      _id: id<"offices">(OFFICE), _creationTime: this.t0 - 86_400_000 * 30, ownerId: USER, name: this.officeName, world: this.world,
-      defaultHarness: this.defaultHarness, createdAt: this.t0 - 86_400_000 * 30,
-      role: "owner", owner: { _id: USER, name: this.me.name }, membersCanAsk: true,
+      _id: id<"offices">(OFFICE), _creationTime: this.t0 - 86_400_000 * 30, ownerId: this.friendOf ? FRIEND : USER, name: this.officeName, world: this.world,
+      defaultHarness: this.defaultHarness, createdAt: this.t0 - 86_400_000 * 30, ...(this.relocatedAt ? { relocatedAt: this.relocatedAt } : {}),
+      role: this.friendOf ? "member" : "owner", owner: this.friendOf ? { _id: FRIEND, name: this.friendOf } : { _id: USER, name: this.me.name }, membersCanAsk: true,
       repos: this.repos.map((r) => ({ _id: r._id, name: r.name, machineId: r.machineId, path: r.path, defaultBranch: r.defaultBranch, setupCommand: r.setupCommand })),
       machine: machine ? { _id: machine._id, name: machine.name, lastSeenAt: this.now() } : null,
     } as R<typeof api.offices.get>;
@@ -724,6 +742,10 @@ export class DemoShip {
         if (a["defaultHarness"]) this.defaultHarness = a["defaultHarness"] as typeof this.defaultHarness;
         return OFFICE;
       }
+      case "offices:relocate": {
+        if (this.friendOf) throw new Error("Only the captain can do that on this ship");
+        return this.moveTo(String(a["world"] ?? ""));
+      }
       case "offices:update": {
         if (typeof a["name"] === "string" && a["name"].trim()) this.officeName = a["name"].trim().slice(0, 40);
         if (a["defaultHarness"]) this.defaultHarness = a["defaultHarness"] as typeof this.defaultHarness;
@@ -858,10 +880,18 @@ export class DemoShip {
   /** @internal */ _office() { return this.office(); }
   /** @internal */ _offices(): R<typeof api.offices.mine> {
     const o = this.office();
-    return (o ? [{ ...o, repoCount: this.repos.length }] : []) as R<typeof api.offices.mine>;
+    return (o && !this.friendOf ? [{ ...o, repoCount: this.repos.length }] : []) as R<typeof api.offices.mine>;
+  }
+  /** @internal */ _joined(): R<typeof api.members.joined> {
+    if (!this.friendOf || !this.officeMade) return [];
+    return [{ _id: id<"offices">(OFFICE), name: this.officeName, world: this.world, owner: this.friendOf, joinedAt: this.t0 - 86_400_000 }] as R<typeof api.members.joined>;
   }
   /** @internal */ _members(): R<typeof api.members.list> {
-    return { me: USER, role: "owner", owner: { userId: USER, name: this.me.name, avatar: this.me.avatar ?? null, look: this.me.look ?? null }, members: [], membersCanAsk: true } as R<typeof api.members.list>;
+    const me = { userId: USER, name: this.me.name, avatar: this.me.avatar ?? null, look: this.me.look ?? null };
+    if (this.friendOf) {
+      return { me: USER, role: "member", owner: { userId: FRIEND, name: this.friendOf, avatar: null, look: null }, members: [{ ...me, joinedAt: this.t0 - 86_400_000 }], membersCanAsk: true } as R<typeof api.members.list>;
+    }
+    return { me: USER, role: "owner", owner: me, members: [], membersCanAsk: true } as R<typeof api.members.list>;
   }
   /** @internal */ _invite(): R<typeof api.invites.current> {
     return this.invite ? { ...this.invite, used: 0 } as R<typeof api.invites.current> : null;
@@ -894,7 +924,7 @@ const QUERIES = {
   "crew:list": (s: DemoShip) => s.crewList(),
   "repos:list": (s: DemoShip) => s.repoRows(),
   "folders:get": (s: DemoShip, a: Args) => s.folder(String(a["requestId"])),
-  "members:joined": () => [],
+  "members:joined": (s: DemoShip) => s._joined(),
   "members:list": (s: DemoShip) => s._members(),
   "presence:here": () => [],
   "invites:current": (s: DemoShip) => s._invite(),
@@ -906,7 +936,7 @@ type QueryName = keyof typeof QUERIES;
 /** Every Convex mutation demo mode answers. */
 const MUTATIONS = [
   "users:ensure", "users:setName", "users:setAvatar", "users:board",
-  "offices:create", "offices:update",
+  "offices:create", "offices:update", "offices:relocate",
   "machines:lookup", "machines:approve", "machines:deny", "machines:revoke",
   "repos:add", "repos:addMany", "repos:update", "repos:remove",
   "folders:scan", "folders:browse",

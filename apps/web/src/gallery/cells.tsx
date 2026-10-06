@@ -9,6 +9,7 @@ import { openReview } from "../review/open.ts";
 import { DemoBackend } from "../demo/backend.ts";
 import { STARTING_CAST, type DemoSetup } from "../demo/ship.ts";
 import { OFFICE } from "../film/story.ts";
+import { newOffsite } from "../screens/newOffsite.ts";
 
 // The gallery's cells: one screen of the real interface each, in one state, on fixture data (a DemoBackend per cell).
 // Each cell is its own page (gallery.html?cell=<name>), so the interface's global stores (the phone, the bridge) never
@@ -74,6 +75,11 @@ export const CELLS: Cell[] = [
   { group: "Aboard", name: "crew-card-asking", title: "Crew card: someone waiting on you", kind: "overlay", setup: ABOARD, seed: (d) => { d.ship.startThread(ASK, 21); }, show: (d) => ui.set({ crewCard: d.ship.snapshot().questions[0]?.crewId ?? null }) },
   { group: "Aboard", name: "helm", title: "Helm console", kind: "overlay", setup: ABOARD, seed: (d) => { d.ship.startThread(ASK, 21); }, show: () => ui.set({ helm: true }) },
   { group: "Aboard", name: "helm-review", title: "Helm console: the diff viewer", kind: "overlay", setup: ABOARD, seed: along("Add a billing page and a usage chart", 110), show: (d) => { ui.set({ helm: true }); openReview({ threadId: newest(d)!, taskId: null }); } },
+  { group: "Places", name: "places", title: "Places: move this offsite, or start a new one", kind: "overlay", setup: ABOARD, show: () => { phone.openShip(); phone.openPlaces(); } },
+  { group: "Places", name: "places-confirm", title: "Places: moving, with crew mid-task", kind: "overlay", setup: ABOARD, seed: (d) => { d.ship.answerAll(d.ship.startThread(ASK, 24)); }, show: () => { phone.openPlaces(); press("Move Sea Legs here")(); } },
+  { group: "Places", name: "places-helm", title: "Places: from the helm console, on the moon", kind: "overlay", setup: { ...ABOARD, world: "moon-base" }, show: () => { ui.set({ helm: true }); phone.openPlaces(); } },
+  { group: "Places", name: "places-friend", title: "Places: a friend aboard (no Move; an offsite of their own)", kind: "overlay", setup: { ...ABOARD, friendOf: "Maya" }, show: () => { phone.openShip(); phone.openPlaces(); } },
+  { group: "Places", name: "places-new", title: "A new offsite, from Places: name it, with a way back", kind: "gate", setup: ABOARD, seed: () => newOffsite.start("moon-base") },
   { group: "Aboard", name: "creator", title: "The look customizer", kind: "overlay", setup: ABOARD, show: (d) => { const c = d.ship.snapshot().crew.find((x) => x.role === "crew"); if (c) phone.editLook(c._id); } },
 
   // The way aboard.

@@ -6,6 +6,7 @@ import { Phone } from "../phone/Phone.tsx";
 import { phone, usePhone } from "../phone/state.ts";
 import { Helm } from "../helm/Helm.tsx";
 import { Creator } from "../creator/Creator.tsx";
+import { Places } from "../places/Places.tsx";
 import { CrewCard } from "./CrewCard.tsx";
 import { ShipProvider } from "./ship.tsx";
 import { stopWalking, WalkKeys } from "./walk.tsx";
@@ -15,7 +16,7 @@ import { stopWalking, WalkKeys } from "./walk.tsx";
 //
 // Keys: F takes the phone out, unfolds it, puts it away (not while typing); V, with it out, switches
 // between first and third person (it moves between your hands and the screen). Esc closes the
-// customizer, then stops a walk, then closes the helm, then the phone, then a crew card. With the
+// customizer (or Places), then stops a walk, then closes the helm, then the phone, then a crew card. With the
 // phone out and not typing, H walks to the helm and 1–9 to the crew (walk.tsx).
 
 const editable = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
@@ -27,7 +28,8 @@ function useKeys() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.code === "Escape") {
         const p = phone.get();
-        if (p.creator) phone.closeCreator();
+        if (p.places) phone.closePlaces();
+        else if (p.creator) phone.closeCreator();
         else if (ui.get().walkTo) { stopWalking(); e.preventDefault(); return; }
         else if (ui.get().helm) ui.set({ helm: false });
         else if (p.fold !== "away") phone.putAway();
@@ -38,13 +40,13 @@ function useKeys() {
         return;
       }
       // V with the phone out (the game isn't listening to the keyboard then): the view switches, the phone goes with it.
-      if (e.code === "KeyV" && !e.repeat && !editable(e.target) && phone.get().fold !== "away" && !phone.get().creator && !ui.get().helm) {
+      if (e.code === "KeyV" && !e.repeat && !editable(e.target) && phone.get().fold !== "away" && !phone.get().creator && !phone.get().places && !ui.get().helm) {
         e.preventDefault();
         ui.set({ view: ui.get().view === "first" ? "third" : "first" });
         return;
       }
       if (e.code === "KeyF" && !e.repeat && !editable(e.target)) {
-        if (ui.get().helm || phone.get().creator) return;
+        if (ui.get().helm || phone.get().creator || phone.get().places) return;
         e.preventDefault();
         // F is the half view; a quick second F unfolds it. The first press acts at once, so a single F
         // never waits to find out whether a second is coming.
@@ -91,6 +93,7 @@ export function Overlay({ officeId }: { officeId: string }) {
         <CrewCard />
         <Phone />
         <Helm />
+        <Places />
         {creator ? <Creator key={creator} who={creator} /> : null}
       </div>
     </ShipProvider>

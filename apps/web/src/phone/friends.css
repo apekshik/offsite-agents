@@ -24,7 +24,7 @@
 .switcher { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; min-height: 30px; }
 .switch-row.here b { color: var(--accent); }
-.switch-new { font-size: 12.5px; color: var(--accent); text-decoration: none; }
+.switch-new { align-self: flex-start; padding: 2px 0; border: 0; background: none; cursor: pointer; font: inherit; font-size: 12.5px; color: var(--accent); text-decoration: none; }
 .switch-new:hover { text-decoration: underline; }
 
 /* A person's name over their message, and their face, in a thread with friends aboard. */

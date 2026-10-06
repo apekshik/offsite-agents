@@ -66,5 +66,8 @@ export const WORLD_LIST: readonly WorldInfo[] = [
 /** The world with this id, if there is one. */
 export const worldInfo = (id: string): WorldInfo | undefined => WORLD_LIST.find((w) => w.id === id);
 
+/** A world's name mid-sentence: "Moving to the Yacht", "Arriving at Moon Base". */
+export const inSentence = (w: WorldInfo): string => w.name.replace(/^The /, "the ");
+
 /** A ship's world (the yacht while it isn't known yet). */
 export const worldOf = (id: string | null | undefined): WorldInfo => worldInfo(id ?? "") ?? WORLD_LIST[0]!;

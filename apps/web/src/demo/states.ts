@@ -37,6 +37,7 @@ const newest = (demo: DemoBackend) => demo.ship.threadList()[0]?._id ?? null;
 
 export const STATES: DemoState[] = [
   { name: "aboard", label: "Aboard, golden hour, nothing asked yet", setup: ABOARD },
+  { name: "friend", label: "Aboard a friend's ship (Maya's)", setup: { ...ABOARD, friendOf: "Maya" } },
   { name: "landing", label: "The landing page, signed out", setup: FRESH, signedOut: true },
   { name: "onboarding-ship", label: "Way aboard: make your ship", setup: FRESH },
   { name: "onboarding-machine", label: "Way aboard: waiting for your machine", setup: { ...FRESH, office: true } },

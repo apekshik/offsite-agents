@@ -49,7 +49,7 @@ export function WalkKeys() {
     const down = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || editable(e.target)) return;
       const p = phone.get();
-      const out = (p.fold !== "away" && !p.creator) || ui.get().helm;
+      const out = ((p.fold !== "away" && !p.creator) || ui.get().helm) && !p.places;
       if (!out) return;
       if (MOVE_KEYS.has(e.code) && ui.get().walkTo) { stopWalking(); return; }
       if (e.code === "KeyH" && !ui.get().helm) { e.preventDefault(); walkToHelm(); return; }

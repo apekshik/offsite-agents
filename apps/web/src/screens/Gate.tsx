@@ -4,7 +4,8 @@ import { COMPUTER_BLURB, COMPUTER_NAME } from "@offsite/contracts";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Backdrop } from "../landing/Backdrop.tsx";
-import { WORLD_LIST, type WorldInfo } from "../worlds.ts";
+import { WORLD_LIST, worldInfo, type WorldInfo } from "../worlds.ts";
+import { newOffsite, useNewOffsite } from "./newOffsite.ts";
 import { Landing } from "./Landing.tsx";
 import { Button, Chip, errorText, Face, Field, Input, OrchestratorBadge } from "../ui/index.tsx";
 import { CodeEntry, HarnessField, LoginSteps, MachineCard, Repos } from "./setup.tsx";
@@ -82,36 +83,58 @@ function WorldCard({ w, on, onPick }: { w: WorldInfo; on: boolean; onPick: () =>
   );
 }
 
-function MakeShip({ onMade }: { onMade: (id: string) => void }) {
+/** What a new ship is called if you don't say, by world. */
+const SAMPLE_NAME: Record<string, string> = { yacht: "Sea Legs", "moon-base": "Tranquility" };
+
+/**
+ * Name it and pick its world: your first ship, or (`back` set, from aboard one: the Places menu, the switcher)
+ * another offsite of your own, separate from the one you came from, with a way back to it.
+ */
+function MakeShip({ onMade, world: start, back }: { onMade: (id: string) => void; world?: string | null | undefined; back?: { name: string; go: () => void } | undefined }) {
   const create = useMutation(api.offices.create);
   const [name, setName] = useState("");
-  const [world, setWorld] = useState(WORLD_LIST.find((w) => w.ready)?.id ?? "yacht");
+  const [world, setWorld] = useState(() => (start && worldInfo(start)?.ready ? start : WORLD_LIST.find((w) => w.ready)?.id ?? "yacht"));
+  const sample = SAMPLE_NAME[world] ?? "Sea Legs";
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const soon = WORLD_LIST.filter((w) => !w.ready).map((w) => w.name);
+  // Asked for in a world (Places' "New offsite here"): that one first.
+  const [worlds] = useState(() => [...WORLD_LIST].sort((a, b) => Number(b.id === start) - Number(a.id === start)));
   const go = async () => {
     setBusy(true);
     setErr(null);
-    try { onMade(await create({ name: name.trim() || "Sea Legs", world })); } catch (x) { setErr(errorText(x)); setBusy(false); }
+    try { onMade(await create({ name: name.trim() || sample, world })); } catch (x) { setErr(errorText(x)); setBusy(false); }
   };
+  // Esc anywhere goes back to the offsite you came from.
+  const leave = useRef(back?.go);
+  leave.current = back?.go;
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Escape" && leave.current) { e.preventDefault(); leave.current(); } };
+    addEventListener("keydown", down);
+    return () => removeEventListener("keydown", down);
+  }, []);
   return (
-    <Shell step={1} wide label="Make your ship">
+    <Shell step={1} wide label={back ? "Make a new offsite" : "Make your ship"}>
+      {back ? <Button kind="ghost" size="sm" className="sc-back" disabled={busy} onClick={back.go}>← Back to {back.name}</Button> : null}
       <div className="sc-hero">
-        <h1 className="disp">Make your ship</h1>
-        <p className="ink2">Name it and pick where your crew works. You can rename it later.</p>
+        <h1 className="disp">{back ? "Make a new offsite" : "Make your ship"}</h1>
+        <p className="ink2">{back
+          ? `A separate offsite with its own crew, threads and repos. ${back.name} stays as it is: switch between them from the phone's Ship tab.`
+          : "Name it and pick where your crew works. You can rename it later."}</p>
       </div>
-      <Field label="Ship's name">
-        <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Sea Legs" maxLength={40} onKeyDown={(e) => { if (e.key === "Enter") void go(); }} />
+      <Field label={back ? "Its name" : "Ship's name"}>
+        <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={sample} maxLength={40}
+          onKeyDown={(e) => { if (e.key === "Enter") void go(); }} />
       </Field>
       <div className="world-pick">
         <span className="lab dim" id="world-label">Where your crew works</span>
         <div className="worlds" role="radiogroup" aria-labelledby="world-label">
-          {WORLD_LIST.map((w) => <WorldCard key={w.id} w={w} on={w.id === world} onPick={() => setWorld(w.id)} />)}
+          {worlds.map((w) => <WorldCard key={w.id} w={w} on={w.id === world} onPick={() => setWorld(w.id)} />)}
         </div>
         {soon.length ? <p className="dim sc-fine">More worlds are on the way: {listOf(soon)}.</p> : null}
       </div>
       {err ? <div className="error" role="alert">{err}</div> : null}
-      <div className="actions"><Button kind="primary" size="lg" disabled={busy} onClick={() => void go()}>{busy ? "Launching…" : "Make the ship"}</Button></div>
+      <div className="actions"><Button kind="primary" size="lg" disabled={busy} onClick={() => void go()}>{busy ? "Launching…" : back ? "Make the offsite" : "Make the ship"}</Button></div>
     </Shell>
   );
 }
@@ -240,14 +263,6 @@ const loadAboard = () => import("./Aboard.tsx");
 const Aboard = lazy(() => loadAboard().then((m) => ({ default: m.Aboard })));
 const Boarding = () => <div className="boarding"><span className="disp">Boarding</span><span className="dots"><i /><i /><i /></span></div>;
 
-/** /?new=ship: make a ship of your own (from the ship switcher, when you've only joined others'). */
-const wantsNewShip = () => new URLSearchParams(location.search).get("new") === "ship";
-const dropNewShip = () => {
-  const q = new URLSearchParams(location.search);
-  q.delete("new");
-  history.replaceState({}, "", `${location.pathname}${q.size ? `?${q}` : ""}`);
-};
-
 export function Gate() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
@@ -259,7 +274,8 @@ export function Gate() {
   const [connect] = useState(() => new URLSearchParams(location.search).get("connect"));
   useEffect(() => { if (connect) location.replace(`/pair?code=${encodeURIComponent(connect)}`); }, [connect]);
   const [made, setMade] = useState<string | null>(null);
-  const [newShip, setNewShip] = useState(wantsNewShip);
+  // Another offsite of your own, asked for from aboard one (or /?new=ship): newOffsite.ts.
+  const newShip = useNewOffsite();
   const [stage, setStage] = useState<"meet" | "connect" | "project" | null>(null);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [ensureErr, setEnsureErr] = useState<string | null>(null);
@@ -274,6 +290,8 @@ export function Gate() {
   // The ship you're aboard: the one you just made, else the one you last boarded (yours, or a friend's you joined),
   // else your newest, else the newest you joined. A friend with no ship of their own never sees "make your ship".
   const want = made ?? me?.aboardId ?? null;
+  // Once you're recorded aboard the one you made, that record leads again (the switcher moves it).
+  useEffect(() => { if (made && me?.aboardId === made) setMade(null); }, [made, me?.aboardId]);
   const wantJoined = want ? joined?.find((j) => j._id === want) : undefined;
   const own = (want ? offices?.find((o) => o._id === want) : undefined) ?? (wantJoined ? undefined : offices?.[0]);
   const friend = own ? undefined : (wantJoined ?? joined?.[0]);
@@ -310,12 +328,19 @@ export function Gate() {
       </Shell>
     );
   }
-  if (!office || (newShip && !made)) return <MakeShip onMade={(id) => { setMade(id); setNewShip(false); dropNewShip(); setStage("meet"); }} />;
+  if (!office || newShip) {
+    const from = office ? friend?.name ?? own?.name : undefined;
+    return (
+      <MakeShip key={newShip?.world ?? ""} world={newShip?.world} back={from ? { name: from, go: newOffsite.end } : undefined}
+        onMade={(id) => { setMade(id); newOffsite.end(); setStage("meet"); }} />
+    );
+  }
   const id = office._id;
   const skip = () => { writeSkip(id); setSkipped((s) => new Set(s).add(id)); setStage(null); };
   const current = own ? stage ?? need : null;
 
-  if (current === "meet") return <Meet officeId={id} onNext={() => setStage("connect")} />;
+  // A machine paired already (another offsite of yours): on to the new one's repos.
+  if (current === "meet") return <Meet officeId={id} onNext={() => setStage(machines.length ? "project" : "connect")} />;
   if (current === "connect") return <Connect onNext={() => setStage("project")} onSkip={skip} />;
   if (current === "project") return <Project officeId={id} onDone={() => setStage(null)} onSkip={skip} />;
   return (

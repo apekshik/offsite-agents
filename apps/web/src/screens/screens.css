@@ -33,6 +33,8 @@
 .sc-hero { display: flex; flex-direction: column; gap: 8px; }
 .sc-hero h1 { margin: 0; font-size: 32px; line-height: 1.1; font-weight: 750; letter-spacing: -0.015em; }
 .sc-hero p { margin: 0; font-size: 15px; line-height: 1.55; max-width: 38em; }
+/* Making another offsite from aboard one: the way back, above the title. */
+.sc-back { align-self: flex-start; margin: -6px 0 -10px -9px; }
 .sc-fine { margin: 0; font-size: 12.5px; line-height: 1.5; }
 .sc-machines { display: flex; flex-direction: column; gap: 8px; }
 .screen .actions { gap: 10px; padding-top: 2px; }
@@ -139,6 +141,16 @@
 .boarding { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; gap: 14px; background: #05070b; transition: opacity 0.8s ease 0.2s, visibility 0s linear 1s; }
 .boarding .disp { font-size: 22px; color: var(--ink-2); }
 .boarding.gone { opacity: 0; visibility: hidden; pointer-events: none; }
+/* Arriving in another world (the ship moved): fades in over the old one (Aboard.tsx's COVER_MS), lifts once the new one stands. */
+.boarding.arriving { z-index: 61; flex-direction: column; overflow: hidden; transition: opacity 0.9s ease 0.25s, visibility 0s linear 1.15s; }
+.boarding.arriving:not(.gone) { animation: arriving-in 0.42s ease-out both; }
+@keyframes arriving-in { from { opacity: 0; } }
+.arriving-art { position: absolute; inset: -4%; width: 108%; height: 108%; object-fit: cover; filter: blur(14px) brightness(0.42) saturate(1.1); transform: scale(1.04); animation: arriving-drift 6s ease-out both; }
+@keyframes arriving-drift { from { transform: scale(1.12); } }
+.arriving-text { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 0 16px; }
+.boarding.arriving .disp { font-size: clamp(26px, 4.4vw, 44px); font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.arriving-text .ink2 { font-size: 15px; }
+@media (prefers-reduced-motion: reduce) { .boarding.arriving:not(.gone), .arriving-art { animation: none; } }
 
 /* Phones: the card fills the width, 16px from the edges. */
 @media (max-width: 620px) {

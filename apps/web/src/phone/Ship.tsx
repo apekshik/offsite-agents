@@ -9,11 +9,13 @@ import { phone } from "./state.ts";
 import { HelmIcon, walkToHelm } from "../overlay/walk.tsx";
 
 import { Friends, ShipSwitcher } from "./Friends.tsx";
+import { PlacesButton } from "../places/Places.tsx";
 import { useAboard } from "../people/people.ts";
 import { personLook } from "../people/look.ts";
 
-// The Ship tab: your ship's name, your own look, your machines and the repos the crew works on, and who is aboard
-// (Friends.tsx). A friend aboard someone else's ship sees it read-only, and how to leave.
+// The Ship tab: your ship's name, your own look, where it is (Change location: src/places), your machines and the repos
+// the crew works on, and who is aboard (Friends.tsx). A friend aboard someone else's ship sees it read-only, and how to
+// leave.
 
 export function ShipSummary() {
   const { office, officeId, me, machines, crew, world } = useShip();
@@ -55,6 +57,7 @@ export function ShipSummary() {
         <div><span className="dim">{office?.repos.length === 1 ? "Repo" : "Repos"}</span><span className="mono clip">{office?.repos.length ? office.repos.map((r) => r.name).join(", ") : "None yet"}</span></div>
         {owner && office?.repos.length === 1 ? <div><span className="dim">Folder</span><span className="mono clip">{office.repos[0]!.path}</span></div> : null}
       </div>
+      <PlacesButton className="places-btn" />
       <ShipSwitcher officeId={officeId} />
       {err ? <div className="error">{err}</div> : null}
       <div style={{ marginTop: "auto" }}><Button kind="ghost" size="sm" onClick={() => void signOut()}>Sign out</Button></div>

@@ -1270,11 +1270,43 @@ export class Game {
     this.pipeline.render(dt);
   };
 
+  /**
+   * Everything the scene draws with: geometries, materials, their textures, lights (their shadow maps). Gathered before
+   * the parts take themselves down, and freed after them, before the renderer goes: whatever a part leaves behind
+   * (materials shared between builds, a texture it forgot) would otherwise stay on the GPU for good, since the renderer
+   * that uploaded it is gone. The ship moving to another world builds a new one (Game.tsx).
+   */
+  private drawnWith(): Set<{ dispose(): void }> {
+    const out = new Set<{ dispose(): void }>();
+    const texture = (v: unknown) => { if (v instanceof THREE.Texture) out.add(v); };
+    const material = (m: THREE.Material) => {
+      out.add(m);
+      for (const v of Object.values(m)) texture(v);
+      const uniforms = (m as Partial<THREE.ShaderMaterial>).uniforms;
+      if (uniforms) for (const u of Object.values(uniforms)) texture(u?.value);
+    };
+    this.scene.traverse((x) => {
+      const o = x as Partial<THREE.Mesh> & Partial<THREE.Light> & Partial<THREE.InstancedMesh> & Partial<THREE.SkinnedMesh>;
+      if (o.geometry) out.add(o.geometry);
+      if (o.material) for (const m of Array.isArray(o.material) ? o.material : [o.material]) material(m);
+      // Their instance buffers, their shadow maps, their bone textures.
+      if (o.isInstancedMesh || o.isLight) out.add(x as THREE.InstancedMesh | THREE.Light);
+      if (o.isSkinnedMesh && o.skeleton) out.add(o.skeleton);
+    });
+    texture(this.scene.background);
+    texture(this.scene.environment);
+    return out;
+  }
+
   dispose() {
     this.disposed = true;
+    const drawn = this.drawnWith();
     cancelAnimationFrame(this.raf);
     removeEventListener("resize", this.resize);
     this.unsub?.();
+    // The keyboard, the mouse and pointer lock: the captain's input listens on the window.
+    this.input?.dispose();
+    this.collision?.dispose();
     sceneBridge.locate = () => null;
     sceneBridge.captain = () => null;
     sceneBridge.where = () => null;
@@ -1296,6 +1328,10 @@ export class Game {
     this.captain?.dispose();
     this.world?.dispose();
     this.pipeline?.dispose();
+    for (const r of drawn) r.dispose();
     this.renderer.dispose();
+    // And the context itself, with what three.js keeps for each renderer (its shadow and background materials, empty
+    // textures): a new world gets a new canvas (Game.tsx).
+    this.renderer.forceContextLoss();
   }
 }

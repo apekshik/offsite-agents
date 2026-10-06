@@ -19,8 +19,14 @@ const WORLDS: Record<string, WorldModule> = { yacht, "moon-base": moonBase };
 /** ?p2p=off (dev only): no peer-to-peer at all, every position through Convex. For trying the fallback. */
 const P2P = !(import.meta.env.DEV && new URLSearchParams(location.search).get("p2p") === "off");
 
-export function Game({ officeId }: { officeId: string }) {
+/**
+ * `world`, when given, is the world to build (null: not yet), in place of the ship's own: Aboard holds the old one up
+ * for a moment when the ship moves, while its arrival veil comes down. `onBuilt` hears each world once it stands.
+ */
+export function Game({ officeId, world: pinned, onBuilt }: { officeId: string; world?: string | null; onBuilt?: (world: string) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const built = useRef(onBuilt);
+  built.current = onBuilt;
   const engine = useRef<Engine | null>(null);
   const client = useConvex();
   const snapshot = useQuery(api.world.snapshot, { officeId: officeId as Id<"offices"> });
@@ -37,7 +43,7 @@ export function Game({ officeId }: { officeId: string }) {
   const me = useQuery(api.users.me);
   // Yours here: a friend aboard someone else's ship wears their own look (or a crew look), never the captain's uniform.
   const office = useQuery(api.offices.get, { officeId: officeId as Id<"offices"> });
-  const world = snapshot?.office.world;
+  const world = pinned === undefined ? snapshot?.office.world : pinned ?? undefined;
   // A ship read without a role (the film's and the demo's scripted backends) is the captain's own, alone on deck.
   const owner = office ? office.role !== "member" : undefined;
   const shared = !!office?.role;
@@ -59,6 +65,7 @@ export function Game({ officeId }: { officeId: string }) {
       if (latest.current) g.setSnapshot(latest.current);
       if (latestThreads.current) g.setThreads(latestThreads.current);
       if (latestDeliveries.current) g.setDeliveries(latestDeliveries.current);
+      built.current?.(world);
       // A friend coming aboard for the first time this visit: the crew nearby wave hello.
       if (!owner && me) g.greet(null, me.name);
       // For poking at the world from the console (and the visual checks' scripts).
@@ -91,7 +98,9 @@ export function Game({ officeId }: { officeId: string }) {
     });
     const unbindMic = shared ? voice.bindKey() : () => {};
     return () => { live = false; unbindMic(); if (share) clearInterval(share); deck?.stop(); started?.dispose(); engine.current = null; };
-    // The world is built once per ship and captain; everything else streams in through setSnapshot.
+    // The world is built once per ship, world and captain; everything else streams in through setSnapshot. A new world
+    // (the ship moved) takes everything down, the deck too (its positions were in the old world), and starts over:
+    // the captain at the new world's spawn, the crew placed afresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, world, me?._id, owner, shared]);
 
@@ -105,5 +114,7 @@ export function Game({ officeId }: { officeId: string }) {
     if (deliveries && engine.current) engine.current.setDeliveries(deliveries);
   }, [deliveries]);
 
-  return <canvas ref={canvas} id="game" style={{ position: "fixed", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} tabIndex={0} />;
+  // A canvas per build (the effect's deps): the last one's context is let go whole (Engine.dispose), with whatever three.js
+  // keeps per renderer, and a lost context can't be drawn on again.
+  return <canvas key={`${ready}:${world}:${me?._id}:${owner}:${shared}`} ref={canvas} id="game" style={{ position: "fixed", inset: 0, width: "100%", height: "100%", display: "block", outline: "none" }} tabIndex={0} />;
 }

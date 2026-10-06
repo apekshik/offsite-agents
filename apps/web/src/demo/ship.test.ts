@@ -105,6 +105,19 @@ describe("demo mode's ship", () => {
     expect(s.snapshot().questions.length).toBeGreaterThan(0);
   });
 
+  it("moves to the moon and back with everyone aboard, and refuses where it can't go", () => {
+    const { s } = ship();
+    const before = crew(s).map((c) => c._id);
+    expect(s.mutate("offices:relocate", { officeId: "office_sealegs", world: "moon-base" })).toEqual({ world: "moon-base" });
+    expect(s.snapshot().office.world).toBe("moon-base");
+    expect(s.query("offices:get", {})).toMatchObject({ world: "moon-base", relocatedAt: expect.any(Number) });
+    expect(crew(s).map((c) => c._id)).toEqual(before);
+    expect(() => s.mutate("offices:relocate", { world: "moon-base" })).toThrow(/already there/);
+    expect(() => s.mutate("offices:relocate", { world: "airship" })).toThrow(/No world called/);
+    s.mutate("offices:relocate", { world: "yacht" });
+    expect(s.snapshot().office.world).toBe("yacht");
+  });
+
   it("warns about, rather than fails on, functions it doesn't know", () => {
     const { s } = ship();
     expect(s.query("nowhere:atAll", {})).toBeUndefined();

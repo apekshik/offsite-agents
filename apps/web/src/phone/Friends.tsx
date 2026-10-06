@@ -7,6 +7,9 @@ import { Button, Card, ConfirmButton, Dot, errorText, Face } from "../ui/index.t
 import { useAboard, type Person } from "../people/people.ts";
 import { useLinks } from "../net/index.ts";
 import { useVoice, voice } from "../voice/index.ts";
+import { newOffsite } from "../screens/newOffsite.ts";
+import { phone } from "./state.ts";
+import { worldOf } from "../worlds.ts";
 import "./friends.css";
 
 // Friends aboard, in the Ship tab: the captain's invite link and who they've brought aboard (remove, and whether they
@@ -136,27 +139,28 @@ export function Friends({ officeId, shipName }: { officeId: Id<"offices">; shipN
   );
 }
 
-/** Your ships and ships you joined: go aboard another. Shown when there's somewhere else to go. */
+/** Your offsites and ones you joined, each with its world: go aboard another, or make a new one (newOffsite.ts). */
 export function ShipSwitcher({ officeId }: { officeId: string }) {
   const mine = useQuery(api.offices.mine);
   const joined = useQuery(api.members.joined);
   const board = useMutation(api.users.board);
   const [err, setErr] = useState<string | null>(null);
   if (!mine || !joined) return null;
-  const ships = [...mine.map((o) => ({ _id: o._id as string, name: o.name, whose: "Yours" })), ...joined.map((j) => ({ _id: j._id as string, name: j.name, whose: `${j.owner}'s` }))];
+  const ships = [
+    ...mine.map((o) => ({ _id: o._id as string, name: o.name, whose: "Yours", world: o.world })),
+    ...joined.map((j) => ({ _id: j._id as string, name: j.name, whose: `${j.owner}'s`, world: j.world })),
+  ];
   const go = (id: string) => void board({ officeId: id as Id<"offices"> }).catch((x) => setErr(errorText(x)));
-  const others = ships.filter((s) => s._id !== officeId);
-  if (!others.length && mine.length) return null;
   return (
     <div className="switcher">
-      <span className="lab dim">Your ships</span>
+      <span className="lab dim">Your offsites</span>
       {ships.map((s) => (
         <div key={s._id} className={`switch-row ${s._id === officeId ? "here" : ""}`}>
-          <span className="clip"><b>{s.name}</b> <span className="dim">· {s.whose}</span></span>
+          <span className="clip"><b>{s.name}</b> <span className="dim">· {s.whose} · {worldOf(s.world).name}</span></span>
           {s._id === officeId ? <span className="lab t-accent">Aboard</span> : <Button size="sm" kind="soft" onClick={() => go(s._id)}>Go aboard</Button>}
         </div>
       ))}
-      {!mine.length ? <a className="switch-new" href={`/?new=ship${new URLSearchParams(location.search).get("dev") ? `&dev=${new URLSearchParams(location.search).get("dev")}` : ""}`}>+ Make a ship of your own</a> : null}
+      <button type="button" className="switch-new" onClick={() => { phone.putAway(); newOffsite.start(); }}>+ New offsite</button>
       {err ? <div className="error">{err}</div> : null}
     </div>
   );

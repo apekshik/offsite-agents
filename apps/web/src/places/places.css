@@ -1,0 +1,48 @@
+/* Places: the worlds as cards (the way aboard's art and words), each with what you can do there. Over the phone and the helm. */
+
+.places-backdrop {
+  position: fixed; inset: 0; z-index: 52; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(2, 4, 7, 0.6); animation: ui-fade-in 0.2s ease-out both;
+}
+.places {
+  width: min(980px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; gap: 16px; overflow: hidden;
+  padding: 20px 22px 22px; background: #05070b; border: 1px solid #1c232e; border-radius: 16px; box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
+  animation: places-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes places-in { from { opacity: 0; transform: translateY(12px) scale(0.985); } }
+.pl-head { display: flex; align-items: flex-start; gap: 16px; }
+.pl-title { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.pl-title .disp { font-size: 24px; }
+.pl-close { background: none; border: 0; color: var(--dim); display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; padding: 4px 0; }
+.pl-close:hover { color: var(--ink); }
+.pl-grid { display: grid; grid-template-columns: repeat(2, 1fr); align-content: start; gap: 12px; overflow-y: auto; min-height: 0; padding: 2px; }
+
+.place {
+  position: relative; display: flex; flex-direction: column; border-radius: 12px;
+  border: 1px solid rgba(238, 243, 247, 0.12); background: rgba(255, 255, 255, 0.03); transition: border-color 0.2s ease;
+}
+.place:not(.soon):not(.here):hover { border-color: rgba(79, 227, 255, 0.45); }
+.place.here { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 10px 40px rgba(79, 227, 255, 0.12); }
+.place.asking { border-color: var(--accent); }
+/* The card isn't clipped (so it grows with its words, and the menu scrolls): the picture rounds its own corners. */
+.place .world-art { flex: none; aspect-ratio: 21 / 9; border-radius: 11px 11px 0 0; }
+.place.soon .world-art img { filter: grayscale(0.55) brightness(0.62); }
+.place.soon .world-text { opacity: 0.72; }
+.place .world-text { flex: 1; }
+.place .world-name { font-size: 16px; }
+.pl-act { padding: 0 13px 13px; display: flex; flex-direction: column; gap: 8px; min-height: 30px; justify-content: flex-end; }
+.pl-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.pl-confirm { display: flex; flex-direction: column; gap: 8px; }
+.pl-line { font-size: 13.5px; line-height: 1.45; }
+.pl-note { font-size: 12.5px; line-height: 1.45; }
+
+@media (max-width: 720px) {
+  .places-backdrop { padding: 10px; }
+  .places { max-height: calc(100vh - 20px); padding: 16px; }
+  .pl-grid { grid-template-columns: 1fr; }
+  .pl-close .key { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .places, .places-backdrop { animation: none; }
+}
+.places-btn { align-self: flex-start; display: inline-flex; align-items: center; }

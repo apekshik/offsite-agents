@@ -30,6 +30,7 @@ const CELLS = [
   "phone-cover", "phone-threads-empty", "phone-thinking", "phone-plan", "phone-computah-asks", "phone-question", "phone-finished",
   "phone-crew-watch", "phone-crew-off", "phone-hire", "phone-ship", "phone-review", "phone-hire-moon", "phone-ship-moon",
   "hud-no-machine", "toasts", "crew-card", "crew-card-asking", "helm", "helm-review", "creator",
+  "places", "places-confirm", "places-helm", "places-friend", "places-new",
   "landing", "onboarding-ship", "onboarding-meet", "onboarding-machine", "onboarding-paired", "onboarding-repos", "onboarding-browse",
   "empty-no-machine-thread", "empty-ship-tab", "error-diff", "error-offline", "empty-scan", "error-scan",
 ];
