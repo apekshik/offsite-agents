@@ -4,7 +4,9 @@
 // Third person: the camera orbits behind and above, pulled in front of anything between it and
 // the captain. First person: at the eyes, with a small bob as you walk. One yaw and pitch serve
 // both, so switching (V, or zooming all the way in and back out) keeps you looking the same way;
-// the camera glides between them over a quarter second.
+// the camera glides between them over a quarter second. In first person the eye leans out over the
+// chest as you look down (firstPersonEye), so your own body shows below you without the camera
+// ending up inside it.
 
 import * as THREE from "three";
 import type { Collision } from "./collision.ts";
@@ -26,6 +28,21 @@ export interface CameraRigOptions {
 const THIRD_PITCH: [number, number] = [-0.45, 1.25];
 const FIRST_PITCH: [number, number] = [-1.42, 1.48];
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+
+/**
+ * Where the first-person eye sits, by pitch (radians, positive looks down): `ahead` metres from the
+ * middle of the head along the flat view, `drop` metres below eye height. Looking ahead it is at the
+ * face; looking down it leans out and down the way a head bends forward, past the front of the chest,
+ * so you see your belly, legs and feet rather than the tops of your shoulders. It stays inside the
+ * walking capsule (0.3 m), so it never pokes into a wall.
+ */
+export function firstPersonEye(pitch: number, out = { ahead: 0, drop: 0 }) {
+  const t = clamp((pitch - 0.5) / 0.95, 0, 1);
+  const down = t * t * (3 - 2 * t);
+  out.ahead = 0.06 + 0.18 * down;
+  out.drop = 0.08 * down;
+  return out;
+}
 
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
@@ -52,6 +69,9 @@ export class CameraRig {
   shoulder: number;
   private _dir = new THREE.Vector3();
   private _want = new THREE.Vector3();
+  private _lean = { ahead: 0, drop: 0 };
+  /** Where the first-person eye is this frame (in either view): the captain hides the head once the camera is this close. */
+  readonly eyePoint = new THREE.Vector3();
 
   constructor(camera: THREE.PerspectiveCamera, collision: Collision, o: CameraRigOptions = {}) {
     this.camera = camera;
@@ -109,25 +129,35 @@ export class CameraRig {
 
   /**
    * feet: where the captain stands. eye: eye height above the feet. speed: ground speed (for the
-   * first-person bob). Places the camera.
+   * first-person bob). eyes: where the eyes are, when not eye above the feet (lying in a hammock),
+   * and lean, a nudge for the first-person eye there (out over the chest). Places the camera.
    */
-  update(dt: number, feet: THREE.Vector3, eye: number, speed = 0) {
+  update(dt: number, feet: THREE.Vector3, eye: number, speed = 0, eyes: THREE.Vector3 | null = null, lean: THREE.Vector3 | null = null) {
     const cam = this.camera;
     const cp = Math.cos(this.pitch);
     const dir = this._dir.set(Math.sin(this.yaw) * cp, -Math.sin(this.pitch), Math.cos(this.yaw) * cp);
+    // The eye: from the head as the pose has it (in a seat), or leaning out over the chest by pitch.
+    if (eyes) {
+      this.eyePoint.copy(eyes);
+      if (lean) this.eyePoint.add(lean);
+    } else {
+      const at = firstPersonEye(this.pitch, this._lean);
+      this.eyePoint.set(feet.x + Math.sin(this.yaw) * at.ahead, feet.y + eye - at.drop, feet.z + Math.cos(this.yaw) * at.ahead);
+    }
     if (this.view === "first") {
       // A small bob, in step with the stride.
       this.bobAmt += ((speed > 0.3 ? Math.min(1, speed / 3) : 0) - this.bobAmt) * Math.min(1, dt * 8);
       this.bobPhase += dt * (4 + speed * 1.4);
       const bob = Math.sin(this.bobPhase * 2) * 0.028 * this.bobAmt;
-      cam.position.set(feet.x, feet.y + eye + bob, feet.z);
+      const e = this.eyePoint;
+      cam.position.set(e.x, e.y + bob, e.z);
       cam.rotation.order = "YXZ";
       cam.rotation.set(-this.pitch, this.yaw + Math.PI, Math.sin(this.bobPhase) * 0.006 * this.bobAmt);
       this.camPos.copy(cam.position);
     } else {
       // Orbit a point at the shoulders, a little above the eyes when looking down, and off to the
       // right so the middle of the screen (the crosshair) looks past you, not at the back of your head.
-      const focus = this._focus.set(feet.x, feet.y + eye * 0.9, feet.z);
+      const focus = eyes ? this._focus.set(eyes.x, eyes.y - eye * 0.1, eyes.z) : this._focus.set(feet.x, feet.y + eye * 0.9, feet.z);
       if (this.shoulder > 0) {
         const right = this._right.set(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
         const room = this.collision.raycast(focus, right, this.shoulder + 0.3);

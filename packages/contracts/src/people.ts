@@ -13,10 +13,11 @@ export const INVITE_TTL_MS = 7 * 24 * 60 * 60_000;
 export const joinPath = (token: string) => `/join/${token}`;
 
 /**
- * What someone aboard is doing, as everyone else sees it: walking about, at the helm console, or the phone out (folded
- * on its cover, or unfolded).
+ * What someone aboard is doing, as everyone else sees it: walking about, at the helm console, the phone out (folded
+ * on its cover, or unfolded), or in a seat: lying in a hammock, on a lounger, or sitting down (where is the slot at
+ * their position). Only grows: a newer act reads as "walk" to an older client.
  */
-export const PersonAct = z.enum(["walk", "helm", "phone", "phone-open"]);
+export const PersonAct = z.enum(["walk", "helm", "phone", "phone-open", "hammock", "lounger", "sit"]);
 export type PersonAct = z.infer<typeof PersonAct>;
 
 /** Presence: how often each person says they are still here, and when the roster gives up on them. */
@@ -40,7 +41,7 @@ export const MotionSample = z.object({
   r: z.number(),
   /** Ground speed, m/s (drives the walk cycle between samples). */
   v: z.number().min(0).max(20),
-  a: PersonAct,
+  a: PersonAct.catch("walk"),
   /** The sender's sequence number: an older sample arriving late is dropped. */
   n: z.number().int(),
 });

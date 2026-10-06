@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import {
-  Captain, Collision, ComputerBot, CrewFigure, FirstPersonHands, Input, LIGHT, Laptop, SELF_LAYER, Walker,
-  buildAvatar, createPipeline, createRenderer, findRoute, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
+  CAPTAIN_SEATS, Captain, Collision, ComputerBot, CrewFigure, FirstPersonHands, Input, LIGHT, Laptop, SELF_LAYER, Walker,
+  buildAvatar, captainSeat, createPipeline, createRenderer, findRoute, pick, routeToPoint, sanitizeAvatar, sanitizeLook, CAPTAIN_PRESET,
   type AutopilotGoal, type BotMood, type BuiltWorld, type Interactable, type Pipeline, type Quality, type Tone, type WorldModule,
 } from "@offsite/kit";
-import { COMPUTER_NAME, isWorking, type AvatarSpec, type Look, type Slot, type Vec3 } from "@offsite/contracts";
+import { COMPUTER_NAME, isWorking, type AvatarSpec, type Look, type PersonAct, type Slot, type Vec3 } from "@offsite/contracts";
 import { scene as sceneBridge, ui, type UiState, type WalkTarget } from "../bridge.ts";
 import { Director, type CrewView, type Direction, type Hangout } from "./director.ts";
 import { CrewBody, SPEED, type Stage } from "./crew.ts";
@@ -13,7 +13,7 @@ import { CrewScreen, describeSlot, faceOf, takeOverLaptop, type HelmContent, typ
 import { DEFAULT_SURFACE, disposeObject, makeMore, makePackage, packageSpots, type Surface } from "./dropoff.ts";
 import { audio, busyLevel, flightPhase, type Emitter } from "../audio/index.ts";
 import type { SelfState } from "../net/index.ts";
-import { People, type PersonOnDeck } from "./people.ts";
+import { People, seatAct, type PersonOnDeck } from "./people.ts";
 
 // The game: one world, the captain, and the crew as the backend sees them. The Game component feeds
 // it world.snapshot; everything else (where people go, what they do there, the helicopter, pings)
@@ -160,6 +160,9 @@ export class Game {
   private moreSign: THREE.Sprite | null = null;
   private shelfKey = "";
   private usesKey = "";
+  private seatsKey = "";
+  /** The seat this tab's captain is in (a hammock's slot id), or null. */
+  private mySeat: string | null = null;
   private lastPlan = 0;
   private ping: { crewId: string; at: number; beacon: THREE.Group; line: THREE.Line; routedAt: number } | null = null;
   private waterY = 0;
@@ -270,6 +273,7 @@ export class Game {
         const hit = this.collision.raycast(from, d.normalize(), len);
         return !!hit && hit.t < len - 0.4;
       },
+      seatAt: (p, act) => this.seatNear(p, act),
     });
     sceneBridge.locatePerson = (id) => this.people.locate(id);
     this.captain.onPrompt = (it) => ui.set({ prompt: it ? { id: it.id, label: it.label } : null });
@@ -279,6 +283,11 @@ export class Game {
       const taskId = it.id.startsWith("box:") ? it.id.slice(4) : it.id.startsWith("desk:") ? it.id.split(":")[2] : null;
       const d = taskId ? this.deliveries.find((x) => x.taskId === taskId) : undefined;
       if (d) this.openReview(d);
+    };
+    // In a hammock (or a chair): no crew member is sent there meanwhile.
+    this.captain.onSeat = (seat) => {
+      this.mySeat = seat?.slot.id ?? null;
+      this.plan(Date.now());
     };
     this.captain.onView = (view) => ui.set({ view });
     this.captain.onPointerLock = (pointerLocked) => ui.set({ pointerLocked });
@@ -536,7 +545,8 @@ export class Game {
     if (!this.captain) return null;
     const p = this.captain.position;
     const s = ui.get();
-    const act = s.helm ? "helm" : s.phone === "open" ? (s.phoneUnfolded ? "phone-open" : "phone") : "walk";
+    const seat = this.captain.seat;
+    const act = seat ? seatAct(seat.slot.kind) : s.helm ? "helm" : s.phone === "open" ? (s.phoneUnfolded ? "phone-open" : "phone") : "walk";
     return { pos: [p.x, p.y, p.z], facing: this.captain.facing, act, speed: this.captain.groundSpeed };
   }
 
@@ -626,6 +636,8 @@ export class Game {
     // see the same crew in the same places; the rest follow its plan (follow) while it keeps arriving.
     const f = this.followed;
     const following = f && now - f.at < FOLLOW_MS && snap.crew.every((c) => c.role !== "crew" || f.d.some((d) => d.crewId === c._id));
+    // Seats people on deck are in (you in a hammock, a friend in a deck chair) are kept free of crew.
+    this.director.reserve(this.seatsInUse());
     let directions = following ? f.d.filter((d) => snap.crew.some((c) => c._id === d.crewId)) : this.director.plan(snap.crew, now);
     if (this.film?.stage) directions = this.film.stage(directions, now);
     const seen = new Set<string>();
@@ -642,6 +654,38 @@ export class Game {
     this.directions = directions;
     this.refreshShelf();
     this.refreshUses();
+    this.refreshSeats();
+  }
+
+  // ---- seats: lying in a hammock, sitting down ----
+
+  /** The seats people on deck are in: yours, and each friend's. */
+  private seatsInUse(): string[] {
+    const ids = this.people.seats();
+    if (this.mySeat) ids.push(this.mySeat);
+    return ids;
+  }
+
+  /** The seats E offers: the captain's kinds of slot, unless a crew member is there or on the way, or someone on deck is in it. */
+  private refreshSeats() {
+    const busy = new Set(this.seatsInUse());
+    for (const d of this.directions) if (d.target.kind === "slot") busy.add(d.target.slotId);
+    const free = this.world.layout.slots.filter((s) => CAPTAIN_SEATS[s.kind] && !busy.has(s.id));
+    const key = free.map((s) => s.id).join(",");
+    if (key === this.seatsKey) return;
+    this.seatsKey = key;
+    this.captain.setSeats(free.map((s) => captainSeat(s)!));
+  }
+
+  /** The seat someone else on deck doing `act` at p is in (or easing into): the nearest of its kind. */
+  private seatNear(p: THREE.Vector3, act: PersonAct): Slot | null {
+    let best: Slot | null = null, bestD = 2.5;
+    for (const s of this.world.layout.slots) {
+      if (!CAPTAIN_SEATS[s.kind] || seatAct(s.kind) !== act || Math.abs(s.pos[1] - p.y) > 1) continue;
+      const d = Math.hypot(s.pos[0] - p.x, s.pos[2] - p.z);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
   }
 
   private makeBody(view: Snapshot["crew"][number], d: Direction): CrewBody {

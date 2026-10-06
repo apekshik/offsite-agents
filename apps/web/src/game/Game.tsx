@@ -61,6 +61,8 @@ export function Game({ officeId }: { officeId: string }) {
       if (latestDeliveries.current) g.setDeliveries(latestDeliveries.current);
       // A friend coming aboard for the first time this visit: the crew nearby wave hello.
       if (!owner && me) g.greet(null, me.name);
+      // For poking at the world from the console (and the visual checks' scripts).
+      if (import.meta.env.DEV) Object.assign(window, { offsiteGame: g });
       if (!me || !shared) return;
       // On deck with everyone else aboard: their figures, their movement, their voices.
       deck = new Deck({

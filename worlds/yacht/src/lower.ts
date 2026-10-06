@@ -12,8 +12,8 @@ import * as THREE from "three";
 import { LIGHT } from "@offsite/kit";
 import { D1, LD, LD_CEIL, PLATFORM, SLAB, STERN_DOOR, TRANSOM, halfBeam } from "./dims.ts";
 import {
-  BEANBAG, LOUNGER, RACK, TREADMILL, armchair, barBack, barStool, beanBagBlue, beanBagGrey, beanBagWhite, chair, coffeeMachine, coffeeTable,
-  dumbbellRack, jetSki, lounger, palm, rack, shrub, sofa, tender, treadmill, weightBench,
+  BEANBAG, DAYBED, LOUNGER, RACK, TREADMILL, armchair, barBack, barStool, beanBagBlue, beanBagGrey, beanBagWhite, chair, coffeeMachine, coffeeTable,
+  daybed, dumbbellRack, jetSki, lounger, palm, rack, shrub, sofa, tender, treadmill, weightBench,
 } from "./furniture.ts";
 import { band, cap, yawOf, type P2 } from "./kit.ts";
 import type { MatKey } from "./mats.ts";
@@ -505,11 +505,9 @@ export function buildLowerDeck(s: Ship): { racks: RackSpot[] } {
   }
   for (const [x, z] of [[11.0, 47.0], [11.0, 57.6]] as const) props.put(palm, x, LD, z, z);
   // A round daybed by the doorway, and pictures either side of the corridor's door.
-  pile.cyl("wood", 9.7, LD, 59.7, 1.15, 0.28, 28);
-  pile.add("cushion", new THREE.SphereGeometry(1.08, 28, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.22, 1).translate(9.7, LD + 0.28, 59.7).deleteAttribute("uv") as THREE.BufferGeometry);
-  for (const [dx, m] of [[-0.35, "accent"], [0.3, "yellow"]] as const) pile.add(m, new THREE.SphereGeometry(0.2, 12, 8).scale(1.4, 0.7, 0.8).translate(9.7 + dx, LD + 0.55, 59.0).deleteAttribute("uv") as THREE.BufferGeometry);
+  props.put(daybed, 9.7, LD, 59.7, 0);
   col.box(8.6, LD, 58.6, 10.8, LD + 0.5, 60.8);
-  plan.slot("lounger", "daybed-beach", [9.7, LD, 59.7], 0, { seat: 0.5, nav: "bc-s1", tags: ["below", "beach-club"] });
+  plan.slot("lounger", "daybed-beach", [9.7, LD, 59.7 + DAYBED.hips], 0, { seat: DAYBED.seat, nav: "bc-s1", tags: ["below", "beach-club"] });
   for (const [x, m] of [[-2.4, "accent"], [2.4, "pipe"]] as const) {
     pile.box("frame", x - 0.85, LD + 1.2, Z.rowA + 0.07, x + 0.85, LD + 2.5, Z.rowA + 0.1);
     pile.box(m, x - 0.78, LD + 1.27, Z.rowA + 0.1, x + 0.78, LD + 2.43, Z.rowA + 0.11);

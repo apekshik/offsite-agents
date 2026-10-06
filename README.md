@@ -342,7 +342,7 @@ own copy: [docs/deploy.md](docs/deploy.md).
 | <kbd>F</kbd> <kbd>F</kbd> | Unfold the phone |
 | <kbd>H</kbd>, <kbd>1</kbd>–<kbd>9</kbd> | With the phone out: walk to the helm, or to a crew member (in the Crew tab's order). The phone stays open on the way; <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or <kbd>Esc</kbd> stops |
 | <kbd>Esc</kbd> | Stop walking; close the helm, the phone or a card |
-| <kbd>E</kbd> | Use what's in front of you: the helm, a package on the counter, a desk's last delivery |
+| <kbd>E</kbd> | Use what's in front of you: the helm, a package on the counter, a desk's last delivery, a free hammock, lounger or deck chair (<kbd>E</kbd> again, or moving, gets you up) |
 | <kbd>M</kbd> | Mute or unmute |
 | <kbd>T</kbd> | Voice chat with friends aboard: mic on, then mute and unmute (people near you hear you) |
 

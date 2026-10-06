@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CrewFigure, sanitizeAvatar, sanitizeLook, type ActId, type Tone } from "@offsite/kit";
-import type { AvatarSpec, Look, PersonAct } from "@offsite/contracts";
+import type { AvatarSpec, Look, PersonAct, Slot } from "@offsite/contracts";
 import type { Sample } from "../net/index.ts";
 import { voice } from "../voice/index.ts";
 import { personLook } from "../people/look.ts";
@@ -10,7 +10,8 @@ import { personLook } from "../people/look.ts";
 // no direct link is up; each person is drawn a little in the past (a few sample intervals: less when samples come
 // often) and interpolated between the two samples around that moment, carried forward on their last velocity for a
 // moment when samples stop. What they are doing shows too: the phone out (the 3D phone in their hands), at the helm,
-// and a ring over their head while they talk. Voices are placed at their heads every frame (src/voice).
+// lying in a hammock (the one at their position, so the pose fits it), and a ring over their head while they talk.
+// Voices are placed at their heads every frame (src/voice).
 //
 // The remote-player idea (a target per person, settle toward it, teleport when far) is Ready Player One's
 // (github.com/apekshik/ready-player-one, src/main.js); the buffered interpolation is Offsite's.
@@ -65,8 +66,18 @@ export function drawAt(s: Snap[], interval: number, now: number): { p: THREE.Vec
   return { p: last.p.clone(), r: last.r, v: over >= MAX_EXTRAPOLATE ? 0 : last.v, a: last.a };
 }
 
-const ACT: Record<PersonAct, ActId | null> = { walk: null, helm: "talk", phone: "phone", "phone-open": "phone" };
-const LINE: Record<PersonAct, string> = { walk: "", helm: "At the helm", phone: "On the phone", "phone-open": "On the phone" };
+const ACT: Record<PersonAct, ActId | null> = {
+  walk: null, helm: "talk", phone: "phone", "phone-open": "phone", hammock: "hammock-rest", lounger: "sunbathe", sit: "sofa",
+};
+const LINE: Record<PersonAct, string> = {
+  walk: "", helm: "At the helm", phone: "On the phone", "phone-open": "On the phone", hammock: "In a hammock", lounger: "On a lounger", sit: "",
+};
+
+/** What someone in a seat is doing, as everyone else sees it, by the kind of seat (the captain's seats: kit seat.ts). */
+export function seatAct(kind: Slot["kind"]): PersonAct {
+  return kind === "hammock" ? "hammock" : kind === "lounger" ? "lounger" : "sit";
+}
+const SEATED = new Set<PersonAct>(["hammock", "lounger", "sit"]);
 
 class Person {
   readonly fig: CrewFigure;
@@ -77,6 +88,8 @@ class Person {
   lastArrival = 0;
   speed = 0;
   act: PersonAct = "walk";
+  /** The seat they're in, while they're in one. */
+  seat: Slot | null = null;
   shown = false;
   talking = 0;
   private lookKey = "";
@@ -139,6 +152,8 @@ export interface PeopleOptions {
   camera: THREE.Camera;
   /** Is something solid between these two points? For name tags and muffling voices through walls. */
   blocked?: (from: THREE.Vector3, to: THREE.Vector3) => boolean;
+  /** The seat someone doing `act` (lying in a hammock, sitting) at p is in, for its height. */
+  seatAt?: (p: THREE.Vector3, act: PersonAct) => Slot | null;
 }
 
 export class People {
@@ -202,7 +217,9 @@ export class People {
       obj.visible = true;
       p.speed += (want.v - p.speed) * (1 - Math.exp(-dt * 10));
       if (want.a !== p.act) { p.act = want.a; p.fig.setAct(ACT[want.a]); p.label(); }
-      p.fig.update(dt, time, { speed: p.speed, seat: null, camera: cam });
+      // In a seat: the one where they're headed (they ease in from beside it).
+      p.seat = SEATED.has(p.act) ? this.o.seatAt?.(want.p, p.act) ?? null : null;
+      p.fig.update(dt, time, { speed: p.speed, seat: p.seat?.seat ?? null, camera: cam });
 
       // Name tags within range, unless a wall or a deck is in the way.
       const head = obj.localToWorld(p.fig.rig.headTop(this.v).add(new THREE.Vector3(0, 0.1, 0)));
@@ -246,6 +263,11 @@ export class People {
     const onScreen = s.z < 1 && Math.abs(s.x) <= 1 && Math.abs(s.y) <= 1;
     if (s.z > 1) { s.x = -s.x; s.y = -s.y; }
     return { x: ((s.x + 1) / 2) * innerWidth, y: ((1 - s.y) / 2) * innerHeight, onScreen, distance };
+  }
+
+  /** The seats people are in (slot ids): the crew keep out of them. */
+  seats(): string[] {
+    return [...this.people.values()].flatMap((p) => (p.shown && p.seat ? [p.seat.id] : []));
   }
 
   /** A wave (an emote over whatever they are doing). */
